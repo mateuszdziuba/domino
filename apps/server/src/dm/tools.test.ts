@@ -256,6 +256,60 @@ describe("runDmTool adventures (mocked store)", () => {
 });
 
 describe("runDmTool combat tools (mocked store)", () => {
+  it("get_campaign_state reports per-monster attack counts", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants = [
+      {
+        id: "troll-0",
+        name: "Troll",
+        isPlayer: false,
+        initiative: 15,
+        currentHp: 84,
+        maxHp: 84,
+        armorClass: 15,
+        status: "active",
+        deathSaveSuccesses: 0,
+        deathSaveFailures: 0,
+      },
+      {
+        id: "goblin-0",
+        name: "Goblin",
+        isPlayer: false,
+        initiative: 10,
+        currentHp: 7,
+        maxHp: 7,
+        armorClass: 15,
+        status: "active",
+        deathSaveSuccesses: 0,
+        deathSaveFailures: 0,
+      },
+      {
+        id: "enemy-xyz",
+        name: "Custom Foe",
+        isPlayer: false,
+        initiative: 5,
+        currentHp: 10,
+        maxHp: 10,
+        armorClass: 10,
+        status: "active",
+        deathSaveSuccesses: 0,
+        deathSaveFailures: 0,
+      },
+    ];
+    mock.states.set("c1", state);
+    const result = await runTool("get_campaign_state");
+    expect(result.ok).toBe(true);
+    const data = result.data as {
+      combat: { combatants: { id: string; attacks: number }[] };
+    };
+    const attacksById = new Map(
+      data.combat.combatants.map((c) => [c.id, c.attacks]),
+    );
+    expect(attacksById.get("troll-0")).toBe(2);
+    expect(attacksById.get("goblin-0")).toBe(1);
+    expect(attacksById.get("enemy-xyz")).toBe(1);
+  });
+
   it("attack_combatant resolves on the current combatant's turn", async () => {
     const result = await runTool("attack_combatant", {
       attackerId: "char-ch1",

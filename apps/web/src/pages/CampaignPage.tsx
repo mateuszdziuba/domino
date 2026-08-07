@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { Send, Users, Dices } from "lucide-react";
+import { Map, Send, Users, Dices } from "lucide-react";
 import {
   campaignApi,
   characterApi,
@@ -633,6 +633,7 @@ export default function CampaignPage() {
                                       <button
                                         type="button"
                                         disabled={unavailable}
+                                        aria-label={`Rzucam zaklęcie ${spell}`}
                                         onClick={() => setInput(`Rzucam ${spell} na `)}
                                         className={`group flex w-full items-center justify-between gap-2 rounded-sm border px-2.5 py-1.5 text-left transition-colors ${
                                           unavailable
@@ -723,6 +724,7 @@ export default function CampaignPage() {
                             <button
                               type="button"
                               disabled={!member}
+                              aria-label={`Wypełnij akcję: ${action.label}`}
                               onClick={() => setInput(ACTION_PROMPTS[action.key] ?? action.label)}
                               className="rounded-sm border border-[#c8b184] bg-[#fbf3dd]/60 px-2 py-1 font-display text-xs tracking-[0.06em] text-[#3a2c17] hover:bg-[#f0e2bd] disabled:pointer-events-none disabled:opacity-50"
                             >
@@ -782,7 +784,7 @@ export default function CampaignPage() {
                       </option>
                     ))}
                   </Select>
-                  <Button type="submit" disabled={!joinCharacterId}>
+                  <Button type="submit" disabled={!joinCharacterId} aria-label="Dołącz do kampanii">
                     Dołącz
                   </Button>
                 </form>
@@ -862,6 +864,64 @@ export default function CampaignPage() {
                   </div>
                 );
               })}
+            </CardContent>
+          </Card>
+
+          <Card className="border-[#b99f6b]">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Map className="size-4 text-[#a97e1f]" />
+                Świat kampanii
+                <Badge variant="secondary" className="ml-auto">
+                  {detail?.state.phase ?? "…"}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 text-sm">
+              <div className="flex items-baseline gap-2">
+                <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                  Lokacja
+                </span>
+                <span className="font-display tracking-[0.04em] text-[#2e2113]">
+                  {detail?.state.location || "—"}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                  Scena
+                </span>
+                <p className="text-sm leading-relaxed text-[#2e2113]">
+                  {detail?.state.scene || "…"}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                  Postęp świata
+                </span>
+                {detail && detail.state.worldProgress.length > 0 ? (
+                  <ol className="flex flex-col gap-1 border-l border-[#c8b184] pl-2.5">
+                    {detail.state.worldProgress.map((entry, i) => (
+                      <li
+                        key={i}
+                        className="flex items-baseline gap-1.5 text-xs leading-relaxed text-[#2e2113]"
+                      >
+                        <span className="text-[10px] text-[#a97e1f]">✦</span>
+                        <span>{entry}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-xs italic text-[#7c6a45]">Kampania dopiero się zaczyna.</p>
+                )}
+              </div>
+              {detail?.state.notes && (
+                <div className="flex flex-col gap-1">
+                  <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                    Notatki
+                  </span>
+                  <p className="text-xs leading-relaxed text-[#7c6a45]">{detail.state.notes}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

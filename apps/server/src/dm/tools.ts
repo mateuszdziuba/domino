@@ -44,7 +44,7 @@ import {
   type SpellDef,
   type SpellCastResult,
 } from "../rules/spells.js";
-import { buildEncounter } from "../rules/monsters.js";
+import { buildEncounter, MONSTERS } from "../rules/monsters.js";
 import {
   ADVENTURES,
   buildAdventureState,
@@ -1028,13 +1028,17 @@ function summarizeState(state: CampaignState) {
       ? {
           round: state.combat.round,
           turnIndex: state.combat.turnIndex,
-          combatants: state.combat.combatants.map((c) => ({
-            id: c.id,
-            name: c.name,
-            hp: `${c.currentHp}/${c.maxHp}`,
-            status: c.status ?? "active",
-            turn: c.id === currentTurnCombatant(state)?.id,
-          })),
+          combatants: state.combat.combatants.map((c) => {
+            const monster = MONSTERS.find((m) => c.id.startsWith(`${m.key}-`));
+            return {
+              id: c.id,
+              name: c.name,
+              hp: `${c.currentHp}/${c.maxHp}`,
+              status: c.status ?? "active",
+              attacks: monster?.attacks ?? 1,
+              turn: c.id === currentTurnCombatant(state)?.id,
+            };
+          }),
         }
       : null,
     notes: state.notes,

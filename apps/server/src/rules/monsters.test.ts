@@ -10,6 +10,28 @@ describe("monster catalog", () => {
       expect(m.cr).toBeGreaterThan(0);
     }
   });
+
+  it("gives every monster a positive attack count", () => {
+    for (const m of MONSTERS) {
+      expect(m.attacks, m.key).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("grants Multiattack (2 attacks) only to troll and hill giant", () => {
+    const byKey = new Map(MONSTERS.map((m) => [m.key, m]));
+    expect(byKey.get("troll")!.attacks).toBe(2);
+    expect(byKey.get("hill-giant")!.attacks).toBe(2);
+    for (const [key, m] of byKey) {
+      if (key !== "troll" && key !== "hill-giant") {
+        expect(m.attacks, key).toBe(1);
+      }
+    }
+  });
+
+  it("goblin attacks once per turn", () => {
+    const goblin = MONSTERS.find((m) => m.key === "goblin")!;
+    expect(goblin.attacks).toBe(1);
+  });
 });
 
 describe("matchMonsters", () => {
