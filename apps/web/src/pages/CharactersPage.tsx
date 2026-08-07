@@ -129,13 +129,16 @@ export default function CharactersPage() {
               </div>
               {catalog && classSubclasses.length > 0 && (
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="char-subclass">Subklasa</Label>
+                  <Label htmlFor="char-subclass">Subklasa (od 3. poziomu)</Label>
                   <Select id="char-subclass" value={subclass} onChange={(e) => setSubclass(e.target.value)}>
                     <option value="">—</option>
                     {classSubclasses.map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </Select>
+                  <p className="text-[11px] italic text-[#7c6a45]">
+                    Subklasę wybiera się po osiągnięciu 3. poziomu — możesz zostawić to na później.
+                  </p>
                 </div>
               )}
               <div className="flex flex-col gap-2">

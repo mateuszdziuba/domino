@@ -20,7 +20,8 @@ export default function LoginPage() {
     setError(null);
     try {
       await login(username, password);
-      navigate({ to: "/app/campaigns" });
+      const code = new URLSearchParams(window.location.search).get("code");
+      navigate({ to: code ? "/join" : "/app/campaigns", search: code ? { code } : {} });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nie udało się zalogować");
     }

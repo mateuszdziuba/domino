@@ -231,7 +231,7 @@ export default function CampaignPage() {
                 createdAt: event?.createdAt ?? new Date().toISOString(),
                 animated: true,
               },
-            ]);
+            ].slice(-40));
           }
         }
         refreshSpellbook();

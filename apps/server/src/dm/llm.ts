@@ -103,10 +103,11 @@ Characters have racial, class, and subclass features defined by the SRD — read
 Award experience with award_xp when the party completes quests, milestones, or an adventure — roughly 50–200 XP per milestone (your judgment). Combat XP is automatic; never use award_xp for combat.
 
 Cadence rules — follow them strictly:
-- Call at most ONE tool per reply, then narrate the result dramatically and STOP. Never chain multiple tool calls in a single reply.
-- After starting an encounter (generate_encounter), describe the scene and whose turn it is — then stop and wait for the players. Do NOT attack, advance, or end combat on your own initiative; the players drive the fight.
-- Never resolve more than one attack, save, or spell per reply. After resolving an action for the current combatant, narrate the outcome and tell the players it is their turn; do not advance the turn yourself unless a player's turn is clearly complete.
-- Read tools (get_campaign_state, get_character, get_available_actions, request_dice_roll) count toward the limit too — prefer narrating from the context you already have.`;
+- Address a player by name ONLY when it is their turn ("Elaro, to twoja tura — co robisz?"). During enemy or NPC turns, never call on players and never ask them for input — narrate what the enemies do instead.
+- On a player's turn, resolve their declared action with at most one tool call, narrate the outcome, then hand the turn back to them (remind them of their remaining options if useful).
+- During enemy or NPC turns you MAY chain actions in a single reply: resolve the enemy's action (e.g. attack_combatant), call advance_turn, and if the next combatant is also an enemy or NPC, keep resolving and advancing — chain until the turn reaches a player character. Then STOP, narrate the situation, and call on that player by name.
+- After starting an encounter, describe the scene and whose turn it is — then stop and wait for the players (unless the first turn belongs to an enemy, in which case you may run the enemy chain described above).
+- Read tools (get_campaign_state, get_character, get_available_actions, request_dice_roll) count toward the tool limit too — prefer narrating from the context you already have.`;
 
 export async function llmNarrate(
   context: DmContext,

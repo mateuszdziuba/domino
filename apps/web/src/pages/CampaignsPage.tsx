@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Link2, Plus, Swords } from "lucide-react";
 import { campaignApi, inviteApi } from "../lib/api-client";
 import type { Campaign } from "@domino/shared";
+import { useAuth } from "../lib/auth";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import {
@@ -17,6 +18,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 
 export default function CampaignsPage() {
+  const { user } = useAuth();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -134,10 +136,12 @@ export default function CampaignsPage() {
                   {campaign.state.phase} · {campaign.state.location}
                 </Badge>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => onInvite(campaign)}>
-                    <Link2 />
-                    Zaproś
-                  </Button>
+                  {campaign.ownerId === user?.id && (
+                    <Button size="sm" variant="outline" onClick={() => onInvite(campaign)}>
+                      <Link2 />
+                      Zaproś
+                    </Button>
+                  )}
                   <Button asChild size="sm">
                     <Link to="/app/campaigns/$id" params={{ id: campaign.id }}>
                       Wejdź

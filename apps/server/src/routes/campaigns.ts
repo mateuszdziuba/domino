@@ -206,6 +206,9 @@ campaignRoutes.post("/:id/join", requireAuth, async (c) => {
     .where(eq(campaigns.id, c.req.param("id")))
     .get();
   if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  const isOwner = campaign.ownerId === user.id;
+  const existing = getMember(campaign.id, user.id);
+  if (!isOwner && !existing) return c.json({ error: "Campaign not found" }, 404);
   const parsed = joinSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: "Character id required" }, 400);
   const character = db
@@ -214,7 +217,6 @@ campaignRoutes.post("/:id/join", requireAuth, async (c) => {
     .where(and(eq(characters.id, parsed.data.characterId), eq(characters.userId, user.id)))
     .get();
   if (!character) return c.json({ error: "Character not found" }, 404);
-  const existing = getMember(campaign.id, user.id);
   if (existing) return c.json({ error: "Already a member" }, 409);
 
   db.transaction((tx) => {

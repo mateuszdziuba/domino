@@ -228,9 +228,6 @@ export async function previewNarrate(
       };
     }
 
-    const combatCastReply = await tryCastSpell(context, userMessage);
-    if (combatCastReply) return combatCastReply;
-
     if (shouldAutoGenerateCombat(userMessage)) {
       const current = currentTurnCombatant(context.state);
       if (current) {
