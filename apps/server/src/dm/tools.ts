@@ -11,6 +11,7 @@ import {
   updateCharacterSpellSlots,
   updateCharacterHitDice,
   grantXp,
+  grantLoot,
 } from "../campaign/store.js";
 import { buildDmSuggestion, getAvailableActions } from "../rules/actions.js";
 import { rollDiceNotation } from "../rules/dice.js";
@@ -361,6 +362,12 @@ export async function runDmTool(
           message: `Zaklęcie "${parsed.data.spellName}" nie jest znane silnikowi zasad.`,
         };
       }
+      if (def.effect.kind === "condition_apply" && !isConditionKey(def.effect.condition)) {
+        return {
+          ok: false,
+          message: `Definicja zaklęcia używa nieznanego stanu "${def.effect.condition}".`,
+        };
+      }
       if (!character.spells?.includes(parsed.data.spellName)) {
         return { ok: false, message: "Postać nie zna tego zaklęcia." };
       }
@@ -379,12 +386,15 @@ export async function runDmTool(
         }
         targetCombatant = findCombatant(state, parsed.data.targetId);
         if (!targetCombatant) return { ok: false, message: "Nie znaleziono celu w walce." };
-        if (targetCombatant.status === "dead") {
+        if (targetCombatant.status === "dead" && def.effect.kind !== "revive") {
           return { ok: false, message: "Cel jest martwy." };
         }
       } else {
         if (def.effect.kind === "damage") {
           return { ok: false, message: "Zaklęcia obrażeń wymagają aktywnej walki." };
+        }
+        if (def.effect.kind === "condition_apply") {
+          return { ok: false, message: "Zaklęcia nakładające stany wymagają aktywnej walki." };
         }
         if (def.effect.kind === "stabilize") {
           return {
@@ -416,6 +426,79 @@ export async function runDmTool(
         nextUsed[def.level - 1] = (nextUsed[def.level - 1] ?? 0) + 1;
       }
       if (nextUsed) updateCharacterSpellSlots(character.id, nextUsed);
+      if (def.effect.kind === "heal_all") {
+        if (state.combat.active && casterCombatant) {
+          const healed: { name: string; healed: number }[] = [];
+          const combatants = state.combat.combatants.map((combatant) => {
+            if (!combatant.isPlayer) return combatant;
+            const perTarget = resolveSpellCast(def, stats, combatant);
+            healed.push({ name: combatant.name, healed: perTarget.healed });
+            if (combatant.characterId) {
+              updateCharacterHp(combatant.characterId, perTarget.targetCurrentHp);
+            }
+            return {
+              ...combatant,
+              currentHp: perTarget.targetCurrentHp,
+              status: perTarget.targetStatus,
+            };
+          });
+          saveState(campaignId, {
+            ...state,
+            combat: { ...state.combat, combatants },
+            updatedAt: new Date().toISOString(),
+          });
+          pushEvent(campaignId, "action.resolved", {
+            type: "spell",
+            spell: def.name,
+            caster: casterCombatant.name,
+            target: "party",
+            healed,
+          });
+          return {
+            ok: true,
+            message: `${casterCombatant.name} rzuca ${def.name} — ${healed
+              .map((h) => `${h.name} odzyskuje ${h.healed} punktów życia`)
+              .join("; ")}.`,
+            data: { healed },
+          };
+        }
+        const members = getCampaignMembers(campaignId)
+          .map((m) => getCharacterById(m.characterId))
+          .filter((ch): ch is Character => Boolean(ch));
+        if (members.length === 0) {
+          return { ok: false, message: "Nie znaleziono postaci-celu." };
+        }
+        const healed: { name: string; healed: number }[] = [];
+        for (const member of members) {
+          const synthetic: Combatant = {
+            id: member.id,
+            name: member.name,
+            isPlayer: true,
+            initiative: 0,
+            currentHp: member.currentHp,
+            maxHp: member.maxHp,
+            armorClass: member.armorClass,
+            status: member.currentHp > 0 ? "active" : "downed",
+          };
+          const perTarget = resolveSpellCast(def, stats, synthetic);
+          updateCharacterHp(member.id, perTarget.targetCurrentHp);
+          healed.push({ name: member.name, healed: perTarget.healed });
+        }
+        pushEvent(campaignId, "action.resolved", {
+          type: "spell",
+          spell: def.name,
+          caster: character.name,
+          target: "party",
+          healed,
+        });
+        return {
+          ok: true,
+          message: `${character.name} rzuca ${def.name} — ${healed
+            .map((h) => `${h.name} odzyskuje ${h.healed} punktów życia`)
+            .join("; ")}.`,
+          data: { healed },
+        };
+      }
       if (state.combat.active && casterCombatant && targetCombatant) {
         const mods = attackRollAdvantages(casterCombatant, targetCombatant);
         const result = resolveSpellCast(def, stats, targetCombatant, {
@@ -437,6 +520,19 @@ export async function runDmTool(
             ...updated,
             conditions: (targetCombatant.conditions ?? []).filter(
               (c) => c !== GUIDING_BOLT_MARKER,
+            ),
+          };
+        }
+        if (result.conditionApplied) {
+          const existing = updated.conditions ?? [];
+          if (!existing.includes(result.conditionApplied)) {
+            updated = { ...updated, conditions: [...existing, result.conditionApplied] };
+          }
+        } else if (result.conditionRemoved) {
+          updated = {
+            ...updated,
+            conditions: (updated.conditions ?? []).filter(
+              (c) => c !== result.conditionRemoved,
             ),
           };
         }
@@ -478,7 +574,11 @@ export async function runDmTool(
           status: targetCharacter.currentHp > 0 ? "active" : "downed",
         };
         const result = resolveSpellCast(def, stats, synthetic);
-        updateCharacterHp(targetCharacter.id, result.targetCurrentHp);
+        if (def.effect.kind === "revive") {
+          updateCharacterHp(targetCharacter.id, 1);
+        } else if (def.effect.kind === "heal") {
+          updateCharacterHp(targetCharacter.id, result.targetCurrentHp);
+        }
         pushEvent(campaignId, "action.resolved", {
           type: "spell",
           spell: def.name,
@@ -486,9 +586,15 @@ export async function runDmTool(
           target: targetCharacter.name,
           ...result,
         });
+        const message =
+          def.effect.kind === "revive"
+            ? `${character.name} rzuca ${def.name} na ${targetCharacter.name} — ${targetCharacter.name} wraca do życia z 1 punktem życia.`
+            : def.effect.kind === "condition_remove"
+              ? `${character.name} rzuca ${def.name} na ${targetCharacter.name} — usuwa jeden stan (ślepota, głuchota, paraliż, trucizna itp.).`
+              : `${character.name} rzuca ${def.name} na ${targetCharacter.name} — leczy o ${result.healed} punktów życia.`;
         return {
           ok: true,
-          message: `${character.name} rzuca ${def.name} na ${targetCharacter.name} — leczy o ${result.healed} punktów życia.`,
+          message,
           data: result,
         };
       }
@@ -790,6 +896,80 @@ export async function runDmTool(
         }.${levelUpLines.length > 0 ? ` ${levelUpLines.join(" ")}` : ""}`,
       };
     }
+    case "grant_loot": {
+      const parsed = z
+        .object({
+          characterId: z.string().optional(),
+          gold: z.number().int().min(0).max(1_000_000).optional(),
+          items: z
+            .array(
+              z.object({
+                name: z.string().min(1).max(64),
+                quantity: z.number().int().min(1).max(1000).default(1),
+                weight: z.number().min(0).optional(),
+                description: z.string().max(300).optional(),
+              }),
+            )
+            .max(20)
+            .optional(),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "grant_loot wymaga złota (gold) lub przedmiotów (items)." };
+      }
+      const { characterId, gold = 0, items = [] } = parsed.data;
+      if (gold <= 0 && items.length === 0) {
+        return { ok: false, message: "grant_loot wymaga złota (gold) lub przedmiotów (items)." };
+      }
+      const members = getCampaignMembers(campaignId)
+        .map((m) => getCharacterById(m.characterId))
+        .filter((ch): ch is Character => Boolean(ch));
+      if (members.length === 0) {
+        return { ok: false, message: "Nie znaleziono postaci." };
+      }
+      if (!characterId) {
+        const share = Math.floor(gold / members.length);
+        for (const member of members) {
+          if (share > 0) grantLoot(member.id, share, []);
+        }
+        if (items.length > 0) grantLoot(members[0]!.id, 0, items);
+        pushEvent(campaignId, "action.resolved", {
+          type: "loot",
+          characterId: members[0]!.id,
+          gold: share,
+          items,
+        });
+        const message =
+          share > 0
+            ? `Każdy członek drużyny otrzymuje ${share} złota.${
+                items.length > 0
+                  ? ` Przedmioty trafiają do ${members[0]!.name}: ${items
+                      .map((i) => `${i.quantity}× ${i.name}`)
+                      .join(", ")}.`
+                  : ""
+              }`
+            : `Nagroda: ${items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}.`;
+        return { ok: true, message, data: { gold: share, items } };
+      }
+      const target = getCharacterById(characterId);
+      if (!target) return { ok: false, message: "Nie znaleziono postaci." };
+      grantLoot(target.id, gold, items);
+      pushEvent(campaignId, "action.resolved", {
+        type: "loot",
+        characterId: target.id,
+        gold,
+        items,
+      });
+      return {
+        ok: true,
+        message: `Nagroda: ${gold} sztuk złota${
+          items.length > 0
+            ? ` oraz ${items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}`
+            : ""
+        }.`,
+        data: { gold, items },
+      };
+    }
   }
 }
 
@@ -811,8 +991,29 @@ function spellNarration(
     }
     return `${casterName} rzuca ${def.name} na ${target.name} — udany rzut obronny (${result.saveTotal} vs ST ${result.saveDc}), brak obrażeń.`;
   }
-  if (def.effect.kind === "heal") {
+  if (def.effect.kind === "heal" || def.effect.kind === "heal_all") {
     return `${casterName} rzuca ${def.name} na ${target.name} — leczy o ${result.healed} punktów życia.`;
+  }
+  if (def.effect.kind === "condition_apply") {
+    const condition = def.effect.condition;
+    const label =
+      CONDITIONS.find((c) => c.key === condition)?.label ?? condition;
+    if (result.hit) {
+      return `${casterName} rzuca ${def.name} na ${target.name} — nieudany rzut obronny (${result.saveTotal} vs ST ${result.saveDc}); cel otrzymuje stan: ${label}.`;
+    }
+    return `${casterName} rzuca ${def.name} na ${target.name} — udany rzut obronny (${result.saveTotal} vs ST ${result.saveDc}), brak efektu.`;
+  }
+  if (def.effect.kind === "condition_remove") {
+    if (result.conditionRemoved) {
+      const label =
+        CONDITIONS.find((c) => c.key === result.conditionRemoved)?.label ??
+        result.conditionRemoved;
+      return `${casterName} rzuca ${def.name} na ${target.name} — usuwa stan: ${label}.`;
+    }
+    return `${casterName} rzuca ${def.name} na ${target.name} — cel nie ma żadnych stanów do usunięcia.`;
+  }
+  if (def.effect.kind === "revive") {
+    return `${casterName} rzuca ${def.name} na ${target.name} — ${target.name} wraca do życia z 1 punktem życia.`;
   }
   return `${casterName} rzuca ${def.name} na ${target.name} — stabilizuje ${target.name}.`;
 }

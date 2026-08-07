@@ -44,14 +44,20 @@ function target(overrides: Partial<Combatant> = {}): Combatant {
 }
 
 describe("SPELLS catalog", () => {
-  it("defines the six mechanically supported SRD spells", () => {
+  it("defines the twelve mechanically supported SRD spells", () => {
     expect(Object.keys(SPELLS).sort()).toEqual([
+      "Blindness/Deafness",
       "Cure Wounds",
       "Guiding Bolt",
       "Healing Word",
+      "Hold Person",
       "Inflict Wounds",
+      "Lesser Restoration",
+      "Prayer of Healing",
+      "Revivify",
       "Sacred Flame",
       "Spare the Dying",
+      "Spiritual Weapon",
     ]);
   });
 
@@ -113,6 +119,120 @@ describe("SPELLS catalog", () => {
         castingTime: "action",
       },
     });
+  });
+});
+
+describe("SPELLS — 2nd and 3rd level spells", () => {
+  it("defines Spiritual Weapon as a 2nd-level bonus-action attack spell", () => {
+    expect(SPELLS["Spiritual Weapon"]).toMatchObject({
+      name: "Spiritual Weapon",
+      level: 2,
+      school: "Evocation",
+      components: "V, S",
+      effect: {
+        kind: "damage",
+        dice: "1d8",
+        damageType: "force",
+        attack: true,
+        range: "60 ft",
+        duration: "1 min",
+        castingTime: "bonus",
+      },
+    });
+  });
+
+  it("defines Prayer of Healing as a 2nd-level party heal", () => {
+    expect(SPELLS["Prayer of Healing"]).toMatchObject({
+      name: "Prayer of Healing",
+      level: 2,
+      school: "Evocation",
+      components: "V",
+      effect: {
+        kind: "heal_all",
+        dice: "2d8",
+        mod: true,
+        range: "30 ft",
+        duration: "Instantaneous",
+        castingTime: "action",
+      },
+    });
+  });
+
+  it("defines Lesser Restoration as a 2nd-level condition remover", () => {
+    expect(SPELLS["Lesser Restoration"]).toMatchObject({
+      name: "Lesser Restoration",
+      level: 2,
+      school: "Abjuration",
+      components: "V, S",
+      effect: {
+        kind: "condition_remove",
+        range: "Touch",
+        duration: "Instantaneous",
+        castingTime: "action",
+      },
+    });
+  });
+
+  it("defines Hold Person as a 2nd-level paralyzing save spell", () => {
+    expect(SPELLS["Hold Person"]).toMatchObject({
+      name: "Hold Person",
+      level: 2,
+      school: "Enchantment",
+      components: "V, S, M",
+      effect: {
+        kind: "condition_apply",
+        condition: "paralyzed",
+        save: "wisdom",
+        range: "60 ft",
+        duration: "1 min",
+        castingTime: "action",
+      },
+    });
+  });
+
+  it("defines Blindness/Deafness as a 2nd-level blinding save spell", () => {
+    expect(SPELLS["Blindness/Deafness"]).toMatchObject({
+      name: "Blindness/Deafness",
+      level: 2,
+      school: "Necromancy",
+      components: "V",
+      effect: {
+        kind: "condition_apply",
+        condition: "blinded",
+        save: "constitution",
+        range: "30 ft",
+        duration: "1 min",
+        castingTime: "action",
+      },
+    });
+  });
+
+  it("defines Revivify as a 3rd-level revival spell", () => {
+    expect(SPELLS["Revivify"]).toMatchObject({
+      name: "Revivify",
+      level: 3,
+      school: "Necromancy",
+      components: "V, S, M",
+      effect: {
+        kind: "revive",
+        range: "Touch",
+        duration: "Instantaneous",
+        castingTime: "action",
+      },
+    });
+  });
+
+  it("gives every new spell a Polish description", () => {
+    for (const name of [
+      "Spiritual Weapon",
+      "Prayer of Healing",
+      "Lesser Restoration",
+      "Hold Person",
+      "Blindness/Deafness",
+      "Revivify",
+    ]) {
+      expect(SPELLS[name]!.description.length).toBeGreaterThan(30);
+    }
   });
 });
 
@@ -373,10 +493,112 @@ describe("resolveSpellCast — stabilize", () => {
   });
 });
 
+describe("resolveSpellCast — condition_apply spells", () => {
+  const HOLD_PERSON = SPELLS["Hold Person"]!;
+
+  it("returns conditionApplied on a failed save without mutating the target", () => {
+    const goblin = target();
+    const result = resolveSpellCast(HOLD_PERSON, casterStats, goblin, { save: 5 });
+    expect(result.hit).toBe(true);
+    expect(result.saveDc).toBe(13);
+    expect(result.saveTotal).toBe(5);
+    expect(result.conditionApplied).toBe("paralyzed");
+    expect(result.damageTotal).toBe(0);
+    expect(result.healed).toBe(0);
+    expect(goblin.conditions).toBeUndefined();
+  });
+
+  it("returns no condition on a successful save", () => {
+    const result = resolveSpellCast(HOLD_PERSON, casterStats, target(), { save: 18 });
+    expect(result.hit).toBe(false);
+    expect(result.saveTotal).toBe(18);
+    expect(result.conditionApplied).toBeUndefined();
+  });
+
+  it("applies the spell's own condition from the definition", () => {
+    const result = resolveSpellCast(SPELLS["Blindness/Deafness"]!, casterStats, target(), {
+      save: 3,
+    });
+    expect(result.hit).toBe(true);
+    expect(result.conditionApplied).toBe("blinded");
+  });
+});
+
+describe("resolveSpellCast — heal_all spells", () => {
+  const PRAYER_OF_HEALING = SPELLS["Prayer of Healing"]!;
+
+  it("resolves like a heal against a single target", () => {
+    const result = resolveSpellCast(
+      PRAYER_OF_HEALING,
+      casterStats,
+      target({ currentHp: 10 }),
+      { dice: [3, 4] },
+    );
+    expect(result.healed).toBe(10);
+    expect(result.healRolls).toEqual([3, 4]);
+    expect(result.targetCurrentHp).toBe(20);
+    expect(result.targetStatus).toBe("active");
+    expect(result.damageTotal).toBe(0);
+  });
+
+  it("clamps healing to max HP", () => {
+    const result = resolveSpellCast(
+      PRAYER_OF_HEALING,
+      casterStats,
+      target({ currentHp: 19 }),
+      { dice: [8, 8] },
+    );
+    expect(result.healed).toBe(19);
+    expect(result.targetCurrentHp).toBe(20);
+  });
+});
+
+describe("resolveSpellCast — condition_remove", () => {
+  const LESSER_RESTORATION = SPELLS["Lesser Restoration"]!;
+
+  it("reports the first condition of the target", () => {
+    const result = resolveSpellCast(
+      LESSER_RESTORATION,
+      casterStats,
+      target({ conditions: ["poisoned", "prone"] }),
+    );
+    expect(result.conditionRemoved).toBe("poisoned");
+    expect(result.targetCurrentHp).toBe(20);
+  });
+
+  it("reports no condition when the target has none", () => {
+    const result = resolveSpellCast(LESSER_RESTORATION, casterStats, target());
+    expect(result.conditionRemoved).toBeUndefined();
+  });
+});
+
+describe("resolveSpellCast — revive", () => {
+  const REVIVIFY = SPELLS["Revivify"]!;
+
+  it("revives a dead target to 1 HP and active status", () => {
+    const result = resolveSpellCast(
+      REVIVIFY,
+      casterStats,
+      target({ currentHp: 0, status: "dead" }),
+    );
+    expect(result.revived).toBe(true);
+    expect(result.targetCurrentHp).toBe(1);
+    expect(result.targetStatus).toBe("active");
+    expect(result.damageTotal).toBe(0);
+  });
+
+  it("never drops a living target below 1 HP", () => {
+    const result = resolveSpellCast(REVIVIFY, casterStats, target({ currentHp: 7 }));
+    expect(result.revived).toBe(true);
+    expect(result.targetCurrentHp).toBe(7);
+    expect(result.targetStatus).toBe("active");
+  });
+});
+
 describe("summarizeSpells", () => {
-  it("returns all six known spells with the correct levels and details", () => {
+  it("returns all twelve known spells with the correct levels and details", () => {
     const metas = summarizeSpells();
-    expect(metas).toHaveLength(6);
+    expect(metas).toHaveLength(12);
     const byName = Object.fromEntries(metas.map((m) => [m.name, m]));
     expect(byName["Sacred Flame"]).toMatchObject({
       level: 0,
@@ -397,6 +619,27 @@ describe("summarizeSpells", () => {
       level: 1,
       effect: { kind: "heal", mod: true, dice: "1d8" },
     });
+    expect(byName["Spiritual Weapon"]).toMatchObject({
+      level: 2,
+      castingTime: "bonus",
+      effect: { kind: "damage", attack: true, dice: "1d8", damageType: "force" },
+    });
+    expect(byName["Prayer of Healing"]).toMatchObject({
+      level: 2,
+      effect: { kind: "heal_all", mod: true, dice: "2d8" },
+    });
+    expect(byName["Hold Person"]).toMatchObject({
+      level: 2,
+      effect: { kind: "condition_apply", condition: "paralyzed", save: "wisdom" },
+    });
+    expect(byName["Lesser Restoration"]).toMatchObject({
+      level: 2,
+      effect: { kind: "condition_remove" },
+    });
+    expect(byName["Revivify"]).toMatchObject({
+      level: 3,
+      effect: { kind: "revive" },
+    });
   });
 
   it("sorts by level then name", () => {
@@ -407,6 +650,12 @@ describe("summarizeSpells", () => {
       "Guiding Bolt",
       "Healing Word",
       "Inflict Wounds",
+      "Blindness/Deafness",
+      "Hold Person",
+      "Lesser Restoration",
+      "Prayer of Healing",
+      "Spiritual Weapon",
+      "Revivify",
     ]);
   });
 
@@ -421,7 +670,11 @@ describe("summarizeSpells", () => {
         castingTime: expect.any(String),
         range: expect.any(String),
         duration: expect.any(String),
-        effect: { kind: expect.stringMatching(/^(damage|heal|stabilize)$/) },
+        effect: {
+          kind: expect.stringMatching(
+            /^(damage|heal|heal_all|condition_apply|condition_remove|revive|stabilize)$/,
+          ),
+        },
       });
     }
   });

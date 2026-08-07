@@ -57,6 +57,7 @@ export type Character = {
   spellSlotsUsed?: number[];
   xp?: number;
   hitDiceUsed?: number;
+  gold?: number;
   createdAt: string;
   updatedAt: string;
 };

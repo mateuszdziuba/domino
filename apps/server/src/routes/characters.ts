@@ -34,6 +34,7 @@ const characterSchema = z.object({
   skills: z.record(z.boolean()).optional(),
   inventory: z.array(z.unknown()).optional(),
   spells: z.array(z.string()).optional(),
+  gold: z.number().int().min(0).optional(),
 });
 
 export const characterRoutes = new Hono();
@@ -158,6 +159,7 @@ characterRoutes.patch("/:id", requireAuth, async (c) => {
       skills: data.skills ?? existing.skills,
       inventory: data.inventory ?? existing.inventory,
       spells: data.spells ?? existing.spells,
+      gold: data.gold ?? existing.gold,
       updatedAt: isoNow(),
     })
     .where(eq(characters.id, id))
@@ -200,6 +202,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     spells: (row.spells as string[] | undefined) ?? undefined,
     spellSlotsUsed: (row.spellSlotsUsed as number[] | undefined) ?? undefined,
     hitDiceUsed: row.hitDiceUsed ?? 0,
+    gold: row.gold ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

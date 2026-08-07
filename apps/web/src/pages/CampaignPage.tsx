@@ -123,6 +123,10 @@ export default function CampaignPage() {
     spellcastingAbility: string;
   } | null>(null);
   const [spellRegistry, setSpellRegistry] = useState<SpellMeta[] | null>(null);
+  const [partyChars, setPartyChars] = useState<
+    { characterId: string; name: string; currentHp: number; maxHp: number; level: number; gold?: number }[]
+  >([]);
+  const [showGuide, setShowGuide] = useState(() => localStorage.getItem("domino-guide") !== "1");
   const [featuresCatalog, setFeaturesCatalog] = useState<FeaturesCatalog | null>(null);
   const [pendingLevelUp, setPendingLevelUp] = useState<LevelUpInfo | null>(null);
   const [subclassDialogOpen, setSubclassDialogOpen] = useState(false);
@@ -174,6 +178,34 @@ export default function CampaignPage() {
     featuresApi.get().then(setFeaturesCatalog).catch(() => {});
   }, []);
 
+  const refreshParty = useCallback(() => {
+    if (!detail?.members.length) {
+      setPartyChars([]);
+      return;
+    }
+    Promise.all(
+      detail.members.map((m) =>
+        characterApi
+          .get(m.characterId)
+          .then(({ character }) => ({
+            characterId: character.id,
+            name: character.name,
+            currentHp: character.currentHp,
+            maxHp: character.maxHp,
+            level: character.level,
+            gold: character.gold,
+          }))
+          .catch(() => null),
+      ),
+    ).then((chars) =>
+      setPartyChars(chars.filter((c): c is NonNullable<typeof c> => c !== null)),
+    );
+  }, [detail?.members.length]);
+
+  useEffect(() => {
+    refreshParty();
+  }, [refreshParty, id, detail?.members.length]);
+
   useEffect(() => {
     if (!subclassDialogOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -206,10 +238,12 @@ export default function CampaignPage() {
         setConnState("live");
         load();
         refreshSpellbook();
+        refreshParty();
       },
       onState: (state) => {
         setDetail((prev) => (prev ? { ...prev, state } : prev));
         refreshSpellbook();
+        refreshParty();
         campaignApi
           .dmSuggestion(id)
           .then(({ suggestion }) => setSuggestion(suggestion))
@@ -433,6 +467,32 @@ export default function CampaignPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
         <div className="flex flex-col gap-4">
+          {showGuide && (
+            <div className="rounded-sm border border-[#c8b184] bg-[#fbf3dd]/60 px-3 py-2 text-xs text-[#3a2c17]">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-display text-[11px] uppercase tracking-[0.14em] text-[#a97e1f]">
+                  Jak grać
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 font-display text-[10px] uppercase tracking-[0.1em] text-[#7c6a45]"
+                  onClick={() => {
+                    localStorage.setItem("domino-guide", "1");
+                    setShowGuide(false);
+                  }}
+                >
+                  Zamknij
+                </Button>
+              </div>
+              <ul className="mt-1 flex list-inside list-disc flex-col gap-0.5">
+                <li>Opisz w czacie, co robi twoja postać — DM poprowadzi akcję zgodnie z zasadami SRD.</li>
+                <li>Kliknij zaklęcie, umiejętność lub sugerowaną akcję, aby wypełnić pole wiadomości.</li>
+                <li>Rzuty kości i ich wyniki pojawiają się w czacie na żywo.</li>
+              </ul>
+            </div>
+          )}
           <Card className="border-[#b99f6b]">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Czat z DM</CardTitle>
@@ -761,15 +821,47 @@ export default function CampaignPage() {
               {detail?.members.length === 0 && (
                 <p className="text-[#7c6a45]">Brak awanturników.</p>
               )}
-              {detail?.members.map((m) => (
-                <div key={m.characterId} className="flex items-center justify-between border-b border-dotted border-[#c8b184] pb-1">
-                  <span>
-                    <span className="mr-1 text-[10px] text-[#a97e1f]">✦</span>
-                    {m.characterName ?? m.characterId}
-                  </span>
-                  <Badge variant="outline">dołączył</Badge>
-                </div>
-              ))}
+              {detail?.members.map((m) => {
+                const partyChar = partyChars.find((p) => p.characterId === m.characterId);
+                const combatant = detail?.state.combat.active
+                  ? detail.state.combat.combatants.find((c) => c.characterId === m.characterId)
+                  : undefined;
+                const hp = combatant ? combatant.currentHp : partyChar?.currentHp;
+                const maxHp = combatant ? combatant.maxHp : partyChar?.maxHp;
+                return (
+                  <div
+                    key={m.characterId}
+                    className="flex items-center justify-between gap-2 border-b border-dotted border-[#c8b184] pb-1"
+                  >
+                    <span className="min-w-0 truncate">
+                      <span className="mr-1 text-[10px] text-[#a97e1f]">✦</span>
+                      {m.characterName ?? m.characterId}
+                    </span>
+                    {partyChar ? (
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className="h-1.5 w-14 overflow-hidden rounded-full bg-[#dcc89a]">
+                          <span
+                            className={`block h-full rounded-full ${hp === 0 ? "bg-[#8f1d1d]" : "bg-[#7a4b1d]"}`}
+                            style={{
+                              width: `${Math.max(0, Math.min(100, ((hp ?? 0) / Math.max(maxHp ?? 1, 1)) * 100))}%`,
+                            }}
+                          />
+                        </span>
+                        <span
+                          className={`font-display text-[10px] tracking-wide ${
+                            hp === 0 ? "text-[#8f1d1d]" : "text-[#7c6a45]"
+                          }`}
+                        >
+                          {hp}/{maxHp}
+                        </span>
+                        <Badge variant="outline">poz. {partyChar.level}</Badge>
+                      </span>
+                    ) : (
+                      <Badge variant="outline">dołączył</Badge>
+                    )}
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
 

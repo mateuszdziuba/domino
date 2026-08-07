@@ -205,6 +205,18 @@ export default function CharacterSheetPage() {
                   </span>
                 </TooltipContent>
               </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                    Złoto: {character.gold ?? 0} szt.
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                    Złoto zdobywane z łupów i nagród (DM przyznaje je narzędziem grant_loot).
+                  </span>
+                </TooltipContent>
+              </Tooltip>
             </TooltipProvider>
           </div>
         </div>
@@ -484,12 +496,30 @@ export default function CharacterSheetPage() {
             <CardContent>
               {character.inventory && character.inventory.length > 0 ? (
                 <div className="flex flex-col gap-1 text-sm">
-                  {character.inventory.map((item) => (
-                    <div key={item.id} className="flex justify-between border-b border-dotted border-[#c8b184] pb-1">
-                      <span>{item.name}</span>
-                      <span className="italic text-[#7c6a45]">×{item.quantity}</span>
-                    </div>
-                  ))}
+                  <TooltipProvider delayDuration={250}>
+                    {character.inventory.map((item) =>
+                      item.description ? (
+                        <Tooltip key={item.id}>
+                          <TooltipTrigger asChild>
+                            <div className="flex justify-between border-b border-dotted border-[#c8b184] pb-1">
+                              <span>{item.name}</span>
+                              <span className="italic text-[#7c6a45]">×{item.quantity}</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                              {item.description}
+                            </span>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <div key={item.id} className="flex justify-between border-b border-dotted border-[#c8b184] pb-1">
+                          <span>{item.name}</span>
+                          <span className="italic text-[#7c6a45]">×{item.quantity}</span>
+                        </div>
+                      ),
+                    )}
+                  </TooltipProvider>
                 </div>
               ) : (
                 <p className="text-sm text-[#7c6a45]">Pusto.</p>

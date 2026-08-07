@@ -22,6 +22,7 @@ const mock = vi.hoisted(() => {
     updateCharacterSpellSlots: vi.fn(),
     updateCharacterHitDice: vi.fn(),
     grantXp: vi.fn(),
+    grantLoot: vi.fn(),
     members: vi.fn(() => [] as { characterId: string }[]),
     defaultState,
   };
@@ -38,6 +39,7 @@ vi.mock("../campaign/store.js", () => ({
   updateCharacterSpellSlots: mock.updateCharacterSpellSlots,
   updateCharacterHitDice: mock.updateCharacterHitDice,
   grantXp: (id: string, amount: number) => mock.grantXp(id, amount),
+  grantLoot: (id: string, gold: number, items: unknown[]) => mock.grantLoot(id, gold, items),
   getCharacterById: (id: string) => mock.characters.get(id),
   getCampaignForUser: () => ({ id: "c1" }),
   getCampaignMembers: mock.members,
@@ -141,6 +143,46 @@ beforeEach(() => {
     });
     return { xp: result.newXp, level: result.newLevel };
   });
+  mock.grantLoot.mockReset();
+  mock.grantLoot.mockImplementation(
+    (
+      id: string,
+      gold: number,
+      items: {
+        name: string;
+        quantity: number;
+        weight?: number;
+        description?: string;
+      }[],
+    ) => {
+      const ch = mock.characters.get(id);
+      if (!ch) return;
+      const merged = [...(ch.inventory ?? [])];
+      for (const item of items) {
+        const match = merged.find(
+          (i) =>
+            i.name === item.name &&
+            (i.description ?? undefined) === (item.description ?? undefined),
+        );
+        if (match) {
+          match.quantity += item.quantity;
+        } else {
+          merged.push({
+            id: `item-${merged.length + 1}`,
+            name: item.name,
+            quantity: item.quantity,
+            weight: item.weight,
+            description: item.description,
+          });
+        }
+      }
+      mock.characters.set(id, {
+        ...ch,
+        gold: (ch.gold ?? 0) + gold,
+        inventory: merged,
+      });
+    },
+  );
   mock.characters.set("ch1", { ...aria });
   mock.states.set("c1", stateWithCombat());
 });
@@ -287,6 +329,8 @@ describe("runDmTool combat tools (mocked store)", () => {
 });
 
 describe("runDmTool cast_spell (mocked store)", () => {
+  const baseSpells = ["Cure Wounds", "Guiding Bolt", "Sacred Flame", "Spare the Dying"];
+
   function cleric(overrides: Partial<Character> = {}): Character {
     return {
       id: "ch2",
@@ -310,7 +354,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
       proficiencyBonus: 2,
       skills: {},
       inventory: [],
-      spells: ["Cure Wounds", "Guiding Bolt", "Sacred Flame", "Spare the Dying"],
+      spells: baseSpells,
       spellSlotsUsed: [],
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
@@ -470,6 +514,228 @@ describe("runDmTool cast_spell (mocked store)", () => {
     });
     expect(result.ok).toBe(false);
     expect(result.message).toContain("walce");
+  });
+
+  it("Hold Person applies paralyzed on a failed save", async () => {
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Hold Person"] }));
+    const original = Math.random;
+    Math.random = () => 0;
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Hold Person",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions).toEqual(["paralyzed"]);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "spell",
+        spell: "Hold Person",
+        conditionApplied: "paralyzed",
+      }),
+    );
+    expect(result.message).toContain("Sparaliżowany");
+  });
+
+  it("Hold Person does nothing on a successful save", async () => {
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Hold Person"] }));
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Hold Person",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const goblin = mock.states.get("c1")!.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions ?? []).not.toContain("paralyzed");
+    expect(result.message).toContain("brak efektu");
+  });
+
+  it("Blindness/Deafness blinds on a failed save only", async () => {
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Blindness/Deafness"] }));
+    const original = Math.random;
+    Math.random = () => 0;
+    const fail = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Blindness/Deafness",
+      targetId: "enemy-1",
+    });
+    expect(fail.ok).toBe(true);
+    let goblin = mock.states.get("c1")!.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions).toEqual(["blinded"]);
+
+    mock.states.set("c1", clericCombatState());
+    mock.characters.set(
+      "ch2",
+      cleric({ spells: [...baseSpells, "Blindness/Deafness"], spellSlotsUsed: [4, 1, 0, 0, 0] }),
+    );
+    Math.random = () => 0.9;
+    const success = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Blindness/Deafness",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(success.ok).toBe(true);
+    goblin = mock.states.get("c1")!.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions ?? []).not.toContain("blinded");
+  });
+
+  it("Lesser Restoration removes a condition from the target", async () => {
+    const state = clericCombatState();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["poisoned"],
+    };
+    mock.states.set("c1", state);
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Lesser Restoration"] }));
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Lesser Restoration",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(true);
+    const goblin = mock.states.get("c1")!.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions).toEqual([]);
+    expect(result.message).toContain("usuwa stan");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "spell",
+        spell: "Lesser Restoration",
+        conditionRemoved: "poisoned",
+      }),
+    );
+  });
+
+  it("Revivify revives a dead combatant to 1 HP and active status", async () => {
+    const state = clericCombatState();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      currentHp: 0,
+      status: "dead",
+    };
+    mock.states.set("c1", state);
+    mock.characters.set(
+      "ch2",
+      cleric({ level: 5, spells: [...baseSpells, "Revivify"] }),
+    );
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Revivify",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(true);
+    const goblin = mock.states.get("c1")!.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.currentHp).toBe(1);
+    expect(goblin.status).toBe("active");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "spell", spell: "Revivify", revived: true }),
+    );
+  });
+
+  it("Revivify revives a character outside combat with 1 HP", async () => {
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set(
+      "ch2",
+      cleric({ level: 5, spells: [...baseSpells, "Revivify"] }),
+    );
+    mock.characters.set("ch1", { ...aria, currentHp: 0 });
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Revivify",
+      targetId: "ch1",
+    });
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 1);
+    expect(result.message).toContain("wraca do życia");
+  });
+
+  it("Prayer of Healing heals every party combatant in combat", async () => {
+    const state = clericCombatState();
+    state.combat.combatants.push({
+      id: "char-ch1",
+      name: "Aria",
+      characterId: "ch1",
+      isPlayer: true,
+      initiative: 12,
+      currentHp: 4,
+      maxHp: 10,
+      armorClass: 15,
+      status: "active",
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+    });
+    mock.states.set("c1", state);
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Prayer of Healing"] }));
+    const original = Math.random;
+    Math.random = () => 0;
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Prayer of Healing",
+      targetId: "char-ch2",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const elara = saved.combat.combatants.find((c) => c.id === "char-ch2")!;
+    const aria = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(aria.currentHp).toBe(9);
+    expect(elara.currentHp).toBe(20);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 9);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch2", 20);
+    expect(result.message).toContain("Aria odzyskuje");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "spell", spell: "Prayer of Healing", target: "party" }),
+    );
+  });
+
+  it("Prayer of Healing heals all member characters outside combat", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }, { characterId: "ch2" }]);
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch1", { ...aria, currentHp: 3 });
+    mock.characters.set(
+      "ch2",
+      cleric({ spells: [...baseSpells, "Prayer of Healing"], currentHp: 15 }),
+    );
+    const original = Math.random;
+    Math.random = () => 0.95;
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Prayer of Healing",
+      targetId: "ch2",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 10);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch2", 20);
+    expect(result.message).toContain("Aria odzyskuje");
+  });
+
+  it("rejects a condition spell outside combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Hold Person"] }));
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Hold Person",
+      targetId: "ch1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("walki");
+    expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
   });
 });
 
@@ -889,5 +1155,100 @@ describe("runDmTool XP award (mocked store)", () => {
         levelUps: [{ characterId: "ch1", name: "Aria", level: 2, className: "Fighter" }],
       }),
     );
+  });
+});
+
+describe("runDmTool grant_loot (mocked store)", () => {
+  beforeEach(() => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }, { characterId: "ch2" }]);
+    mock.characters.set("ch1", {
+      ...aria,
+      gold: 10,
+      inventory: [{ id: "i1", name: "Rope", quantity: 1 }],
+    });
+    mock.characters.set("ch2", { ...aria, id: "ch2", name: "Bran", gold: 0, inventory: [] });
+  });
+
+  it("grants gold and items to a target character", async () => {
+    const result = await runTool("grant_loot", {
+      characterId: "ch1",
+      gold: 50,
+      items: [{ name: "Healing Potion", quantity: 2 }],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe("Nagroda: 50 sztuk złota oraz 2× Healing Potion.");
+    const ch = mock.characters.get("ch1")!;
+    expect(ch.gold).toBe(60);
+    expect(ch.inventory).toEqual([
+      expect.objectContaining({ name: "Rope", quantity: 1 }),
+      expect.objectContaining({ name: "Healing Potion", quantity: 2 }),
+    ]);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "loot", characterId: "ch1", gold: 50, items: [
+        { name: "Healing Potion", quantity: 2 },
+      ] }),
+    );
+  });
+
+  it("merges items with the same name and description", async () => {
+    const first = await runTool("grant_loot", {
+      characterId: "ch1",
+      gold: 0,
+      items: [{ name: "Rope", quantity: 2 }],
+    });
+    expect(first.ok).toBe(true);
+    const second = await runTool("grant_loot", {
+      characterId: "ch1",
+      gold: 0,
+      items: [{ name: "Rope", quantity: 3 }],
+    });
+    expect(second.ok).toBe(true);
+    const ch = mock.characters.get("ch1")!;
+    expect(ch.inventory).toEqual([
+      expect.objectContaining({ name: "Rope", quantity: 6 }),
+    ]);
+  });
+
+  it("splits gold among all members when characterId is omitted", async () => {
+    const result = await runTool("grant_loot", {
+      gold: 100,
+      items: [{ name: "Gem", quantity: 1 }],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Każdy członek drużyny otrzymuje 50 złota");
+    expect(mock.characters.get("ch1")!.gold).toBe(60);
+    expect(mock.characters.get("ch2")!.gold).toBe(50);
+    const ch1 = mock.characters.get("ch1")!;
+    expect(ch1.inventory).toEqual([
+      expect.objectContaining({ name: "Rope", quantity: 1 }),
+      expect.objectContaining({ name: "Gem", quantity: 1 }),
+    ]);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "loot", characterId: "ch1", gold: 50 }),
+    );
+  });
+
+  it("rejects when neither gold nor items are provided", async () => {
+    const result = await runTool("grant_loot", {});
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("złota");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed item schemas", async () => {
+    const result = await runTool("grant_loot", { gold: 10, items: [{ name: "", quantity: 0 }] });
+    expect(result.ok).toBe(false);
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown characterId", async () => {
+    const result = await runTool("grant_loot", { characterId: "ghost", gold: 10 });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Nie znaleziono postaci.");
   });
 });

@@ -423,3 +423,58 @@ describe("runDmTool XP award (real store)", () => {
     expect(row.maxHp).toBe(18);
   });
 });
+
+describe("runDmTool grant_loot (real store)", () => {
+  it("persists gold and items on the character row via the real store", async () => {
+    db.update(characters)
+      .set({ gold: 0, inventory: [] })
+      .where(eq(characters.id, "ch1"))
+      .run();
+
+    const result = await runDmTool("c1", "dm", "grant_loot", {
+      characterId: "ch1",
+      gold: 100,
+      items: [{ name: "Healing Potion", quantity: 2 }],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe("Nagroda: 100 sztuk złota oraz 2× Healing Potion.");
+
+    const row = db
+      .select()
+      .from(characters)
+      .where(eq(characters.id, "ch1"))
+      .get()!;
+    expect(row.gold).toBe(100);
+    const inventory = row.inventory as { name: string; quantity: number; id: string }[];
+    expect(inventory).toEqual([
+      expect.objectContaining({ name: "Healing Potion", quantity: 2, id: expect.any(String) }),
+    ]);
+  });
+
+  it("merges same-name items and accumulates gold across grants", async () => {
+    db.update(characters)
+      .set({ gold: 0, inventory: [] })
+      .where(eq(characters.id, "ch1"))
+      .run();
+
+    await runDmTool("c1", "dm", "grant_loot", {
+      characterId: "ch1",
+      gold: 25,
+      items: [{ name: "Rope", quantity: 1 }],
+    });
+    await runDmTool("c1", "dm", "grant_loot", {
+      characterId: "ch1",
+      gold: 25,
+      items: [{ name: "Rope", quantity: 2 }],
+    });
+
+    const row = db
+      .select()
+      .from(characters)
+      .where(eq(characters.id, "ch1"))
+      .get()!;
+    expect(row.gold).toBe(50);
+    const inventory = row.inventory as { name: string; quantity: number }[];
+    expect(inventory).toEqual([expect.objectContaining({ name: "Rope", quantity: 3 })]);
+  });
+});

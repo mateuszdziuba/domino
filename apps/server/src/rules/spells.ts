@@ -12,7 +12,7 @@ export type SpellEffect =
       save?: keyof AbilityScore;
       range: string;
       duration: string;
-      castingTime: "action";
+      castingTime: "action" | "bonus";
       rider?: "advantage_next_attack";
     }
   | {
@@ -24,6 +24,34 @@ export type SpellEffect =
       castingTime: "action" | "bonus";
     }
   | {
+      kind: "heal_all";
+      dice: string;
+      mod: boolean;
+      range: string;
+      duration: string;
+      castingTime: "action";
+    }
+  | {
+      kind: "condition_apply";
+      condition: string;
+      save: keyof AbilityScore;
+      range: string;
+      duration: string;
+      castingTime: "action";
+    }
+  | {
+      kind: "condition_remove";
+      range: string;
+      duration: string;
+      castingTime: "action";
+    }
+  | {
+      kind: "revive";
+      range: string;
+      duration: string;
+      castingTime: "action";
+    }
+  | {
       kind: "stabilize";
       range: string;
       duration: string;
@@ -32,7 +60,7 @@ export type SpellEffect =
 
 export type SpellDef = {
   name: string;
-  level: 0 | 1;
+  level: 0 | 1 | 2 | 3;
   school: string;
   components: string;
   description: string;
@@ -139,11 +167,104 @@ export const SPELLS: Record<string, SpellDef> = {
       castingTime: "action",
     },
   },
+  "Spiritual Weapon": {
+    name: "Spiritual Weapon",
+    level: 2,
+    school: "Evocation",
+    components: "V, S",
+    description:
+      "W zasięgu 60 stóp materializuje się eteryczna broń, która atakuje wrogów jako twoja akcja dodatkowa. Wykonaj rzut ataku zaklęciem; trafienie zadaje 1k8 + modyfikator zdolności rzucania zaklęć obrażeń siłowych. Broń utrzymuje się przez minutę i może atakować ponownie w kolejnych turach.",
+    effect: {
+      kind: "damage",
+      dice: "1d8",
+      damageType: "force",
+      attack: true,
+      range: "60 ft",
+      duration: "1 min",
+      castingTime: "bonus",
+    },
+  },
+  "Prayer of Healing": {
+    name: "Prayer of Healing",
+    level: 2,
+    school: "Evocation",
+    components: "V",
+    description:
+      "Pogrążasz się w modlitwie, która leczy wszystkich sojuszników w promieniu 30 stóp o 2k8 + modyfikator twojej zdolności rzucania zaklęć punktów życia. Rytuał trwa 10 minut, więc nie można go użyć w samym środku walki.",
+    effect: {
+      kind: "heal_all",
+      dice: "2d8",
+      mod: true,
+      range: "30 ft",
+      duration: "Instantaneous",
+      castingTime: "action",
+    },
+  },
+  "Lesser Restoration": {
+    name: "Lesser Restoration",
+    level: 2,
+    school: "Abjuration",
+    components: "V, S",
+    description:
+      "Dotykasz istoty i usuwasz z niej jeden stan: ślepotę, głuchotę, paraliż lub zatrucie. Zaklęcie nie leczy ran, ale przywraca pełnię zmysłów i sprawność ciała.",
+    effect: {
+      kind: "condition_remove",
+      range: "Touch",
+      duration: "Instantaneous",
+      castingTime: "action",
+    },
+  },
+  "Hold Person": {
+    name: "Hold Person",
+    level: 2,
+    school: "Enchantment",
+    components: "V, S, M",
+    description:
+      "Wybierasz humanoida w zasięgu 60 stóp; musi on wykonać rzut obronny na Mądrość. Nieudany rzut oznacza paraliż na czas trwania zaklęcia — cel jest obezwładniony, a trafienia w zwarciu są krytyczne. Cel może ponowić rzut obronny na końcu każdej swojej tury.",
+    effect: {
+      kind: "condition_apply",
+      condition: "paralyzed",
+      save: "wisdom",
+      range: "60 ft",
+      duration: "1 min",
+      castingTime: "action",
+    },
+  },
+  "Blindness/Deafness": {
+    name: "Blindness/Deafness",
+    level: 2,
+    school: "Necromancy",
+    components: "V",
+    description:
+      "Przeszywasz wroga w zasięgu 30 stóp ciemną energią; cel wykonuje rzut obronny na Kondycję. Nieudany rzut oznacza oślepienie (lub ogłuszenie, do wyboru przez DM) na czas trwania. Na końcu każdej swojej tury cel może ponowić rzut obronny.",
+    effect: {
+      kind: "condition_apply",
+      condition: "blinded",
+      save: "constitution",
+      range: "30 ft",
+      duration: "1 min",
+      castingTime: "action",
+    },
+  },
+  "Revivify": {
+    name: "Revivify",
+    level: 3,
+    school: "Necromancy",
+    components: "V, S, M",
+    description:
+      "Dotykasz istoty, która zmarła w ciągu ostatniej minuty, i przywracasz ją do życia z 1 punktem życia. Zaklęcie zużywa diamenty o wartości co najmniej 300 sztuk złota.",
+    effect: {
+      kind: "revive",
+      range: "Touch",
+      duration: "Instantaneous",
+      castingTime: "action",
+    },
+  },
 };
 
 export type SpellMeta = {
   name: string;
-  level: 0 | 1;
+  level: 0 | 1 | 2 | 3;
   school: string;
   components: string;
   description: string;
@@ -151,12 +272,20 @@ export type SpellMeta = {
   range: string;
   duration: string;
   effect: {
-    kind: "damage" | "heal" | "stabilize";
+    kind:
+      | "damage"
+      | "heal"
+      | "heal_all"
+      | "condition_apply"
+      | "condition_remove"
+      | "revive"
+      | "stabilize";
     dice?: string;
     damageType?: string;
     attack?: boolean;
     save?: keyof AbilityScore;
     mod?: boolean;
+    condition?: string;
   };
 };
 
@@ -222,6 +351,9 @@ export type SpellCastResult = {
   targetCurrentHp: number;
   targetStatus: Combatant["status"];
   riderApplied?: boolean;
+  conditionApplied?: string;
+  conditionRemoved?: string;
+  revived?: boolean;
 };
 
 export function applySpellRider(target: Combatant, def: SpellDef): Combatant | undefined {
@@ -241,7 +373,7 @@ export function resolveSpellCast(
 ): SpellCastResult {
   const effect = def.effect;
 
-  if (effect.kind === "heal") {
+  if (effect.kind === "heal" || effect.kind === "heal_all") {
     const healRolls = rolls?.dice ?? rollDiceNotation(effect.dice).rolls;
     const total = healRolls.reduce((sum, r) => sum + r, 0);
     const healed = Math.max(1, total + (effect.mod ? caster.spellAbilityMod : 0));
@@ -255,6 +387,50 @@ export function resolveSpellCast(
       healRolls,
       targetCurrentHp,
       targetStatus,
+    };
+  }
+
+  if (effect.kind === "condition_apply") {
+    const saveRoll = rolls?.save ?? d(20, 1)[0]!;
+    const saveTotal = saveRoll;
+    const hit = saveTotal < caster.spellSaveDc;
+    return {
+      hit,
+      critical: false,
+      saveDc: caster.spellSaveDc,
+      saveTotal,
+      damageTotal: 0,
+      damageRolls: [],
+      healed: 0,
+      healRolls: [],
+      targetCurrentHp: target.currentHp,
+      targetStatus: target.status ?? "active",
+      conditionApplied: hit ? effect.condition : undefined,
+    };
+  }
+
+  if (effect.kind === "condition_remove") {
+    const existing = target.conditions ?? [];
+    return {
+      damageTotal: 0,
+      damageRolls: [],
+      healed: 0,
+      healRolls: [],
+      targetCurrentHp: target.currentHp,
+      targetStatus: target.status ?? "active",
+      conditionRemoved: existing.length > 0 ? existing[0] : undefined,
+    };
+  }
+
+  if (effect.kind === "revive") {
+    return {
+      damageTotal: 0,
+      damageRolls: [],
+      healed: 0,
+      healRolls: [],
+      targetCurrentHp: Math.max(1, target.currentHp),
+      targetStatus: "active",
+      revived: true,
     };
   }
 

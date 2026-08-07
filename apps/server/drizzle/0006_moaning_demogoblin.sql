@@ -1,0 +1,1 @@
+ALTER TABLE `characters` ADD `gold` integer DEFAULT 0 NOT NULL;

@@ -139,6 +139,42 @@ export function updateCharacterHitDice(characterId: string, used: number): void 
     .run();
 }
 
+export function grantLoot(
+  characterId: string,
+  gold: number,
+  items: { name: string; quantity: number; weight?: number; description?: string }[],
+): void {
+  const row = db.select().from(characters).where(eq(characters.id, characterId)).get();
+  if (!row) return;
+  const merged = [...((row.inventory ?? []) as NonNullable<Character["inventory"]>)];
+  for (const item of items) {
+    const match = merged.find(
+      (i) =>
+        i.name === item.name &&
+        (i.description ?? undefined) === (item.description ?? undefined),
+    );
+    if (match) {
+      match.quantity += item.quantity;
+    } else {
+      merged.push({
+        id: newId(),
+        name: item.name,
+        quantity: item.quantity,
+        weight: item.weight,
+        description: item.description,
+      });
+    }
+  }
+  db.update(characters)
+    .set({
+      gold: (row.gold ?? 0) + gold,
+      inventory: merged,
+      updatedAt: isoNow(),
+    })
+    .where(eq(characters.id, characterId))
+    .run();
+}
+
 export function grantXp(characterId: string, amount: number): { xp: number; level: number } {
   const row = db.select().from(characters).where(eq(characters.id, characterId)).get();
   if (!row) return { xp: 0, level: 1 };
@@ -207,6 +243,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     spells: (row.spells as string[] | undefined) ?? undefined,
     spellSlotsUsed: (row.spellSlotsUsed as number[] | undefined) ?? undefined,
     hitDiceUsed: row.hitDiceUsed ?? 0,
+    gold: row.gold ?? 0,
     xp: row.xp ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

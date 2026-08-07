@@ -16,6 +16,7 @@ export type DmToolName =
   | "apply_condition"
   | "remove_condition"
   | "award_xp"
+  | "grant_loot"
   | "update_world_state"
   | "start_adventure"
   | "create_adventure"
@@ -121,6 +122,16 @@ export const DM_TOOLS: DmTool[] = [
     description:
       "Award experience points to the whole party (split equally among the member characters), e.g. for quest rewards. Combat XP is granted automatically when combat ends.",
     parameters: { amount: { type: "number" }, reason: { type: "string" } },
+  },
+  {
+    name: "grant_loot",
+    description:
+      "Grant treasure to a character (gold and/or items). If characterId is omitted, gold is split equally among the party members (items go to the first member).",
+    parameters: {
+      characterId: { type: "string" },
+      gold: { type: "number" },
+      items: { type: "array" },
+    },
   },
   {
     name: "update_world_state",
