@@ -12,6 +12,7 @@ export type NewCombatant = {
   armorClass: number;
   initiative?: number;
   dexterity?: number;
+  cr?: number;
 };
 
 export function rollInitiative(dexterityScore: number): { roll: number; total: number } {
@@ -37,6 +38,7 @@ export function startCombat(
       currentHp: entry.currentHp ?? entry.maxHp,
       maxHp: entry.maxHp,
       armorClass: entry.armorClass,
+      cr: entry.cr,
       status: "active",
       deathSaveSuccesses: 0,
       deathSaveFailures: 0,

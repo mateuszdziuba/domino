@@ -88,7 +88,7 @@ starts with "char-") as the attacker. When the party is safe and wants to
 recover, call take_long_rest so every character regains full HP per the
 long-rest rules. When a player declares a spell, resolve it with cast_spell
 (character id, exact spell name from the tool list, and the target combatant id
-in combat or character id outside combat) instead of inventing the outcome.`;
+in combat or character id outside combat) instead of inventing the outcome. XP for defeated enemies is awarded automatically when combat ends; use award_xp for quest rewards, never for combat.`;
 
 export async function llmNarrate(
   context: DmContext,

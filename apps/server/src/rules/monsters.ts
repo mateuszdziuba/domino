@@ -87,6 +87,7 @@ export function buildEncounter(
         isPlayer: false,
         maxHp: kind.maxHp,
         armorClass: kind.armorClass,
+        cr: kind.cr,
       });
     }
   }

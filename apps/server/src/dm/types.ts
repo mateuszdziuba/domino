@@ -12,6 +12,7 @@ export type DmToolName =
   | "advance_turn"
   | "end_combat"
   | "take_long_rest"
+  | "award_xp"
   | "update_world_state"
   | "generate_encounter";
 
@@ -89,8 +90,14 @@ export const DM_TOOLS: DmTool[] = [
   {
     name: "take_long_rest",
     description:
-      "The party takes a long rest (at least 8 hours, per SRD): every character in the campaign recovers to full HP. Only allowed outside combat.",
+      "The party takes a long rest (at least 8 hours, per SRD): every character in the campaign recovers to full HP and regains spell slots. Only allowed outside combat.",
     parameters: {},
+  },
+  {
+    name: "award_xp",
+    description:
+      "Award experience points to the whole party (split equally among the member characters), e.g. for quest rewards. Combat XP is granted automatically when combat ends.",
+    parameters: { amount: { type: "number" }, reason: { type: "string" } },
   },
   {
     name: "update_world_state",

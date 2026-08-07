@@ -190,6 +190,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     alignment: row.alignment ?? undefined,
     background: row.background ?? undefined,
     proficiencyBonus: row.proficiencyBonus,
+    xp: row.xp ?? 0,
     skills: (row.skills ?? {}) as Character["skills"],
     inventory: (row.inventory ?? []) as Character["inventory"],
     spells: (row.spells as string[] | undefined) ?? undefined,

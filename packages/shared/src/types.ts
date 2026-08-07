@@ -54,6 +54,7 @@ export type Character = {
   inventory?: InventoryItem[];
   spells?: string[];
   spellSlotsUsed?: number[];
+  xp?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -76,6 +77,7 @@ export type Combatant = {
   currentHp: number;
   maxHp: number;
   armorClass: number;
+  cr?: number;
   status?: CombatantStatus;
   deathSaveSuccesses?: number;
   deathSaveFailures?: number;

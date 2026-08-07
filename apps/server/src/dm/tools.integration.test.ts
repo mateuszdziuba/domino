@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import type { Database as DatabaseType } from "better-sqlite3";
 import type { CampaignState, Character } from "@domino/shared";
-import { users, characters, campaigns, gameEvents } from "../db/schema.js";
+import { users, characters, campaigns, campaignMembers, gameEvents } from "../db/schema.js";
 
 process.env.DATABASE_URL = resolve(process.cwd(), "data/test-dm-tools.db");
 
@@ -129,6 +129,9 @@ beforeAll(async () => {
   db.insert(characters).values({ ...aria, userId: "u1" }).run();
   db.insert(characters).values({ ...cleric, userId: "u1" }).run();
   db.insert(campaigns).values({ id: "c1", name: "T", ownerId: "u1" }).run();
+  db.insert(campaignMembers)
+    .values({ campaignId: "c1", userId: "u1", characterId: "ch1" })
+    .run();
 });
 
 beforeEach(() => {
@@ -315,5 +318,108 @@ describe("runDmTool cast_spell (real store)", () => {
       .where(eq(characters.id, "ch2"))
       .get()!;
     expect(row.currentHp).toBeGreaterThan(3);
+  });
+});
+
+describe("runDmTool XP award (real store)", () => {
+  function combatWithDyingEnemy(): CampaignState {
+    return {
+      ...stateWithCombat(),
+      combat: {
+        active: true,
+        turnIndex: 0,
+        round: 1,
+        combatants: [
+          {
+            id: "char-ch1",
+            name: "Aria",
+            characterId: "ch1",
+            isPlayer: true,
+            initiative: 18,
+            currentHp: 10,
+            maxHp: 10,
+            armorClass: 15,
+            status: "active",
+            deathSaveSuccesses: 0,
+            deathSaveFailures: 0,
+          },
+          {
+            id: "enemy-1",
+            name: "Goblin",
+            isPlayer: false,
+            initiative: 5,
+            currentHp: 0,
+            maxHp: 1,
+            armorClass: 2,
+            cr: 0.25,
+            status: "downed",
+            deathSaveSuccesses: 0,
+            deathSaveFailures: 0,
+          },
+        ],
+      },
+    };
+  }
+
+  function killGoblin() {
+    return runDmTool("c1", "dm", "attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+      damageNotation: "1d100",
+      attackBonus: 5,
+      damageBonus: 0,
+    });
+  }
+
+  it("end_combat awards XP for dead enemies to the party", async () => {
+    db.update(characters).set({ xp: 0 }).where(eq(characters.id, "ch1")).run();
+    store.saveState("c1", combatWithDyingEnemy());
+
+    const kill = await killGoblin();
+    expect(kill.ok).toBe(true);
+    const dead = store.loadState("c1").combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(dead.status).toBe("dead");
+
+    const result = await runDmTool("c1", "dm", "end_combat", {});
+    expect(result.ok).toBe(true);
+
+    const row = db
+      .select()
+      .from(characters)
+      .where(eq(characters.id, "ch1"))
+      .get()!;
+    expect(row.xp).toBe(50);
+
+    const events = db
+      .select()
+      .from(gameEvents)
+      .where(eq(gameEvents.campaignId, "c1"))
+      .all();
+    expect(
+      events.some(
+        (e) =>
+          e.type === "action.resolved" &&
+          (e.payload as { type?: string }).type === "xp-award",
+      ),
+    ).toBe(true);
+  });
+
+  it("combat XP levels up a near-threshold character", async () => {
+    db.update(characters).set({ xp: 290 }).where(eq(characters.id, "ch1")).run();
+    store.saveState("c1", combatWithDyingEnemy());
+
+    await killGoblin();
+    const result = await runDmTool("c1", "dm", "end_combat", {});
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Aria reaches level 2!");
+
+    const row = db
+      .select()
+      .from(characters)
+      .where(eq(characters.id, "ch1"))
+      .get()!;
+    expect(row.xp).toBe(340);
+    expect(row.level).toBe(2);
+    expect(row.maxHp).toBe(18);
   });
 });

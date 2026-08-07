@@ -15,6 +15,13 @@
       "when": 1786115027024,
       "tag": "0001_useful_junta",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786116238229,
+      "tag": "0002_mysterious_phalanx",
+      "breakpoints": true
     }
   ]
 }

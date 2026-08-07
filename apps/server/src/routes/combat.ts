@@ -9,6 +9,7 @@ import {
   getCampaignMembers,
   getCharacterById,
   updateCharacterHp,
+  grantXp,
 } from "../campaign/store.js";
 import {
   startCombat,
@@ -21,6 +22,7 @@ import {
 } from "../rules/combat.js";
 import { buildEncounter } from "../rules/monsters.js";
 import { abilityModifier } from "../rules/abilities.js";
+import { xpAwardForDeadEnemies } from "../rules/advancement.js";
 import type { Character } from "@domino/shared";
 
 const enemySchema = z.object({
@@ -165,6 +167,7 @@ combatRoutes.post("/end", requireAuth, async (c) => {
   if (!requireCampaign(c, campaignId)) return c.json({ error: "Campaign not found" }, 404);
   let state = loadState(campaignId);
   if (!state.combat.active) return c.json({ error: "No combat in progress" }, 400);
+  const xpTotal = xpAwardForDeadEnemies(state.combat.combatants);
   for (const combatant of state.combat.combatants) {
     if (combatant.characterId) {
       updateCharacterHp(combatant.characterId, combatant.currentHp);
@@ -173,6 +176,21 @@ combatRoutes.post("/end", requireAuth, async (c) => {
   state = endCombat(state);
   saveState(campaignId, state);
   pushEvent(campaignId, "combat.ended", {});
+  const members = getCampaignMembers(campaignId)
+    .map((m) => getCharacterById(m.characterId))
+    .filter((ch): ch is Character => Boolean(ch));
+  if (xpTotal > 0 && members.length > 0) {
+    const share = Math.floor(xpTotal / members.length);
+    for (const member of members) {
+      grantXp(member.id, share);
+    }
+    pushEvent(campaignId, "action.resolved", {
+      type: "xp-award",
+      source: "combat",
+      total: xpTotal,
+      perCharacter: share,
+    });
+  }
   return c.json({ state });
 });
 

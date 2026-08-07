@@ -42,6 +42,7 @@ db.insert(characters)
     armorClass: 15,
     speed: 30,
     proficiencyBonus: 2,
+    xp: 0,
     skills: { perception: true, medicine: true, insight: true, persuasion: false },
     inventory: [
       { id: "i1", name: "Mace", quantity: 1 },

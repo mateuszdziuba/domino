@@ -10,6 +10,7 @@ import {
 } from "../db/schema.js";
 import { newId, isoNow } from "../lib/ids.js";
 import { defaultCampaignState } from "../rules/state.js";
+import { applyLevelUp } from "../rules/advancement.js";
 import { broadcast } from "./hub.js";
 import type {
   Campaign,
@@ -125,6 +126,29 @@ export function updateCharacterSpellSlots(characterId: string, used: number[]): 
     .run();
 }
 
+export function grantXp(characterId: string, amount: number): { xp: number; level: number } {
+  const row = db.select().from(characters).where(eq(characters.id, characterId)).get();
+  if (!row) return { xp: 0, level: 1 };
+  const newXp = (row.xp ?? 0) + amount;
+  const result = applyLevelUp({
+    xp: newXp,
+    level: row.level,
+    className: row.className,
+    constitution: (row.abilityScores as Character["abilityScores"]).constitution,
+  });
+  db.update(characters)
+    .set({
+      xp: newXp,
+      level: result.newLevel,
+      maxHp: row.maxHp + result.maxHpDelta,
+      proficiencyBonus: result.newProficiency,
+      updatedAt: isoNow(),
+    })
+    .where(eq(characters.id, characterId))
+    .run();
+  return { xp: newXp, level: result.newLevel };
+}
+
 export function getRecentMessages(campaignId: string, limit = 50): ChatMessage[] {
   const rows = db
     .select()
@@ -168,6 +192,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     inventory: (row.inventory ?? []) as Character["inventory"],
     spells: (row.spells as string[] | undefined) ?? undefined,
     spellSlotsUsed: (row.spellSlotsUsed as number[] | undefined) ?? undefined,
+    xp: row.xp ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

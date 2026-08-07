@@ -21,6 +21,11 @@ const ABILITY_LABELS: Record<string, string> = {
   charisma: "CHA",
 };
 
+const XP_BY_LEVEL = [
+  300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000,
+  140000, 165000, 195000, 225000, 265000, 305000, 355000,
+];
+
 function SectionTitle({ icon: Icon, children }: { icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
@@ -61,6 +66,14 @@ export default function CharacterSheetPage() {
 
   const { character, abilityModifiers, savingThrows, skills, attacks, spellcasting, spellSlots } = sheet;
 
+  const xp = character.xp ?? 0;
+  const maxedOut = character.level >= 20;
+  const nextThreshold = XP_BY_LEVEL[Math.min(character.level - 1, XP_BY_LEVEL.length - 1)]!;
+  const prevThreshold = character.level <= 1 ? 0 : XP_BY_LEVEL[character.level - 2]!;
+  const xpProgress = maxedOut
+    ? 100
+    : Math.max(0, Math.min(100, ((xp - prevThreshold) / Math.max(nextThreshold - prevThreshold, 1)) * 100));
+
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-4 flex items-center gap-3">
@@ -72,6 +85,17 @@ export default function CharacterSheetPage() {
           <p className="text-sm italic text-[#7c6a45]">
             {character.race} {character.className} · level {character.level}
           </p>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+              {maxedOut ? `XP ${xp} · max level` : `XP ${xp} / ${nextThreshold}`}
+            </span>
+            <span className="h-1.5 w-40 overflow-hidden rounded-full bg-[#dcc89a]">
+              <span
+                className="block h-full rounded-full bg-[#7a4b1d]"
+                style={{ width: `${xpProgress}%` }}
+              />
+            </span>
+          </div>
         </div>
         <div className="ml-auto flex gap-2">
           <Badge variant="secondary">HP {character.currentHp}/{character.maxHp}</Badge>

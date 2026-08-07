@@ -9,9 +9,11 @@ import {
   pushEvent,
   updateCharacterHp,
   updateCharacterSpellSlots,
+  grantXp,
 } from "../campaign/store.js";
 import { buildDmSuggestion, getAvailableActions } from "../rules/actions.js";
 import { rollDiceNotation } from "../rules/dice.js";
+import { xpAwardForDeadEnemies } from "../rules/advancement.js";
 import {
   nextTurn,
   currentTurnCombatant,
@@ -452,6 +454,7 @@ export async function runDmTool(
     case "end_combat": {
       let state = loadState(campaignId);
       if (!state.combat.active) return { ok: false, message: "No combat in progress." };
+      const xpTotal = xpAwardForDeadEnemies(state.combat.combatants);
       for (const combatant of state.combat.combatants) {
         if (combatant.characterId) {
           updateCharacterHp(combatant.characterId, combatant.currentHp);
@@ -460,10 +463,68 @@ export async function runDmTool(
       state = endCombat(state);
       saveState(campaignId, state);
       pushEvent(campaignId, "combat.ended", {});
+      const members = getCampaignMembers(campaignId)
+        .map((m) => getCharacterById(m.characterId))
+        .filter((ch): ch is Character => Boolean(ch));
+      const levelUps: string[] = [];
+      let xpLine = "";
+      if (xpTotal > 0 && members.length > 0) {
+        const share = Math.floor(xpTotal / members.length);
+        for (const member of members) {
+          const { level } = grantXp(member.id, share);
+          if (level > member.level) levelUps.push(`${member.name} reaches level ${level}!`);
+        }
+        pushEvent(campaignId, "action.resolved", {
+          type: "xp-award",
+          source: "combat",
+          total: xpTotal,
+          perCharacter: share,
+        });
+        xpLine = ` The party earns ${xpTotal} XP (${share} each).${
+          levelUps.length > 0 ? ` ${levelUps.join(" ")}` : ""
+        }`;
+      }
       return {
         ok: true,
-        message: "Combat has ended. HP written back to the characters; the party returns to exploration.",
+        message: `Combat has ended. HP written back to the characters; the party returns to exploration.${xpLine}`,
         data: summarizeState(state),
+      };
+    }
+    case "award_xp": {
+      const parsed = z
+        .object({
+          amount: z.number().int().positive().max(1_000_000),
+          reason: z.string().max(200).optional(),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "amount must be a positive integer." };
+      }
+      const members = getCampaignMembers(campaignId)
+        .map((m) => getCharacterById(m.characterId))
+        .filter((ch): ch is Character => Boolean(ch));
+      if (members.length === 0) {
+        return { ok: false, message: "The campaign has no characters to award XP to." };
+      }
+      const { amount, reason } = parsed.data;
+      const share = Math.max(1, Math.floor(amount / members.length));
+      const levelUps: string[] = [];
+      for (const member of members) {
+        const { level } = grantXp(member.id, share);
+        if (level > member.level) levelUps.push(`${member.name} reaches level ${level}!`);
+      }
+      pushEvent(campaignId, "action.resolved", {
+        type: "xp-award",
+        source: "award_xp",
+        amount,
+        reason,
+        perCharacter: share,
+      });
+      return {
+        ok: true,
+        message: `The party earns ${amount} XP (${share} each)${
+          reason ? ` for ${reason}` : ""
+        }.${levelUps.length > 0 ? ` ${levelUps.join(" ")}` : ""}`,
       };
     }
   }

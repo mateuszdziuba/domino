@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CampaignState, Character } from "@domino/shared";
+import { applyLevelUp } from "../rules/advancement.js";
 
 const mock = vi.hoisted(() => {
   function defaultState(): CampaignState {
@@ -19,6 +20,7 @@ const mock = vi.hoisted(() => {
     pushEvent: vi.fn(),
     updateCharacterHp: vi.fn(),
     updateCharacterSpellSlots: vi.fn(),
+    grantXp: vi.fn(),
     members: vi.fn(() => [] as { characterId: string }[]),
     defaultState,
   };
@@ -33,6 +35,7 @@ vi.mock("../campaign/store.js", () => ({
   pushEvent: mock.pushEvent,
   updateCharacterHp: mock.updateCharacterHp,
   updateCharacterSpellSlots: mock.updateCharacterSpellSlots,
+  grantXp: (id: string, amount: number) => mock.grantXp(id, amount),
   getCharacterById: (id: string) => mock.characters.get(id),
   getCampaignForUser: () => ({ id: "c1" }),
   getCampaignMembers: mock.members,
@@ -116,6 +119,25 @@ beforeEach(() => {
   mock.pushEvent.mockReset();
   mock.updateCharacterHp.mockReset();
   mock.updateCharacterSpellSlots.mockReset();
+  mock.grantXp.mockReset();
+  mock.grantXp.mockImplementation((id: string, amount: number) => {
+    const ch = mock.characters.get(id);
+    if (!ch) return { xp: 0, level: 1 };
+    const result = applyLevelUp({
+      xp: (ch.xp ?? 0) + amount,
+      level: ch.level,
+      className: ch.className,
+      constitution: ch.abilityScores.constitution,
+    });
+    mock.characters.set(id, {
+      ...ch,
+      xp: result.newXp,
+      level: result.newLevel,
+      maxHp: result.leveledUp ? ch.maxHp + result.maxHpDelta : ch.maxHp,
+      proficiencyBonus: result.newProficiency,
+    });
+    return { xp: result.newXp, level: result.newLevel };
+  });
   mock.characters.set("ch1", { ...aria });
   mock.states.set("c1", stateWithCombat());
 });
@@ -428,5 +450,96 @@ describe("runDmTool take_long_rest (mocked store)", () => {
     expect(mock.updateCharacterHp).not.toHaveBeenCalled();
     expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
     expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("runDmTool XP award (mocked store)", () => {
+  beforeEach(() => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }, { characterId: "ch2" }]);
+    mock.characters.set("ch2", { ...aria, id: "ch2", name: "Bran" });
+  });
+
+  it("end_combat splits dead-enemy XP equally and pushes an xp-award event", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants.push({
+      id: "enemy-2",
+      name: "Bugbear",
+      isPlayer: false,
+      initiative: 3,
+      currentHp: 0,
+      maxHp: 27,
+      armorClass: 16,
+      cr: 1,
+      status: "dead",
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+    });
+    mock.states.set("c1", state);
+
+    const result = await runTool("end_combat");
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("The party earns 200 XP (100 each)");
+    expect(mock.characters.get("ch1")!.xp).toBe(100);
+    expect(mock.characters.get("ch2")!.xp).toBe(100);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "xp-award",
+        source: "combat",
+        total: 200,
+        perCharacter: 100,
+      }),
+    );
+  });
+
+  it("end_combat awards no XP when nothing with a CR died", async () => {
+    const result = await runTool("end_combat");
+    expect(result.ok).toBe(true);
+    expect(result.message).not.toContain("XP");
+    expect(mock.grantXp).not.toHaveBeenCalled();
+  });
+
+  it("award_xp splits the amount equally and validates it", async () => {
+    const result = await runTool("award_xp", { amount: 100, reason: "saving the village" });
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe(
+      "The party earns 100 XP (50 each) for saving the village.",
+    );
+    expect(mock.characters.get("ch1")!.xp).toBe(50);
+    expect(mock.characters.get("ch2")!.xp).toBe(50);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "xp-award",
+        source: "award_xp",
+        amount: 100,
+        reason: "saving the village",
+        perCharacter: 50,
+      }),
+    );
+
+    const bad = await runTool("award_xp", { amount: 0 });
+    expect(bad.ok).toBe(false);
+  });
+
+  it("award_xp rejects when the campaign has no characters", async () => {
+    mock.members.mockReturnValue([]);
+    const result = await runTool("award_xp", { amount: 100 });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("no characters");
+  });
+
+  it("award_xp narration reports level-ups with the HP gain", async () => {
+    mock.characters.set("ch1", { ...aria, xp: 290 });
+    const result = await runTool("award_xp", { amount: 100 });
+    expect(result.ok).toBe(true);
+    const ariaNow = mock.characters.get("ch1")!;
+    expect(ariaNow.xp).toBe(340);
+    expect(ariaNow.level).toBe(2);
+    expect(ariaNow.maxHp).toBe(18);
+    expect(result.message).toContain("Aria reaches level 2!");
   });
 });
