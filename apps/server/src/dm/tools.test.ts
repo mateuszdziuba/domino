@@ -770,6 +770,24 @@ describe("runDmTool cast_spell (mocked store)", () => {
     expect(result.message).toContain("Aria odzyskuje");
   });
 
+  it("does not consume a slot when healing an empty party outside combat", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([]);
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set(
+      "ch2",
+      cleric({ spells: [...baseSpells, "Prayer of Healing"] }),
+    );
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Prayer of Healing",
+      targetId: "ch2",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Nie znaleziono postaci-celu");
+    expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
+  });
+
   it("rejects a condition spell outside combat", async () => {
     mock.states.set("c1", mock.defaultState());
     mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Hold Person"] }));

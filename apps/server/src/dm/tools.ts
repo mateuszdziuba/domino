@@ -435,7 +435,6 @@ export async function runDmTool(
         nextUsed = [...used];
         nextUsed[def.level - 1] = (nextUsed[def.level - 1] ?? 0) + 1;
       }
-      if (nextUsed) updateCharacterSpellSlots(character.id, nextUsed);
       if (def.effect.kind === "heal_all" && !state.combat.active) {
         const members = getCampaignMembers(campaignId)
           .map((m) => getCharacterById(m.characterId))
@@ -444,6 +443,7 @@ export async function runDmTool(
           return { ok: false, message: "Nie znaleziono postaci-celu." };
         }
       }
+      if (nextUsed) updateCharacterSpellSlots(character.id, nextUsed);
       if (def.effect.kind === "heal_all") {
         if (state.combat.active && casterCombatant) {
           const healed: { name: string; healed: number }[] = [];
@@ -483,9 +483,6 @@ export async function runDmTool(
         const members = getCampaignMembers(campaignId)
           .map((m) => getCharacterById(m.characterId))
           .filter((ch): ch is Character => Boolean(ch));
-        if (members.length === 0) {
-          return { ok: false, message: "Nie znaleziono postaci-celu." };
-        }
         const healed: { name: string; healed: number }[] = [];
         for (const member of members) {
           const synthetic: Combatant = {
