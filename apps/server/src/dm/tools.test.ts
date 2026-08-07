@@ -142,6 +142,64 @@ beforeEach(() => {
   mock.states.set("c1", stateWithCombat());
 });
 
+describe("runDmTool adventures (mocked store)", () => {
+  it("start_adventure patches location/scene/worldProgress and pushes state.updated", async () => {
+    const result = await runTool("start_adventure", { title: "A Most Potent Brew" });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Rozpoczynacie przygodę: A Most Potent Brew");
+    const saved = mock.states.get("c1")!;
+    expect(saved.location).toBe("Karczma \"Pod Złotym Kuflem\"");
+    expect(saved.scene.length).toBeGreaterThan(0);
+    expect(saved.worldProgress).toContain("Przygoda: A Most Potent Brew");
+    expect(saved.notes.length).toBeGreaterThan(0);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "state.updated",
+      expect.objectContaining({ by: "dm" }),
+    );
+  });
+
+  it("start_adventure keeps combat state intact", async () => {
+    const result = await runTool("start_adventure", { title: "wolves" });
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    expect(saved.combat.active).toBe(true);
+    expect(saved.combat.combatants.map((c) => c.name)).toContain("Goblin");
+  });
+
+  it("start_adventure rejects an unknown title with the available list", async () => {
+    const result = await runTool("start_adventure", { title: "Przygoda o kotach" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("biblioteki");
+    expect(result.message).toContain("A Most Potent Brew");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("create_adventure writes the description into scene and notes", async () => {
+    const result = await runTool("create_adventure", {
+      description: "Smocze gniazdo w ruinach nad jeziorem",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Tworzę nową przygodę");
+    const saved = mock.states.get("c1")!;
+    expect(saved.location).toBe("Nieznane miejsce");
+    expect(saved.scene).toBe("Smocze gniazdo w ruinach nad jeziorem");
+    expect(saved.notes).toBe("Smocze gniazdo w ruinach nad jeziorem");
+    expect(saved.worldProgress[0]).toContain("Nowa przygoda");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "state.updated",
+      expect.objectContaining({ by: "dm" }),
+    );
+  });
+
+  it("create_adventure rejects a too-short description", async () => {
+    const result = await runTool("create_adventure", { description: "ok" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Opisz");
+  });
+});
+
 describe("runDmTool combat tools (mocked store)", () => {
   it("attack_combatant resolves on the current combatant's turn", async () => {
     const result = await runTool("attack_combatant", {

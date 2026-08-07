@@ -161,6 +161,90 @@ function context(state: CampaignState): DmContext {
   };
 }
 
+describe("previewNarrate adventures", () => {
+  it("starts the first library adventure on 'Zacznijmy przygodę!'", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria });
+    mock.states.set("c1", mock.defaultState());
+
+    const reply = await previewNarrate(context(mock.defaultState()), "Zacznijmy przygodę!");
+
+    expect(reply.narration).toContain("Rozpoczynacie przygodę: A Most Potent Brew");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "state.updated",
+      expect.objectContaining({ by: "dm" }),
+    );
+    const saved = mock.states.get("c1")!;
+    expect(saved.location).toBe("Karczma \"Pod Złotym Kuflem\"");
+    expect(saved.worldProgress).toContain("Przygoda: A Most Potent Brew");
+  });
+
+  it("starts an adventure from the 'startuj przygodę' variant", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria });
+    mock.states.set("c1", mock.defaultState());
+
+    const reply = await previewNarrate(context(mock.defaultState()), "Startuj przygodę");
+
+    expect(reply.narration).toContain("Rozpoczynacie przygodę");
+  });
+
+  it("creates a custom adventure from a description with an 'o' tail", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria });
+    mock.states.set("c1", mock.defaultState());
+
+    const reply = await previewNarrate(
+      context(mock.defaultState()),
+      "Wymyśl nam kampanię o smokach i ruinach",
+    );
+
+    expect(reply.narration).toContain("Tworzę nową przygodę");
+    expect(reply.narration).toContain("smokach i ruinach");
+    const saved = mock.states.get("c1")!;
+    expect(saved.scene).toBe("smokach i ruinach");
+    expect(saved.notes).toBe("smokach i ruinach");
+    expect(saved.location).toBe("Nieznane miejsce");
+  });
+
+  it("asks for a description when the create phrase has no content", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria });
+    mock.states.set("c1", mock.defaultState());
+
+    const reply = await previewNarrate(context(mock.defaultState()), "Wymyśl nam kampanię");
+
+    expect(reply.narration).toBe("(DM preview) Opisz, o czym ma być przygoda.");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("still triggers a long rest for a rest message", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria });
+    mock.states.set("c1", mock.defaultState());
+
+    const reply = await previewNarrate(context(mock.defaultState()), "We rest by the fire");
+
+    expect(reply.narration).toContain("odpoczywa");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "state.updated",
+      expect.objectContaining({ action: "long_rest" }),
+    );
+  });
+});
+
 describe("previewNarrate combat loop", () => {
   it("resolves a player's attack through the tools and advances the turn", async () => {
     mock.states.clear();

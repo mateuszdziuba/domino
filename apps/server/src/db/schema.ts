@@ -76,6 +76,7 @@ export const campaigns = sqliteTable("campaigns", {
   ownerId: text("owner_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  inviteCode: text("invite_code").unique(),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),

@@ -8,6 +8,7 @@ import {
 import AppLayout from "./components/AppLayout";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import JoinPage from "./pages/JoinPage";
 import CampaignsPage from "./pages/CampaignsPage";
 import CampaignPage from "./pages/CampaignPage";
 import CharactersPage from "./pages/CharactersPage";
@@ -34,6 +35,12 @@ const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/register",
   component: RegisterPage,
+});
+
+const joinRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/join",
+  component: JoinPage,
 });
 
 const appRoute = createRoute({
@@ -70,6 +77,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
   registerRoute,
+  joinRoute,
   appRoute.addChildren([campaignsRoute, campaignRoute, charactersRoute, characterSheetRoute]),
 ]);
 

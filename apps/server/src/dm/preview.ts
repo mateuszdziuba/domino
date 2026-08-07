@@ -2,6 +2,7 @@ import type { DmContext, DmReply, DmToolName } from "./types.js";
 import { runDmTool } from "./tools.js";
 import { currentTurnCombatant } from "../rules/combat.js";
 import { SPELLS } from "../rules/spells.js";
+import { ADVENTURES } from "../rules/adventures.js";
 
 const COMBAT_TRIGGERS = [
   "attack",
@@ -51,6 +52,12 @@ const COMBAT_TRIGGERS = [
 
 const REST_TRIGGER =
   /^(i|we|the party) (need to |want to |should )?(take a |long )?(rest|sleep)|^let'?s (take a |long )?(rest|sleep)|^(we )?(make )?camp|^camp$|^odpoczywamy|^odpoczywam|^śpimy|^spać|^sen|^oboz|^biwak|^ognisk/i;
+
+const START_ADVENTURE_TRIGGER =
+  /^zacznijmy (przygodę|przygode)|^jakąś przygodę|^jakas przygode|^startuj przygodę|^startuj przygode/i;
+
+const CREATE_ADVENTURE_TRIGGER =
+  /^wymyśl (nam )?kampanię|^wymysl (nam )?kampanie|^stwórz przygodę|^stworz przygode|^customowa przygoda/i;
 
 const TARGET_PATTERN = /(?:on|at|against|towards?|na)\s+([a-zą-ż' -]+)/i;
 
@@ -153,7 +160,34 @@ export async function previewNarrate(
   context: DmContext,
   userMessage: string,
 ): Promise<DmReply> {
-  if (!context.state.combat.active && REST_TRIGGER.test(userMessage.trim())) {
+  const trimmed = userMessage.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (!context.state.combat.active && lower.match(START_ADVENTURE_TRIGGER)) {
+    const adventure = ADVENTURES[0]!;
+    const result = await runDmTool(context.campaignId, "dm", "start_adventure", {
+      title: adventure.title,
+    });
+    return {
+      narration: result.ok ? result.message : `(DM preview) ${result.message}`,
+    };
+  }
+
+  if (!context.state.combat.active && lower.match(CREATE_ADVENTURE_TRIGGER)) {
+    const trigger = lower.match(CREATE_ADVENTURE_TRIGGER)![0];
+    const description = trimmed.slice(trigger.length).replace(/^\s*o\s+/i, "").trim();
+    if (!description) {
+      return { narration: `(DM preview) Opisz, o czym ma być przygoda.` };
+    }
+    const result = await runDmTool(context.campaignId, "dm", "create_adventure", {
+      description,
+    });
+    return {
+      narration: result.ok ? result.message : `(DM preview) ${result.message}`,
+    };
+  }
+
+  if (!context.state.combat.active && REST_TRIGGER.test(trimmed)) {
     const result = await runDmTool(context.campaignId, "dm", "take_long_rest", {});
     return {
       narration: result.ok ? result.message : `(DM preview) ${result.message}`,

@@ -31,13 +31,13 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
       const result = await action();
       onChange(result.state);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Combat action failed");
+      setError(err instanceof Error ? err.message : "Nie udało się wykonać akcji walki");
     }
   }
 
   async function onAttack(attacker: Combatant) {
     if (!targetId) {
-      setError("Choose a target first");
+      setError("Najpierw wybierz cel");
       return;
     }
     setError(null);
@@ -46,12 +46,12 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
       const result = await combatApi.attack(campaignId, attacker.id, targetId, { damageNotation });
       setLastResult(
         result.result.hit
-          ? `${attacker.name} hits ${result.result.targetName} for ${result.result.damageTotal} damage (attack ${result.result.attackTotal} vs AC).${result.result.critical ? " Critical hit!" : ""}`
-          : `${attacker.name} misses ${result.result.targetName} (attack ${result.result.attackTotal} vs AC).`,
+          ? `${attacker.name} trafia ${result.result.targetName} za ${result.result.damageTotal} obrażeń (atak ${result.result.attackTotal} vs AC).${result.result.critical ? " Trafienie krytyczne!" : ""}`
+          : `${attacker.name} pudłuje — ${result.result.targetName} (atak ${result.result.attackTotal} vs AC).`,
       );
       onChange(result.state);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Attack failed");
+      setError(err instanceof Error ? err.message : "Nie udało się zaatakować");
     }
   }
 
@@ -61,14 +61,14 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
       const { result: ds } = result;
       setLastResult(
         ds.dead
-          ? `${combatant.name} fails their death saves and dies.`
+          ? `${combatant.name} ginie po nieudanych rzutach obronnych przed śmiercią.`
           : ds.stable
-            ? `${combatant.name} stabilizes.`
-            : `${combatant.name} death save: ${ds.roll} (${ds.successes} success, ${ds.failures} failures).`,
+            ? `${combatant.name} stabilizuje się.`
+            : `${combatant.name} rzut obronny przed śmiercią: ${ds.roll} (${ds.successes} sukces, ${ds.failures} porażki).`,
       );
       onChange(result.state);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Death save failed");
+      setError(err instanceof Error ? err.message : "Nie udało się wykonać rzutu obronnego");
     }
   }
 
@@ -84,10 +84,10 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <Swords className="size-4 text-[#a97e1f]" />
-          Combat
+          Walka
           {combat.active && (
             <Badge>
-              Round {combat.round} · {combat.turnIndex % combat.combatants.length + 1}/
+              Runda {combat.round} · {combat.turnIndex % combat.combatants.length + 1}/
               {combat.combatants.length}
             </Badge>
           )}
@@ -95,9 +95,10 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
       </CardHeader>
       <CardContent className="flex flex-col gap-3 text-sm">
         {!combat.active && (
-          <p className="flex items-center gap-2 text-xs italic text-[#7c6a45]">
+          <p className="flex items-center gap-2 text-xs text-[#7c6a45]">
             <Wand2 className="size-4 shrink-0 text-[#a97e1f]" />
-            No battle yet. DoMino weaves the plot — danger comes when the story calls for it.
+            Jeszcze nie ma walki. DoMino snuje fabułę — niebezpieczeństwo nadejdzie, gdy historia tego
+            zażąda.
           </p>
         )}
 
@@ -123,11 +124,11 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                     {c.characterId && <Badge variant="secondary">PC</Badge>}
                     {c.status === "dead" && (
                       <Badge variant="destructive">
-                        <span className="line-through">dead</span>
+                        <span className="line-through">martwy</span>
                       </Badge>
                     )}
-                    {c.status === "downed" && <Badge variant="outline">downed</Badge>}
-                    {c.status === "stable" && <Badge variant="outline">stable</Badge>}
+                    {c.status === "downed" && <Badge variant="outline">powalony</Badge>}
+                    {c.status === "stable" && <Badge variant="outline">stabilny</Badge>}
                   </span>
                   <span className="flex items-center gap-2">
                     {c.isPlayer ? (
@@ -154,7 +155,7 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
 
             <div className="flex flex-wrap items-center gap-2">
               <Select value={targetId} onChange={(e) => setTargetId(e.target.value)} className="max-w-40">
-                <option value="">Target…</option>
+                <option value="">Cel…</option>
                 {combat.combatants
                   .filter((c) => !c.characterId)
                   .map((c) => (
@@ -174,37 +175,37 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                 onClick={() => myCombatant && void onAttack(myCombatant)}
                 disabled={!myCombatant || !targetId}
               >
-                Attack
+                Atak
               </Button>
               {myCombatant?.status === "downed" && (
                 <Button size="sm" variant="secondary" onClick={() => void onDeathSave(myCombatant)}>
-                  Death save
+                  Rzut obronny
                 </Button>
               )}
               <Button size="sm" variant="outline" onClick={() => void call(() => combatApi.advance(campaignId))}>
-                End turn
+                Koniec tury
               </Button>
               <Button size="sm" variant="ghost" onClick={() => void call(() => combatApi.end(campaignId))}>
-                End combat
+                Zakończ walkę
               </Button>
             </div>
 
-            <p className="text-xs italic text-[#7c6a45]">
+            <p className="text-xs text-[#7c6a45]">
               {current ? (
                 <>
                   <span className="font-display not-italic tracking-[0.06em] text-[#7a4b1d]">{current.name}</span>
-                  's turn.
+                  {" — to twoja tura."}
                 </>
               ) : (
-                "No active turn."
+                "Brak aktywnej tury."
               )}{" "}
-              Attack uses your weapon (default 1d8 + STR) vs AC.
+              Atak używa twojej broni (domyślnie 1d8 + STR) vs AC.
             </p>
           </>
         )}
 
         {lastResult && (
-          <p className="animate-fade-up rounded-sm border-l-2 border-l-[#a97e1f] bg-[#efe2c4] px-2 py-1 text-xs italic">
+          <p className="animate-fade-up rounded-sm border-l-2 border-l-[#a97e1f] bg-[#efe2c4] px-2 py-1 text-sm">
             {lastResult}
           </p>
         )}

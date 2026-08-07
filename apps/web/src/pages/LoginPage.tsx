@@ -22,7 +22,7 @@ export default function LoginPage() {
       await login(username, password);
       navigate({ to: "/app/campaigns" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : "Nie udało się zalogować");
     }
   }
 
@@ -35,13 +35,13 @@ export default function LoginPage() {
             <span>✦</span>
             <span className="h-px w-10 bg-gradient-to-l from-transparent to-[#a97e1f]/70" />
           </div>
-          <CardTitle className="text-lg">Sign in to DoMino</CardTitle>
-          <CardDescription>Your AI Dungeon Master awaits.</CardDescription>
+          <CardTitle className="text-lg">Zaloguj się do DoMino</CardTitle>
+          <CardDescription>Twój AI Dungeon Master czeka.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Nazwa użytkownika</Label>
               <Input
                 id="username"
                 value={username}
@@ -51,7 +51,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Hasło</Label>
               <Input
                 id="password"
                 type="password"
@@ -63,13 +63,13 @@ export default function LoginPage() {
             </div>
             {error && <p className="text-sm text-[#8f1d1d]">{error}</p>}
             <Button type="submit" size="lg">
-              Enter the tavern
+              Wejdź do karczmy
             </Button>
           </form>
-          <p className="mt-4 text-sm italic text-[#7c6a45]">
-            No account yet?{" "}
+          <p className="mt-4 text-sm text-[#7c6a45]">
+            Nie masz konta?{" "}
             <Link to="/register" className="font-display text-[11px] uppercase tracking-[0.1em] text-[#7a4b1d] underline-offset-4 hover:underline">
-              Register
+              Zarejestruj się
             </Link>
           </p>
         </CardContent>

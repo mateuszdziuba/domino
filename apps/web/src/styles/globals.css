@@ -48,7 +48,7 @@
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
   --font-display: "Cinzel", "Georgia", serif;
-  --font-body: "IM Fell English", "Georgia", serif;
+  --font-body: "Palatino Linotype", "Palatino", "Book Antiqua", "Georgia", serif;
 }
 
 @layer base {
@@ -57,9 +57,13 @@
   }
   html {
     font-family: var(--font-body);
+    font-size: 16px;
+    scroll-behavior: smooth;
   }
   body {
     @apply bg-background text-foreground antialiased;
+    font-size: 1rem;
+    line-height: 1.6;
     background-image:
       radial-gradient(ellipse 90% 55% at 50% -5%, rgba(255, 250, 230, 0.55), transparent 60%),
       radial-gradient(ellipse 70% 50% at 50% 110%, rgba(92, 62, 22, 0.22), transparent 60%),
@@ -68,6 +72,14 @@
   }
   h1, h2, h3, .font-display {
     font-family: var(--font-display);
+  }
+  ::selection {
+    background: #dcc89a;
+    color: #2e2113;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 }
 
@@ -121,6 +133,10 @@
 
 .animate-dice-roll {
   animation: dice-roll 0.7s ease-out both;
+}
+
+.scroll-pretty {
+  scroll-behavior: smooth;
 }
 
 .scroll-parchment {

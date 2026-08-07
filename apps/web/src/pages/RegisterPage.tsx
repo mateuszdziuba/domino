@@ -22,7 +22,7 @@ export default function RegisterPage() {
       await register(username, password);
       navigate({ to: "/app/campaigns" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      setError(err instanceof Error ? err.message : "Nie udało się zarejestrować");
     }
   }
 
@@ -35,13 +35,13 @@ export default function RegisterPage() {
             <span>✦</span>
             <span className="h-px w-10 bg-gradient-to-l from-transparent to-[#a97e1f]/70" />
           </div>
-          <CardTitle className="text-lg">Create your account</CardTitle>
-          <CardDescription>Choose a username and password, adventurer.</CardDescription>
+          <CardTitle className="text-lg">Utwórz konto</CardTitle>
+          <CardDescription>Wybierz nazwę użytkownika i hasło, awanturniku.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Nazwa użytkownika</Label>
               <Input
                 id="username"
                 value={username}
@@ -52,7 +52,7 @@ export default function RegisterPage() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Hasło</Label>
               <Input
                 id="password"
                 type="password"
@@ -65,13 +65,13 @@ export default function RegisterPage() {
             </div>
             {error && <p className="text-sm text-[#8f1d1d]">{error}</p>}
             <Button type="submit" size="lg">
-              Swear the oath
+              Złóż przysięgę
             </Button>
           </form>
-          <p className="mt-4 text-sm italic text-[#7c6a45]">
-            Already have an account?{" "}
+          <p className="mt-4 text-sm text-[#7c6a45]">
+            Masz już konto?{" "}
             <Link to="/login" className="font-display text-[11px] uppercase tracking-[0.1em] text-[#7a4b1d] underline-offset-4 hover:underline">
-              Sign in
+              Zaloguj się
             </Link>
           </p>
         </CardContent>

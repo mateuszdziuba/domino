@@ -71,7 +71,7 @@ export default function CharacterSheetPage() {
     characterApi
       .sheet(id)
       .then(({ sheet }) => setSheet(sheet))
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load sheet"));
+      .catch((err) => setError(err instanceof Error ? err.message : "Nie udało się wczytać karty postaci"));
   }, [id]);
 
   if (error) {
@@ -79,13 +79,13 @@ export default function CharacterSheetPage() {
       <div className="mx-auto max-w-4xl">
         <p className="text-[#8f1d1d]">{error}</p>
         <Link to="/app/characters" className="font-display text-[11px] uppercase tracking-[0.1em] text-[#7a4b1d] underline-offset-4 hover:underline">
-          Back to characters
+          Wróć do postaci
         </Link>
       </div>
     );
   }
 
-  if (!sheet) return <div className="mx-auto max-w-4xl italic text-[#7c6a45]">Reading the parchment…</div>;
+  if (!sheet) return <div className="mx-auto max-w-4xl italic text-[#7c6a45]">Czytam pergamin…</div>;
 
   const { character, abilityModifiers, savingThrows, skills, attacks, spellcasting, spellSlots } = sheet;
 
@@ -99,7 +99,7 @@ export default function CharacterSheetPage() {
       const { character: updated } = await characterApi.update(character.id, { spells: next });
       setSheet((prev) => (prev ? { ...prev, character: updated } : prev));
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save");
+      setSaveError(err instanceof Error ? err.message : "Nie udało się zapisać");
     } finally {
       setSaving(false);
     }
@@ -121,12 +121,12 @@ export default function CharacterSheetPage() {
         </Link>
         <div>
           <h1 className="text-2xl tracking-[0.1em] text-[#3a2c17]">{character.name}</h1>
-          <p className="text-sm italic text-[#7c6a45]">
-            {character.race} {character.className} · level {character.level}
+          <p className="text-sm text-[#7c6a45]">
+            {character.race} {character.className} · poziom {character.level}
           </p>
           <div className="mt-2 flex items-center gap-2">
             <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
-              {maxedOut ? `XP ${xp} · max level` : `XP ${xp} / ${nextThreshold}`}
+              {maxedOut ? `XP ${xp} · maks. poziom` : `XP ${xp} / ${nextThreshold}`}
             </span>
             <span className="h-1.5 w-40 overflow-hidden rounded-full bg-[#dcc89a]">
               <span
@@ -139,14 +139,14 @@ export default function CharacterSheetPage() {
         <div className="ml-auto flex gap-2">
           <Badge variant="secondary">HP {character.currentHp}/{character.maxHp}</Badge>
           <Badge variant="outline">AC {character.armorClass}</Badge>
-          <Badge variant="outline">Speed {character.speed}</Badge>
+          <Badge variant="outline">Szybkość {character.speed}</Badge>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card className="border-[#b99f6b]">
           <CardHeader className="pb-2">
-            <SectionTitle icon={Shield}>Ability scores</SectionTitle>
+            <SectionTitle icon={Shield}>Wartości cech</SectionTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-2">
@@ -171,7 +171,7 @@ export default function CharacterSheetPage() {
 
         <Card className="border-[#b99f6b]">
           <CardHeader className="pb-2">
-            <SectionTitle icon={Shield}>Saving throws</SectionTitle>
+            <SectionTitle icon={Shield}>Rzuty obronne</SectionTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-2">
@@ -201,7 +201,7 @@ export default function CharacterSheetPage() {
 
         <Card className="border-[#b99f6b]">
           <CardHeader className="pb-2">
-            <SectionTitle icon={Sparkles}>Skills</SectionTitle>
+            <SectionTitle icon={Sparkles}>Umiejętności</SectionTitle>
           </CardHeader>
           <CardContent className="scroll-parchment max-h-[420px] overflow-y-auto pr-1">
             <div className="flex flex-col gap-px">
@@ -218,7 +218,7 @@ export default function CharacterSheetPage() {
                       ✦
                     </span>
                     {skill.label}
-                    <span className="text-xs italic text-[#7c6a45]">{ABILITY_LABELS[skill.ability]}</span>
+                    <span className="text-xs text-[#7c6a45]">{ABILITY_LABELS[skill.ability]}</span>
                   </span>
                   <span className={cn("font-display", skill.proficient ? "text-[#2e2113]" : "text-[#7c6a45]")}>
                     {skill.mod >= 0 ? "+" : ""}
@@ -233,17 +233,17 @@ export default function CharacterSheetPage() {
         <div className="flex flex-col gap-4">
           <Card className="border-[#b99f6b]">
             <CardHeader className="pb-2">
-              <SectionTitle icon={Swords}>Attacks</SectionTitle>
+              <SectionTitle icon={Swords}>Ataki</SectionTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
               {attacks.map((attack) => (
                 <div key={attack.name} className="rounded-sm border border-[#b99f6b] bg-[#fbf3dd]/70 px-3 py-2">
                   <div className="flex items-center justify-between">
                     <span className="font-display text-sm tracking-[0.06em] text-[#2e2113]">{attack.name}</span>
-                    <Badge variant="outline">+{attack.hitBonus} to hit</Badge>
+                    <Badge variant="outline">+{attack.hitBonus} do trafienia</Badge>
                   </div>
-                  <div className="mt-0.5 text-xs italic text-[#7c6a45]">
-                    Damage {attack.damageNotation}
+                  <div className="mt-0.5 text-sm text-[#7c6a45]">
+                    Obrażenia {attack.damageNotation}
                     {attack.damageBonus >= 0 ? " + " + attack.damageBonus : " " + attack.damageBonus} (
                     {ABILITY_LABELS[attack.ability]})
                   </div>
@@ -290,7 +290,7 @@ export default function CharacterSheetPage() {
                                   <span className="block font-display text-sm text-[#2e2113]">
                                     {meta.name}
                                   </span>
-                                  <span className="block text-xs italic text-[#7c6a45]">
+                                  <span className="block text-sm text-[#7c6a45]">
                                     {spellEffectSummary(meta)}
                                   </span>
                                 </span>
@@ -311,10 +311,10 @@ export default function CharacterSheetPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm italic text-[#7c6a45]">Brak znanych zaklęć.</p>
+                <p className="text-sm text-[#7c6a45]">Brak znanych zaklęć.</p>
               )}
               {spellSlots.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs italic text-[#7c6a45]">
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#7c6a45]">
                   {spellSlots.map((s) => (
                     <span key={s.level}>
                       Poziom {s.level}: {s.used}/{s.max}
@@ -327,7 +327,7 @@ export default function CharacterSheetPage() {
 
           <Card className="border-[#b99f6b]">
             <CardHeader className="pb-2">
-              <SectionTitle icon={Shield}>Inventory</SectionTitle>
+              <SectionTitle icon={Shield}>Ekwipunek</SectionTitle>
             </CardHeader>
             <CardContent>
               {character.inventory && character.inventory.length > 0 ? (
@@ -340,7 +340,7 @@ export default function CharacterSheetPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm italic text-[#7c6a45]">Empty.</p>
+                <p className="text-sm text-[#7c6a45]">Pusto.</p>
               )}
             </CardContent>
           </Card>

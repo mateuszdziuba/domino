@@ -35,6 +35,11 @@ import {
   type SpellCastResult,
 } from "../rules/spells.js";
 import { buildEncounter } from "../rules/monsters.js";
+import {
+  ADVENTURES,
+  buildAdventureState,
+  findAdventure,
+} from "../rules/adventures.js";
 import type { DmToolName } from "./types.js";
 import {
   spellcastingAbility,
@@ -171,6 +176,67 @@ export async function runDmTool(
       state = saveState(campaignId, state);
       pushEvent(campaignId, "state.updated", { by: "dm", patch: parsed.data });
       return { ok: true, message: "Stan kampanii zaktualizowany.", data: summarizeState(state) };
+    }
+    case "start_adventure": {
+      const parsed = z.object({ title: z.string().min(1).max(64) }).safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "Wymagany jest tytuł przygody (title)." };
+      }
+      const adventure = findAdventure(parsed.data.title);
+      if (!adventure) {
+        return {
+          ok: false,
+          message: `Nie znam tej przygody z biblioteki. Dostępne: ${ADVENTURES.map((a) => a.title).join(", ")}.`,
+        };
+      }
+      const patch = buildAdventureState(adventure);
+      let state = loadState(campaignId);
+      state = {
+        ...state,
+        location: patch.location,
+        scene: patch.scene,
+        worldProgress: patch.worldProgress,
+        notes: patch.notes,
+      };
+      state = saveState(campaignId, state);
+      pushEvent(campaignId, "state.updated", { by: "dm", patch });
+      return {
+        ok: true,
+        message: `Rozpoczynacie przygodę: ${adventure.title}. ${adventure.hook}`,
+        data: summarizeState(state),
+      };
+    }
+    case "create_adventure": {
+      const parsed = z.object({ description: z.string().min(3).max(300) }).safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "Opisz przygodę w 3–300 znakach (description)." };
+      }
+      const description = parsed.data.description.trim();
+      const progressLine =
+        description.length <= 64
+          ? `Nowa przygoda: ${description}`
+          : `Nowa przygoda: ${description.slice(0, 40)}...`;
+      const patch = {
+        location: "Nieznane miejsce",
+        scene: description,
+        worldProgress: [progressLine],
+        notes: description,
+      };
+      let state = loadState(campaignId);
+      state = {
+        ...state,
+        location: patch.location,
+        scene: patch.scene,
+        worldProgress: patch.worldProgress,
+        notes: patch.notes,
+      };
+      state = saveState(campaignId, state);
+      pushEvent(campaignId, "state.updated", { by: "dm", patch });
+      return {
+        ok: true,
+        message: `Tworzę nową przygodę na podstawie twojego opisu. ${description}`,
+        data: summarizeState(state),
+      };
     }
     case "generate_encounter": {
       const parsed = z.object({ description: z.string().max(300).optional() }).safeParse(rawArgs);

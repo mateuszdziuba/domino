@@ -152,3 +152,13 @@ export const campaignApi = {
     ),
   events: (id: string) => api<{ events: GameEvent[] }>(`/campaigns/${id}/events`),
 };
+
+export const inviteApi = {
+  get: (id: string) => api<{ code: string; url: string }>(`/campaigns/${id}/invite`, { method: "POST" }),
+  resolve: (code: string) => api<{ campaign: { id: string; name: string } }>(`/campaigns/invite/${code}`),
+  joinByCode: (code: string, characterId: string) =>
+    api<{ ok: boolean; campaignId: string; campaignName: string; members: CampaignMember[] }>(
+      "/campaigns/join",
+      { method: "POST", body: JSON.stringify({ code, characterId }) },
+    ),
+};

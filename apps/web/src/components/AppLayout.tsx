@@ -6,8 +6,8 @@ import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
 
 const navItems = [
-  { to: "/app/campaigns", label: "Campaigns", icon: Users },
-  { to: "/app/characters", label: "Characters", icon: ScrollText },
+  { to: "/app/campaigns", label: "Kampanie", icon: Users },
+  { to: "/app/characters", label: "Postacie", icon: ScrollText },
 ] as const;
 
 export default function AppLayout() {
@@ -42,7 +42,7 @@ export default function AppLayout() {
           <span className="text-sm italic text-[#c9b183]">{user?.username}</span>
           <Button variant="ghost" size="sm" onClick={() => void logout()} className="text-[#c9b183] hover:bg-[#33220e] hover:text-[#f4e4bd]">
             <LogOut className="size-4" />
-            Log out
+            Wyloguj się
           </Button>
         </div>
       </aside>

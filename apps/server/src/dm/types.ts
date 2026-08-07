@@ -14,6 +14,8 @@ export type DmToolName =
   | "take_long_rest"
   | "award_xp"
   | "update_world_state"
+  | "start_adventure"
+  | "create_adventure"
   | "generate_encounter";
 
 export type DmTool = {
@@ -103,6 +105,18 @@ export const DM_TOOLS: DmTool[] = [
     name: "update_world_state",
     description: "Persist a validated world change (location, scene, world progress, notes).",
     parameters: { patch: { type: "object" } },
+  },
+  {
+    name: "start_adventure",
+    description:
+      "Start a built-in free D&D 5e adventure from the library (preferred when the party begins a new adventure). Updates the campaign's location, scene, and world progress.",
+    parameters: { title: { type: "string" } },
+  },
+  {
+    name: "create_adventure",
+    description:
+      "Create a brand-new custom adventure from the players' description when no library adventure fits. Updates the campaign's location, scene, and notes.",
+    parameters: { description: { type: "string" } },
   },
   {
     name: "generate_encounter",

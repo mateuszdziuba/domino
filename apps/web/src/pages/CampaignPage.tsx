@@ -190,7 +190,7 @@ export default function CampaignPage() {
       await campaignApi.join(id, joinCharacterId);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to join");
+      setError(err instanceof Error ? err.message : "Nie udało się dołączyć");
     }
   }
 
@@ -212,7 +212,7 @@ export default function CampaignPage() {
       });
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send");
+      setError(err instanceof Error ? err.message : "Nie udało się wysłać");
     } finally {
       setSending(false);
     }
@@ -270,7 +270,7 @@ export default function CampaignPage() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl tracking-[0.1em] text-[#3a2c17]">
           <span className="mr-2 text-[#a97e1f]">✦</span>
-          {detail?.campaign.name ?? "Campaign"}
+          {detail?.campaign.name ?? "Kampania"}
         </h1>
         <Badge variant="secondary">{detail?.state.phase ?? "…"}</Badge>
         <Badge variant="outline">{detail?.state.location ?? "…"}</Badge>
@@ -281,7 +281,7 @@ export default function CampaignPage() {
           variant={connState === "live" ? "default" : connState === "offline" ? "destructive" : "secondary"}
           className={connState === "live" ? "text-[#2e7d32]" : undefined}
         >
-          {connState === "live" ? "Live" : connState === "offline" ? "Offline" : "Connecting…"}
+          {connState === "live" ? "Na żywo" : connState === "offline" ? "Offline" : "Łączenie…"}
         </Badge>
       </div>
 
@@ -289,20 +289,20 @@ export default function CampaignPage() {
         <div className="flex flex-col gap-4">
           <Card className="border-[#b99f6b]">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">DM chat</CardTitle>
-              <CardDescription>Describe what your character does.</CardDescription>
+              <CardTitle className="text-base">Czat z DM</CardTitle>
+              <CardDescription className="not-italic">Opisz, co robi twoja postać.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="scroll-parchment flex max-h-[55vh] min-h-[300px] flex-col gap-3 overflow-y-auto pr-1">
+              <div className="scroll-parchment scroll-pretty flex max-h-[55vh] min-h-[300px] flex-col gap-3 overflow-y-auto pr-1">
                 {messages.length === 0 && (
-                  <p className="text-sm italic text-[#7c6a45]">
-                    The adventure hasn't begun. Say something to the DM.
+                  <p className="text-sm text-[#7c6a45]">
+                    Przygoda jeszcze się nie zaczęła. Napisz coś do DM-a.
                   </p>
                 )}
                 {messages.map((message, i) => (
                   <div
                     key={message.id}
-                    className={`max-w-[85%] animate-fade-up px-3 py-2 text-sm shadow-[0_2px_6px_-3px_rgba(60,40,10,0.4)] ${
+                    className={`max-w-[85%] animate-fade-up px-3.5 py-2.5 text-[15px] leading-relaxed shadow-[0_2px_6px_-3px_rgba(60,40,10,0.4)] ${
                       message.role === "dm"
                         ? "self-start rounded-r-md rounded-tl-sm border border-[#c8b184] border-l-2 border-l-[#a97e1f] bg-[#efe2c4] text-[#2e2113]"
                         : "self-end rounded-l-md rounded-tr-sm border border-[#4a3417] bg-[#2e2113] text-[#f6ead0]"
@@ -310,13 +310,13 @@ export default function CampaignPage() {
                     style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
                   >
                     <div
-                      className={`mb-0.5 font-display text-[10px] uppercase tracking-[0.14em] ${
-                        message.role === "dm" ? "text-[#a97e1f]" : "text-[#c9b183]"
+                      className={`mb-1 font-display text-[10px] uppercase tracking-[0.18em] ${
+                        message.role === "dm" ? "text-[#8a5a20]" : "text-[#c9b183]"
                       }`}
                     >
                       {message.senderName}
                     </div>
-                    <div className="whitespace-pre-wrap italic">{message.content}</div>
+                    <div className="whitespace-pre-wrap">{message.content}</div>
                   </div>
                 ))}
                 <div ref={bottomRef} />
@@ -404,7 +404,7 @@ export default function CampaignPage() {
                                             {spell}
                                           </span>
                                           {meta && (
-                                            <span className="truncate text-[10px] italic text-[#7c6a45]">
+                                            <span className="truncate text-[10px] text-[#7c6a45]">
                                               {spellEffectSummary(meta)}
                                             </span>
                                           )}
@@ -486,13 +486,13 @@ export default function CampaignPage() {
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={`${member ? "Your turn, adventurer" : "Join with a character first"}…`}
+                  placeholder={`${member ? "Twoja tura, awanturniku" : "Najpierw dołącz postacią"}…`}
                   className="min-h-[60px] flex-1"
                   disabled={!member || sending}
                 />
                 <Button type="submit" disabled={!member || sending} className="self-end">
                   <Send className="size-4" />
-                  Send
+                  Wyślij
                 </Button>
               </form>
               {error && <p className="mt-2 text-sm text-[#8f1d1d]">{error}</p>}
@@ -502,12 +502,12 @@ export default function CampaignPage() {
           {!member && (
             <Card className="border-[#b99f6b]">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Join this campaign</CardTitle>
+                <CardTitle className="text-base">Dołącz do kampanii</CardTitle>
               </CardHeader>
               <CardContent>
                 <form onSubmit={onJoin} className="flex gap-2">
                   <Select value={joinCharacterId} onChange={(e) => setJoinCharacterId(e.target.value)}>
-                    <option value="">Choose a character…</option>
+                    <option value="">Wybierz postać…</option>
                     {myCharacters.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -515,14 +515,14 @@ export default function CampaignPage() {
                     ))}
                   </Select>
                   <Button type="submit" disabled={!joinCharacterId}>
-                    Join
+                    Dołącz
                   </Button>
                 </form>
                 {myCharacters.length === 0 && (
-                  <p className="mt-2 text-sm italic text-[#7c6a45]">
-                    You need a character first —{" "}
+                  <p className="mt-2 text-sm text-[#7c6a45]">
+                    Najpierw potrzebujesz postaci —{" "}
                     <Link to="/app/characters" className="font-display text-[11px] uppercase tracking-[0.1em] text-[#7a4b1d] underline-offset-4 hover:underline">
-                      create one
+                      utwórz ją
                     </Link>
                     .
                   </p>
@@ -546,12 +546,12 @@ export default function CampaignPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="size-4 text-[#a97e1f]" />
-                Party
+                Drużyna
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2 text-sm">
               {detail?.members.length === 0 && (
-                <p className="italic text-[#7c6a45]">No adventurers yet.</p>
+                <p className="text-[#7c6a45]">Brak awanturników.</p>
               )}
               {detail?.members.map((m) => (
                 <div key={m.characterId} className="flex items-center justify-between border-b border-dotted border-[#c8b184] pb-1">
@@ -559,7 +559,7 @@ export default function CampaignPage() {
                     <span className="mr-1 text-[10px] text-[#a97e1f]">✦</span>
                     {m.characterName ?? m.characterId}
                   </span>
-                  <Badge variant="outline">joined</Badge>
+                  <Badge variant="outline">dołączył</Badge>
                 </div>
               ))}
             </CardContent>
@@ -567,29 +567,29 @@ export default function CampaignPage() {
 
           <Card className="border-[#b99f6b]">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Your turn</CardTitle>
+              <CardTitle className="text-base">Twoja tura</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2 text-sm">
               <div className="flex items-center gap-2">
-                <span className="italic text-[#7c6a45]">Phase:</span>
+                <span className="text-[#7c6a45]">Faza:</span>
                 <Badge variant="secondary">{detail?.state.phase ?? "…"}</Badge>
               </div>
               {suggestion?.turnOf ? (
                 <p>
-                  It is <strong className="font-display tracking-[0.06em] text-[#7a4b1d]">{suggestion.turnOf.name}</strong>'s turn
+                  To tura <strong className="font-display tracking-[0.06em] text-[#7a4b1d]">{suggestion.turnOf.name}</strong>
                   {detail?.state.combat.active && (
-                    <span className="italic text-[#7c6a45]">
-                      {" "}· round {detail.state.combat.round}
+                    <span className="text-[#7c6a45]">
+                      {" "}· runda {detail.state.combat.round}
                     </span>
                   )}
                   .
                 </p>
               ) : (
-                <p className="italic text-[#7c6a45]">No active turn.</p>
+                <p className="text-[#7c6a45]">Brak aktywnej tury.</p>
               )}
               <div className="mt-1 flex flex-col gap-1">
                 {suggestion?.availableActions.length === 0 && (
-                  <p className="text-xs italic text-[#7c6a45]">Waiting for your turn…</p>
+                  <p className="text-xs text-[#7c6a45]">Czekaj na swoją turę…</p>
                 )}
                 {suggestion?.availableActions.map((action) => (
                   <div
@@ -598,12 +598,12 @@ export default function CampaignPage() {
                   >
                     <span>
                       <span className="font-display tracking-[0.06em] text-[#3a2c17]">{action.label}</span>
-                      <span className="italic text-[#7c6a45]"> · {action.description}</span>
+                      <span className="text-[#7c6a45]"> · {action.description}</span>
                     </span>
                     {action.legal ? (
-                      <Badge>available</Badge>
+                      <Badge>dostępna</Badge>
                     ) : (
-                      <Badge variant="outline">{action.reason ?? "unavailable"}</Badge>
+                      <Badge variant="outline">{action.reason ?? "niedostępna"}</Badge>
                     )}
                   </div>
                 ))}

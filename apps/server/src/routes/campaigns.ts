@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
@@ -43,6 +44,21 @@ const campaignSchema = z.object({
 const joinSchema = z.object({
   characterId: z.string().min(1),
 });
+
+const joinByInviteSchema = z.object({
+  code: z.string().min(1).max(64),
+  characterId: z.string().min(1),
+});
+
+const INVITE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+function generateInviteCode(): string {
+  let code = "";
+  for (let i = 0; i < 8; i++) {
+    code += INVITE_ALPHABET[randomInt(INVITE_ALPHABET.length)];
+  }
+  return code;
+}
 
 const chatSchema = z.object({
   content: z.string().min(1).max(2000),
@@ -110,6 +126,76 @@ campaignRoutes.post("/", requireAuth, async (c) => {
   });
   pushEvent(id, "campaign.created", { by: user.id });
   return c.json({ campaign: db.select().from(campaigns).where(eq(campaigns.id, id)).get() }, 201);
+});
+
+campaignRoutes.post("/:id/invite", requireAuth, (c) => {
+  const user = c.get("user");
+  const campaign = db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.id, c.req.param("id")))
+    .get();
+  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  const isOwner = campaign.ownerId === user.id;
+  const isMember = Boolean(getMember(campaign.id, user.id));
+  if (!isOwner && !isMember) return c.json({ error: "Campaign not found" }, 404);
+  if (!isOwner) return c.json({ error: "Brak kodu zaproszenia — wygeneruj go jako właściciel." }, 404);
+  let code = campaign.inviteCode;
+  if (!code) {
+    code = generateInviteCode();
+    db.update(campaigns).set({ inviteCode: code }).where(eq(campaigns.id, campaign.id)).run();
+  }
+  const url = `${process.env.WEB_ORIGIN ?? "http://localhost:5173"}/join?code=${code}`;
+  return c.json({ code, url });
+});
+
+campaignRoutes.get("/invite/:code", requireAuth, (c) => {
+  const campaign = db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.inviteCode, c.req.param("code")))
+    .get();
+  if (!campaign) return c.json({ error: "Nieprawidłowy kod zaproszenia." }, 404);
+  return c.json({ campaign: { id: campaign.id, name: campaign.name } });
+});
+
+campaignRoutes.post("/join", requireAuth, async (c) => {
+  const user = c.get("user");
+  const parsed = joinByInviteSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "Code and character id required" }, 400);
+  const campaign = db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.inviteCode, parsed.data.code))
+    .get();
+  if (!campaign) return c.json({ error: "Nieprawidłowy kod zaproszenia." }, 404);
+  const character = db
+    .select()
+    .from(characters)
+    .where(and(eq(characters.id, parsed.data.characterId), eq(characters.userId, user.id)))
+    .get();
+  if (!character) return c.json({ error: "Character not found" }, 404);
+  const existing = getMember(campaign.id, user.id);
+  if (existing) return c.json({ error: "Już jesteś członkiem tej kampanii." }, 409);
+
+  db.transaction((tx) => {
+    tx.insert(campaignMembers)
+      .values({ campaignId: campaign.id, userId: user.id, characterId: character.id })
+      .run();
+  });
+  pushEvent(campaign.id, "character.joined", {
+    userId: user.id,
+    characterId: character.id,
+  });
+  return c.json(
+    {
+      ok: true,
+      campaignId: campaign.id,
+      campaignName: campaign.name,
+      members: getCampaignMembers(campaign.id),
+    },
+    201,
+  );
 });
 
 campaignRoutes.post("/:id/join", requireAuth, async (c) => {
