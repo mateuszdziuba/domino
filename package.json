@@ -1,0 +1,23 @@
+{
+  "name": "dominoai",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,green \"pnpm --filter @domino/server dev\" \"pnpm --filter @domino/web dev\"",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "lint": "pnpm -r --if-present lint",
+    "db:generate": "pnpm --filter @domino/server db:generate",
+    "db:migrate": "pnpm --filter @domino/server db:migrate"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "eslint": "^9.39.5",
+    "typescript-eslint": "^8.65.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+  }
+}

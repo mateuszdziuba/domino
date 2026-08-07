@@ -1,0 +1,186 @@
+import { DM_TOOLS, type DmContext, type DmReply, type DmToolName } from "./types.js";
+import { runDmTool } from "./tools.js";
+
+export type DmProvider = "deepseek" | "groq" | "ollama" | "openrouter";
+
+type ProviderConfig = {
+  baseUrl: string;
+  apiKeyEnv: string | null;
+  defaultModel: string;
+};
+
+const PROVIDER_CONFIG: Record<DmProvider, ProviderConfig> = {
+  deepseek: {
+    baseUrl: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com",
+    apiKeyEnv: "DEEPSEEK_API_KEY",
+    defaultModel: "deepseek-v4-flash",
+  },
+  groq: {
+    baseUrl: "https://api.groq.com/openai/v1",
+    apiKeyEnv: "GROQ_API_KEY",
+    defaultModel: "llama-3.3-70b-versatile",
+  },
+  ollama: {
+    baseUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+    apiKeyEnv: null,
+    defaultModel: "qwen3:8b",
+  },
+  openrouter: {
+    baseUrl: "https://openrouter.ai/api/v1",
+    apiKeyEnv: "OPENROUTER_API_KEY",
+    defaultModel: "deepseek/deepseek-v4-flash:free",
+  },
+};
+
+export function dmProvider(): DmProvider {
+  const provider = (process.env.DM_PROVIDER ?? "deepseek").toLowerCase();
+  return provider in PROVIDER_CONFIG ? (provider as DmProvider) : "deepseek";
+}
+
+export function providerConfig(): ProviderConfig {
+  return PROVIDER_CONFIG[dmProvider()];
+}
+
+export function isDmConfigured(): boolean {
+  const config = providerConfig();
+  if (config.apiKeyEnv === null) return true; // local providers (ollama) need no key
+  return Boolean(process.env[config.apiKeyEnv]);
+}
+
+const MAX_TOOL_ROUNDS = 8;
+
+type ApiMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  tool_call_id?: string;
+  tool_calls?: {
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string };
+  }[];
+};
+
+const SYSTEM_PROMPT = `You are the Dungeon Master of a D&D 5.2.1 game (SRD rules).
+
+The rules engine is authoritative: you must never invent or override rules, HP, AC,
+initiative, or campaign state. Use the provided tools to read game state and rules
+before adjudicating, and to update world state after adjudication. Narrate vividly
+in the language the players use, resolve actions through the tools, keep the story
+moving, and hand agency back to the players. When combat is active, respect the
+initiative order: describe whose turn it is and what they can do.
+
+Only you decide when combat begins. When the story calls for it (the party walks
+into an ambush, picks a fight, or danger rears its head), call generate_encounter
+with a short description of the threat — the engine picks the monsters from the
+SRD catalog, never make them up. Never ask the players to start encounters or
+add enemies; they only describe what their characters do.`;
+
+export async function llmNarrate(
+  context: DmContext,
+  userMessage: string,
+): Promise<DmReply> {
+  const config = providerConfig();
+  const apiKey = config.apiKeyEnv ? process.env[config.apiKeyEnv] : undefined;
+  if (config.apiKeyEnv && !apiKey) {
+    throw new Error(`${config.apiKeyEnv} is not set for provider ${dmProvider()}`);
+  }
+  const model = process.env.DM_MODEL ?? config.defaultModel;
+
+  const messages: ApiMessage[] = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...context.recentMessages.slice(-20).map((m): ApiMessage => ({
+      role: m.role === "dm" ? "assistant" : "user",
+      content: `${m.senderName}: ${m.content}`,
+    })),
+    { role: "user", content: userMessage },
+  ];
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const response = await callLlm(config.baseUrl, model, apiKey, messages);
+    const toolCalls = response.tool_calls ?? [];
+
+    if (toolCalls.length === 0) {
+      const narration = response.content ?? "(no response)";
+      return { narration, toolCalls: mapToolCalls(toolCalls) };
+    }
+
+    messages.push({
+      role: "assistant",
+      content: response.content ?? "",
+      tool_calls: toolCalls,
+    });
+
+    for (const call of toolCalls) {
+      let args: unknown;
+      try {
+        args = JSON.parse(call.function.arguments || "{}");
+      } catch {
+        args = {};
+      }
+      const result = await runDmTool(
+        context.campaignId,
+        "dm",
+        call.function.name as DmToolName,
+        args,
+      );
+      messages.push({
+        role: "tool",
+        tool_call_id: call.id,
+        content: JSON.stringify(result),
+      });
+    }
+  }
+
+  return {
+    narration:
+      "(DM) The story bends under the weight of too many machinations — the tools have been consulted, but the scene is still unfolding. Try asking again.",
+  };
+}
+
+async function callLlm(
+  baseUrl: string,
+  model: string,
+  apiKey: string | undefined,
+  messages: ApiMessage[],
+): Promise<{
+  content: string | null;
+  tool_calls: NonNullable<ApiMessage["tool_calls"]>;
+}> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model,
+      messages,
+      tools: DM_TOOLS.map((t) => ({
+        type: "function",
+        function: { name: t.name, description: t.description, parameters: t.parameters },
+      })),
+      tool_choice: "auto",
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`LLM API error ${response.status}: ${body.slice(0, 500)}`);
+  }
+
+  const json = (await response.json()) as {
+    choices?: { message?: ApiMessage }[];
+  };
+  const message = json.choices?.[0]?.message;
+  return {
+    content: message?.content ?? null,
+    tool_calls: message?.tool_calls ?? [],
+  };
+}
+
+function mapToolCalls(toolCalls: NonNullable<ApiMessage["tool_calls"]>) {
+  return toolCalls.map((t) => ({
+    name: t.function.name as DmToolName,
+    arguments: JSON.parse(t.function.arguments || "{}") as Record<string, unknown>,
+  }));
+}

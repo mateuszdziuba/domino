@@ -1,0 +1,289 @@
+import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
+import { z } from "zod";
+import { and, asc, eq } from "drizzle-orm";
+import { db } from "../db/index.js";
+import {
+  campaignMembers,
+  campaignStates,
+  campaigns,
+  characters,
+  chatMessages,
+  gameEvents,
+} from "../db/schema.js";
+import { newId, isoNow } from "../lib/ids.js";
+import { requireAuth } from "../middleware/auth.js";
+import { defaultCampaignState } from "../rules/state.js";
+import { buildDmSuggestion } from "../rules/actions.js";
+import { dmNarrate } from "../dm/index.js";
+import { dmProvider, isDmConfigured } from "../dm/llm.js";
+import {
+  getCampaignCharacters,
+  getCampaignMembers,
+  getMember,
+  getRecentMessages,
+  loadState,
+  pushEvent,
+} from "../campaign/store.js";
+import { subscribe } from "../campaign/hub.js";
+import { combatRoutes } from "./combat.js";
+import type {
+  Campaign,
+  ChatMessage,
+  DmSuggestion,
+  GameEvent,
+} from "@domino/shared";
+
+const campaignSchema = z.object({
+  name: z.string().min(1).max(64),
+  description: z.string().max(500).optional(),
+});
+
+const joinSchema = z.object({
+  characterId: z.string().min(1),
+});
+
+const chatSchema = z.object({
+  content: z.string().min(1).max(2000),
+});
+
+export const campaignRoutes = new Hono();
+
+campaignRoutes.get("/", requireAuth, (c) => {
+  const user = c.get("user");
+  const owned = db.select().from(campaigns).where(eq(campaigns.ownerId, user.id)).all();
+  const memberRows = db
+    .select({ campaign: campaigns, member: campaignMembers })
+    .from(campaignMembers)
+    .innerJoin(campaigns, eq(campaignMembers.campaignId, campaigns.id))
+    .where(eq(campaignMembers.userId, user.id))
+    .all();
+  const memberCampaigns = memberRows.map((r) => r.campaign);
+  const seen = new Set<string>();
+  const list = [...owned, ...memberCampaigns].filter((c) => {
+    if (seen.has(c.id)) return false;
+    seen.add(c.id);
+    return true;
+  });
+  const result = list.map((c) => ({
+    id: c.id,
+    name: c.name,
+    description: c.description ?? undefined,
+    ownerId: c.ownerId,
+    createdAt: c.createdAt,
+    state: loadState(c.id),
+  }));
+  return c.json({ campaigns: result });
+});
+
+campaignRoutes.get("/:id", requireAuth, (c) => {
+  const user = c.get("user");
+  const campaign = getCampaignForUser(c.req.param("id"), user.id);
+  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  return c.json({
+    campaign,
+    state: loadState(campaign.id),
+    members: getCampaignMembers(campaign.id),
+  });
+});
+
+campaignRoutes.post("/", requireAuth, async (c) => {
+  const user = c.get("user");
+  const parsed = campaignSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) {
+    return c.json({ error: "Invalid campaign", details: parsed.error.flatten() }, 400);
+  }
+  const id = newId();
+  db.transaction((tx) => {
+    tx.insert(campaigns)
+      .values({
+        id,
+        name: parsed.data.name,
+        description: parsed.data.description ?? null,
+        ownerId: user.id,
+      })
+      .run();
+    tx.insert(campaignStates)
+      .values({ campaignId: id, state: defaultCampaignState() })
+      .run();
+  });
+  pushEvent(id, "campaign.created", { by: user.id });
+  return c.json({ campaign: db.select().from(campaigns).where(eq(campaigns.id, id)).get() }, 201);
+});
+
+campaignRoutes.post("/:id/join", requireAuth, async (c) => {
+  const user = c.get("user");
+  const campaign = db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.id, c.req.param("id")))
+    .get();
+  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  const parsed = joinSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "Character id required" }, 400);
+  const character = db
+    .select()
+    .from(characters)
+    .where(and(eq(characters.id, parsed.data.characterId), eq(characters.userId, user.id)))
+    .get();
+  if (!character) return c.json({ error: "Character not found" }, 404);
+  const existing = getMember(campaign.id, user.id);
+  if (existing) return c.json({ error: "Already a member" }, 409);
+
+  db.transaction((tx) => {
+    tx.insert(campaignMembers)
+      .values({ campaignId: campaign.id, userId: user.id, characterId: character.id })
+      .run();
+  });
+  pushEvent(campaign.id, "character.joined", {
+    userId: user.id,
+    characterId: character.id,
+  });
+  return c.json({ ok: true, members: getCampaignMembers(campaign.id) }, 201);
+});
+
+campaignRoutes.get("/:id/state", requireAuth, (c) => {
+  const user = c.get("user");
+  const campaign = getCampaignForUser(c.req.param("id"), user.id);
+  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  return c.json({ state: loadState(campaign.id) });
+});
+
+campaignRoutes.get("/:id/dm-suggestion", requireAuth, (c) => {
+  const user = c.get("user");
+  const campaign = getCampaignForUser(c.req.param("id"), user.id);
+  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  const member = getMember(campaign.id, user.id);
+  const state = loadState(campaign.id);
+  let suggestion: DmSuggestion | null = null;
+  if (member) {
+    const character = getCampaignCharacters(campaign.id).find(
+      (ch) => ch.id === member.characterId,
+    );
+    if (character) {
+      suggestion = buildDmSuggestion(character, state);
+    }
+  }
+  return c.json({ suggestion });
+});
+
+campaignRoutes.get("/:id/messages", requireAuth, (c) => {
+  const user = c.get("user");
+  const campaign = getCampaignForUser(c.req.param("id"), user.id);
+  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  return c.json({ messages: getRecentMessages(campaign.id, 500) });
+});
+
+campaignRoutes.post("/:id/messages", requireAuth, async (c) => {
+  const user = c.get("user");
+  const campaign = getCampaignForUser(c.req.param("id"), user.id);
+  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  const parsed = chatSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "Message too long or empty" }, 400);
+
+  const member = getMember(campaign.id, user.id);
+
+  const playerMessage: ChatMessage = {
+    id: newId(),
+    campaignId: campaign.id,
+    senderId: user.id,
+    senderName: member?.characterId ?? user.username,
+    role: "player",
+    content: parsed.data.content,
+    createdAt: isoNow(),
+  };
+  db.insert(chatMessages).values(playerMessage).run();
+  pushEvent(campaign.id, "chat.message", { message: playerMessage });
+
+  const state = loadState(campaign.id);
+  const charactersInCampaign = getCampaignCharacters(campaign.id);
+  const recent = getRecentMessages(campaign.id);
+
+  const dmReply = await dmNarrate(
+    { campaignId: campaign.id, characters: charactersInCampaign, state, recentMessages: recent },
+    parsed.data.content,
+  );
+  const dmMessage: ChatMessage = {
+    id: newId(),
+    campaignId: campaign.id,
+    senderName: "DM",
+    role: "dm",
+    content: dmReply.narration,
+    createdAt: isoNow(),
+  };
+  db.insert(chatMessages).values(dmMessage).run();
+  pushEvent(campaign.id, "chat.message", { message: dmMessage });
+
+  return c.json(
+    {
+      message: playerMessage,
+      dmMessage,
+      dmMode: isDmConfigured() ? dmProvider() : "preview",
+    },
+    201,
+  );
+});
+
+campaignRoutes.get("/:id/events", requireAuth, (c) => {
+  const user = c.get("user");
+  const campaign = getCampaignForUser(c.req.param("id"), user.id);
+  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  const rows = db
+    .select()
+    .from(gameEvents)
+    .where(eq(gameEvents.campaignId, campaign.id))
+    .orderBy(asc(gameEvents.createdAt))
+    .all();
+  const events: GameEvent[] = rows.map((r) => ({
+    id: r.id,
+    campaignId: r.campaignId,
+    type: r.type as GameEvent["type"],
+    payload: r.payload,
+    createdAt: r.createdAt,
+  }));
+  return c.json({ events });
+});
+
+campaignRoutes.get("/:id/stream", requireAuth, (c) => {
+  const user = c.get("user");
+  const campaign = getCampaignForUser(c.req.param("id"), user.id);
+  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  return streamSSE(c, async (stream) => {
+    const unsub = subscribe(campaign.id, (event) => {
+      try {
+        void stream.writeSSE({ event: event.type, data: JSON.stringify(event) });
+      } catch (err) {
+        if (!stream.closed) throw err;
+      }
+    });
+    await stream.writeSSE({ event: "connected", data: JSON.stringify({ ok: true }) });
+    const heartbeat = setInterval(() => {
+      void stream.write(": ping\n\n");
+    }, 15_000);
+    stream.onAbort(() => {
+      clearInterval(heartbeat);
+      unsub();
+    });
+    while (!stream.closed) {
+      await stream.sleep(1000);
+    }
+  });
+});
+
+campaignRoutes.route("/:id/combat", combatRoutes);
+
+function getCampaignForUser(id: string, userId: string): Campaign | undefined {
+  const campaign = db.select().from(campaigns).where(eq(campaigns.id, id)).get();
+  if (!campaign) return undefined;
+  const isOwner = campaign.ownerId === userId;
+  const isMember = Boolean(getMember(id, userId));
+  if (!isOwner && !isMember) return undefined;
+  return {
+    id: campaign.id,
+    name: campaign.name,
+    description: campaign.description ?? undefined,
+    ownerId: campaign.ownerId,
+    createdAt: campaign.createdAt,
+    state: loadState(id),
+  };
+}
