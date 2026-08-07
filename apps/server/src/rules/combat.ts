@@ -1,4 +1,4 @@
-import type { CampaignState, Combatant, CombatState } from "@domino/shared";
+import type { CampaignState, Character, Combatant, CombatState } from "@domino/shared";
 import { abilityModifier } from "./abilities.js";
 import { d, rollDiceNotation } from "./dice.js";
 
@@ -8,6 +8,7 @@ export type NewCombatant = {
   characterId?: string;
   isPlayer: boolean;
   maxHp: number;
+  currentHp?: number;
   armorClass: number;
   initiative?: number;
   dexterity?: number;
@@ -33,7 +34,7 @@ export function startCombat(
       characterId: entry.characterId,
       isPlayer: entry.isPlayer,
       initiative,
-      currentHp: entry.maxHp,
+      currentHp: entry.currentHp ?? entry.maxHp,
       maxHp: entry.maxHp,
       armorClass: entry.armorClass,
       status: "active",
@@ -68,14 +69,22 @@ export function currentTurnCombatant(state: CampaignState): Combatant | undefine
 export function nextTurn(state: CampaignState): CampaignState {
   const { combat } = state;
   if (!combat.active || combat.combatants.length === 0) return state;
-  const nextIndex = (combat.turnIndex + 1) % combat.combatants.length;
-  const round = nextIndex === 0 ? combat.round + 1 : combat.round;
+  const n = combat.combatants.length;
+  let nextIndex = (combat.turnIndex + 1) % n;
+  let crossedZero = nextIndex === 0;
+  let scanned = 0;
+  while (scanned < n && combat.combatants[nextIndex]!.status === "dead") {
+    nextIndex = (nextIndex + 1) % n;
+    if (nextIndex === 0) crossedZero = true;
+    scanned++;
+  }
+  if (scanned >= n) return state;
   return {
     ...state,
     combat: {
       ...combat,
       turnIndex: nextIndex,
-      round,
+      round: crossedZero ? combat.round + 1 : combat.round,
     },
     updatedAt: new Date().toISOString(),
   };
@@ -217,4 +226,85 @@ export function combatantByCharacter(
   characterId: string,
 ): Combatant | undefined {
   return state.combat.combatants.find((c) => c.characterId === characterId);
+}
+
+export type AttackOutcome =
+  | { ok: true; state: CampaignState; result: AttackResult; attacker: Combatant; target: Combatant }
+  | { ok: false; error: string };
+
+export function performAttack(
+  state: CampaignState,
+  attackerId: string,
+  targetId: string,
+  input: AttackInput,
+): AttackOutcome {
+  if (!state.combat.active) return { ok: false, error: "No combat in progress" };
+  const attacker = findCombatant(state, attackerId);
+  const target = findCombatant(state, targetId);
+  if (!attacker || !target) return { ok: false, error: "Combatant not found" };
+  if (attacker.id === target.id) return { ok: false, error: "Cannot attack yourself" };
+  if (attacker.status === "downed" || attacker.status === "dead") {
+    return { ok: false, error: "Attacker is incapacitated" };
+  }
+  if (target.status === "dead") return { ok: false, error: "Target is dead" };
+  const current = currentTurnCombatant(state);
+  if (!current || current.id !== attacker.id) {
+    return { ok: false, error: "Not this combatant's turn" };
+  }
+  const result = resolveAttack(target, input);
+  const newTarget = { ...target, currentHp: result.targetCurrentHp, status: result.targetStatus };
+  const combatants = state.combat.combatants.map((c) => (c.id === target.id ? newTarget : c));
+  return {
+    ok: true,
+    state: {
+      ...state,
+      combat: { ...state.combat, combatants },
+      updatedAt: new Date().toISOString(),
+    },
+    result,
+    attacker,
+    target,
+  };
+}
+
+export type DeathSaveOutcome =
+  | { ok: true; state: CampaignState; combatant: Combatant; result: DeathSaveResult }
+  | { ok: false; error: string };
+
+export function performDeathSave(state: CampaignState, combatantId: string): DeathSaveOutcome {
+  if (!state.combat.active) return { ok: false, error: "No combat in progress" };
+  const combatant = findCombatant(state, combatantId);
+  if (!combatant) return { ok: false, error: "Combatant not found" };
+  if (combatant.currentHp > 0) return { ok: false, error: "Combatant is not downed" };
+  const outcome = applyDeathSave(state.combat, combatantId);
+  if (!outcome) return { ok: false, error: "Combatant not found" };
+  const updated =
+    outcome.result.roll === 20
+      ? { ...outcome.combatant, currentHp: 1, status: "active" as const }
+      : outcome.combatant;
+  const combatants = state.combat.combatants.map((c) => (c.id === combatantId ? updated : c));
+  return {
+    ok: true,
+    state: {
+      ...state,
+      combat: { ...state.combat, combatants },
+      updatedAt: new Date().toISOString(),
+    },
+    combatant: updated,
+    result: outcome.result,
+  };
+}
+
+export function characterAttackInput(
+  attacker: Combatant,
+  character?: Character,
+): AttackInput {
+  if (character) {
+    return {
+      attackBonus: character.proficiencyBonus + abilityModifier(character.abilityScores.strength),
+      damageNotation: "1d8",
+      damageBonus: abilityModifier(character.abilityScores.strength),
+    };
+  }
+  return { attackBonus: 0, damageNotation: "1d6", damageBonus: 0 };
 }

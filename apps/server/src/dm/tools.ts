@@ -7,10 +7,20 @@ import {
   loadState,
   saveState,
   pushEvent,
+  updateCharacterHp,
 } from "../campaign/store.js";
 import { buildDmSuggestion, getAvailableActions } from "../rules/actions.js";
 import { rollDiceNotation } from "../rules/dice.js";
-import { nextTurn, currentTurnCombatant, startCombat } from "../rules/combat.js";
+import {
+  nextTurn,
+  currentTurnCombatant,
+  startCombat,
+  endCombat,
+  findCombatant,
+  performAttack,
+  performDeathSave,
+  characterAttackInput,
+} from "../rules/combat.js";
 import { buildEncounter } from "../rules/monsters.js";
 import type { DmToolName } from "./types.js";
 import type { CampaignState, Character } from "@domino/shared";
@@ -165,6 +175,7 @@ export async function runDmTool(
         characterId: ch.id,
         isPlayer: true,
         maxHp: ch.maxHp,
+        currentHp: ch.currentHp,
         armorClass: ch.armorClass,
         dexterity: ch.abilityScores.dexterity,
       }));
@@ -178,6 +189,100 @@ export async function runDmTool(
       return {
         ok: true,
         message: `Combat started: ${monsters.map((m) => m.name).join(", ")}. The initiative order is set; describe the scene and hand over to the first combatant.`,
+        data: summarizeState(state),
+      };
+    }
+    case "attack_combatant": {
+      const parsed = z
+        .object({
+          attackerId: z.string().min(1),
+          targetId: z.string().min(1),
+          damageNotation: z.string().optional(),
+          attackBonus: z.number().optional(),
+          damageBonus: z.number().optional(),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) return { ok: false, message: "attackerId and targetId required." };
+      const state = loadState(campaignId);
+      const attacker = findCombatant(state, parsed.data.attackerId);
+      if (!attacker) return { ok: false, message: "Combatant not found." };
+      let { attackBonus, damageNotation, damageBonus } = parsed.data;
+      if (attacker.characterId) {
+        const defaults = characterAttackInput(attacker, getCharacterById(attacker.characterId));
+        attackBonus ??= defaults.attackBonus;
+        damageNotation ??= defaults.damageNotation;
+        damageBonus ??= defaults.damageBonus;
+      }
+      const outcome = performAttack(state, parsed.data.attackerId, parsed.data.targetId, {
+        attackBonus: attackBonus ?? 0,
+        damageNotation: damageNotation ?? "1d6",
+        damageBonus: damageBonus ?? 0,
+      });
+      if (!outcome.ok) return { ok: false, message: `${outcome.error}.` };
+      if (outcome.target.characterId) {
+        updateCharacterHp(outcome.target.characterId, outcome.target.currentHp);
+      }
+      saveState(campaignId, outcome.state);
+      pushEvent(campaignId, "action.resolved", {
+        type: "attack",
+        attacker: outcome.attacker.name,
+        target: outcome.target.name,
+        ...outcome.result,
+      });
+      const verb = outcome.result.critical
+        ? "critically hits"
+        : outcome.result.hit
+          ? "hits"
+          : "misses";
+      const damage = outcome.result.hit
+        ? ` for ${outcome.result.damageTotal} damage${outcome.result.critical ? " (critical)" : ""}`
+        : "";
+      return {
+        ok: true,
+        message: `${outcome.attacker.name} ${verb} ${outcome.target.name} (attack ${outcome.result.attackTotal} vs AC ${outcome.target.armorClass})${damage}${outcome.result.fumble ? " — fumble!" : ""}.`,
+        data: outcome.result,
+      };
+    }
+    case "resolve_death_save": {
+      const parsed = z.object({ combatantId: z.string().min(1) }).safeParse(rawArgs);
+      if (!parsed.success) return { ok: false, message: "combatantId required." };
+      const state = loadState(campaignId);
+      const outcome = performDeathSave(state, parsed.data.combatantId);
+      if (!outcome.ok) return { ok: false, message: `${outcome.error}.` };
+      if (outcome.combatant.characterId) {
+        updateCharacterHp(outcome.combatant.characterId, outcome.combatant.currentHp);
+      }
+      saveState(campaignId, outcome.state);
+      pushEvent(campaignId, "action.resolved", {
+        type: "death-save",
+        combatant: outcome.combatant.name,
+        ...outcome.result,
+      });
+      const verdict = outcome.result.dead
+        ? "dies"
+        : outcome.result.stable
+          ? "stabilizes"
+          : `death save: ${outcome.result.roll} (${outcome.result.successes} success, ${outcome.result.failures} failure)`;
+      return {
+        ok: true,
+        message: `${outcome.combatant.name} ${verdict}.`,
+        data: outcome.result,
+      };
+    }
+    case "end_combat": {
+      let state = loadState(campaignId);
+      if (!state.combat.active) return { ok: false, message: "No combat in progress." };
+      for (const combatant of state.combat.combatants) {
+        if (combatant.characterId) {
+          updateCharacterHp(combatant.characterId, combatant.currentHp);
+        }
+      }
+      state = endCombat(state);
+      saveState(campaignId, state);
+      pushEvent(campaignId, "combat.ended", {});
+      return {
+        ok: true,
+        message: "Combat has ended. HP written back to the characters; the party returns to exploration.",
         data: summarizeState(state),
       };
     }

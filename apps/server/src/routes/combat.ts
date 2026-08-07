@@ -14,8 +14,8 @@ import {
   startCombat,
   nextTurn,
   endCombat,
-  resolveAttack,
-  applyDeathSave,
+  performAttack,
+  performDeathSave,
   currentTurnCombatant,
   findCombatant,
 } from "../rules/combat.js";
@@ -71,6 +71,7 @@ combatRoutes.post("/start", requireAuth, async (c) => {
       characterId: ch.id,
       isPlayer: true,
       maxHp: ch.maxHp,
+      currentHp: ch.currentHp,
       armorClass: ch.armorClass,
       dexterity: ch.abilityScores.dexterity,
     }));
@@ -125,6 +126,7 @@ combatRoutes.post("/generate", requireAuth, async (c) => {
     characterId: ch.id,
     isPlayer: true,
     maxHp: ch.maxHp,
+    currentHp: ch.currentHp,
     armorClass: ch.armorClass,
     dexterity: ch.abilityScores.dexterity,
   }));
@@ -208,23 +210,29 @@ combatRoutes.post("/attack", requireAuth, async (c) => {
   if (damageBonus === undefined) damageBonus = 0;
   damageNotation ??= "1d6";
 
-  const result = resolveAttack(target, { attackBonus, damageNotation, damageBonus });
+  const outcome = performAttack(state, parsed.data.attackerId, parsed.data.targetId, {
+    attackBonus,
+    damageNotation,
+    damageBonus,
+  });
+  if (!outcome.ok) return c.json({ error: outcome.error }, 400);
 
-  const newTarget = { ...target, currentHp: result.targetCurrentHp, status: result.targetStatus };
-  const idx = state.combat.combatants.findIndex((c) => c.id === target.id);
-  state.combat.combatants[idx] = newTarget;
+  const newTarget = outcome.target;
   if (newTarget.characterId) {
     updateCharacterHp(newTarget.characterId, newTarget.currentHp);
   }
-  saveState(campaignId, state);
+  saveState(campaignId, outcome.state);
   pushEvent(campaignId, "action.resolved", {
     type: "attack",
-    attacker: attacker.name,
-    target: target.name,
-    ...result,
+    attacker: outcome.attacker.name,
+    target: outcome.target.name,
+    ...outcome.result,
   });
 
-  return c.json({ result: { ...result, attackerName: attacker.name, targetName: target.name }, state });
+  return c.json({
+    result: { ...outcome.result, attackerName: outcome.attacker.name, targetName: outcome.target.name },
+    state: outcome.state,
+  });
 });
 
 combatRoutes.post("/death-save", requireAuth, async (c) => {
@@ -234,31 +242,22 @@ combatRoutes.post("/death-save", requireAuth, async (c) => {
   if (!parsed.success) return c.json({ error: "Combatant id required" }, 400);
 
   const state = loadState(campaignId);
-  if (!state.combat.active) return c.json({ error: "No combat in progress" }, 400);
-
-  const combatant = findCombatant(state, parsed.data.combatantId);
-  if (!combatant) return c.json({ error: "Combatant not found" }, 404);
-  if (combatant.currentHp > 0) {
-    return c.json({ error: "Combatant is not downed" }, 400);
+  const outcome = performDeathSave(state, parsed.data.combatantId);
+  if (!outcome.ok) {
+    const status = outcome.error === "Combatant not found" ? 404 : 400;
+    return c.json({ error: outcome.error }, status);
   }
 
-  const outcome = applyDeathSave(state.combat, parsed.data.combatantId);
-  if (!outcome) return c.json({ error: "Combatant not found" }, 404);
-
-  if (outcome.result.roll === 20) {
-    outcome.combatant.currentHp = 1;
-    outcome.combatant.status = "active";
-  }
   if (outcome.combatant.characterId) {
     updateCharacterHp(outcome.combatant.characterId, outcome.combatant.currentHp);
   }
-  saveState(campaignId, state);
+  saveState(campaignId, outcome.state);
   pushEvent(campaignId, "action.resolved", {
     type: "death-save",
-    combatant: combatant.name,
+    combatant: outcome.combatant.name,
     ...outcome.result,
   });
-  return c.json({ result: outcome.result, combatant: outcome.combatant, state });
+  return c.json({ result: outcome.result, combatant: outcome.combatant, state: outcome.state });
 });
 
 function requireCampaign(c: Context, campaignId: string): boolean {

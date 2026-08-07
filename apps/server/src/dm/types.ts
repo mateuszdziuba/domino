@@ -6,7 +6,10 @@ export type DmToolName =
   | "get_available_actions"
   | "request_dice_roll"
   | "resolve_action"
+  | "attack_combatant"
+  | "resolve_death_save"
   | "advance_turn"
+  | "end_combat"
   | "update_world_state"
   | "generate_encounter";
 
@@ -43,8 +46,32 @@ export const DM_TOOLS: DmTool[] = [
     parameters: { action: { type: "string" }, characterId: { type: "string" } },
   },
   {
+    name: "attack_combatant",
+    description:
+      "Resolve an attack by a combatant against a target through the rules engine. The attacker must be the current combatant in the initiative order. Applies damage to the target, updates HP/status (downed/dead), and saves the authoritative state. Returns the attack roll result.",
+    parameters: {
+      attackerId: { type: "string" },
+      targetId: { type: "string" },
+      damageNotation: { type: "string" },
+      attackBonus: { type: "number" },
+      damageBonus: { type: "number" },
+    },
+  },
+  {
+    name: "resolve_death_save",
+    description:
+      "Roll and apply a death save for a downed combatant (0 HP) through the rules engine. A natural 20 restores 1 HP and stabilizes; 3 successes stabilizes, 3 failures is death.",
+    parameters: { combatantId: { type: "string" } },
+  },
+  {
     name: "advance_turn",
     description: "Advance to the next combatant's turn according to the initiative order.",
+    parameters: {},
+  },
+  {
+    name: "end_combat",
+    description:
+      "End the active combat: each combatant's HP is written back to the character sheets and the campaign returns to exploration.",
     parameters: {},
   },
   {

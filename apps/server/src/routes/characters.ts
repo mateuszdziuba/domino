@@ -25,6 +25,7 @@ const characterSchema = z.object({
   level: z.number().int().min(1).max(20).default(1),
   abilityScores: abilityScoresSchema,
   maxHp: z.number().int().positive(),
+  currentHp: z.number().int().min(0).optional(),
   armorClass: z.number().int().positive(),
   speed: z.number().int().positive().default(30),
   alignment: z.string().max(32).optional(),
@@ -135,7 +136,7 @@ characterRoutes.patch("/:id", requireAuth, async (c) => {
     : existing.abilityScores;
   const level = data.level ?? existing.level;
   const maxHp = data.maxHp ?? existing.maxHp;
-  const currentHp = Math.min(existing.currentHp, maxHp);
+  const currentHp = Math.min(data.currentHp ?? existing.currentHp, maxHp);
 
   db.update(characters)
     .set({
