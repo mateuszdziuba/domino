@@ -7,3 +7,5 @@ dist/
 *.db-journal
 .data/
 .DS_Store
+*.db-shm
+*.db-wal
