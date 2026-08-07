@@ -44,10 +44,32 @@ export const characterApi = {
   remove: (id: string) => api<{ ok: boolean }>(`/characters/${id}`, { method: "DELETE" }),
 };
 
+export type SpellMeta = {
+  name: string;
+  level: number;
+  school: string;
+  components: string;
+  castingTime: string;
+  range: string;
+  duration: string;
+  effect: {
+    kind: "damage" | "heal" | "stabilize";
+    dice?: string;
+    damageType?: string;
+    attack?: boolean;
+    save?: string;
+    mod?: boolean;
+  };
+};
+
 export type CampaignDetail = {
   campaign: Campaign;
   state: CampaignState;
   members: CampaignMember[];
+};
+
+export const spellbookApi = {
+  list: () => api<{ spells: SpellMeta[] }>("/spells"),
 };
 
 export type AttackResultPayload = {

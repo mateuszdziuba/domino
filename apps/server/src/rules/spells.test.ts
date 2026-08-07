@@ -5,6 +5,7 @@ import {
   SPELLS,
   resolveSpellCast,
   spellSlotsForLevel,
+  summarizeSpells,
   type SpellCasterStats,
 } from "./spells.js";
 
@@ -291,5 +292,58 @@ describe("resolveSpellCast — stabilize", () => {
     const result = resolveSpellCast(SPARE_THE_DYING, casterStats, target());
     expect(result.targetCurrentHp).toBe(20);
     expect(result.targetStatus).toBe("active");
+  });
+});
+
+describe("summarizeSpells", () => {
+  it("returns all six known spells with the correct levels and details", () => {
+    const metas = summarizeSpells();
+    expect(metas).toHaveLength(6);
+    const byName = Object.fromEntries(metas.map((m) => [m.name, m]));
+    expect(byName["Sacred Flame"]).toMatchObject({
+      level: 0,
+      castingTime: "action",
+      range: "60 ft",
+      duration: "Instantaneous",
+      effect: { kind: "damage", save: "dexterity", dice: "1d8" },
+    });
+    expect(byName["Spare the Dying"]).toMatchObject({
+      level: 0,
+      effect: { kind: "stabilize" },
+    });
+    expect(byName["Guiding Bolt"]).toMatchObject({
+      level: 1,
+      effect: { kind: "damage", attack: true, dice: "4d6", damageType: "radiant" },
+    });
+    expect(byName["Cure Wounds"]).toMatchObject({
+      level: 1,
+      effect: { kind: "heal", mod: true, dice: "1d8" },
+    });
+  });
+
+  it("sorts by level then name", () => {
+    expect(summarizeSpells().map((m) => m.name)).toEqual([
+      "Sacred Flame",
+      "Spare the Dying",
+      "Cure Wounds",
+      "Guiding Bolt",
+      "Healing Word",
+      "Inflict Wounds",
+    ]);
+  });
+
+  it("includes every required field on each entry", () => {
+    for (const meta of summarizeSpells()) {
+      expect(meta).toMatchObject({
+        name: expect.any(String),
+        level: expect.any(Number),
+        school: expect.any(String),
+        components: expect.any(String),
+        castingTime: expect.any(String),
+        range: expect.any(String),
+        duration: expect.any(String),
+        effect: { kind: expect.stringMatching(/^(damage|heal|stabilize)$/) },
+      });
+    }
   });
 });

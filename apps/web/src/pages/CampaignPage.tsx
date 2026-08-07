@@ -4,7 +4,9 @@ import { Send, Users } from "lucide-react";
 import {
   campaignApi,
   characterApi,
+  spellbookApi,
   type CampaignDetail,
+  type SpellMeta,
 } from "../lib/api-client";
 import type { ChatMessage, DmSuggestion } from "@domino/shared";
 import { useAuth } from "../lib/auth";
@@ -41,6 +43,22 @@ const ACTION_PROMPTS: Record<string, string> = {
   rest: "Odpoczywamy przy ognisku.",
 };
 
+function spellEffectSummary(meta: SpellMeta): string {
+  if (meta.effect.kind === "damage") {
+    const dice = [meta.effect.dice, meta.effect.damageType].filter(Boolean).join(" ");
+    const extra = meta.effect.attack
+      ? ", atak"
+      : meta.effect.save
+        ? `, rzut obronny ${meta.effect.save}`
+        : "";
+    return `${dice}${extra}`;
+  }
+  if (meta.effect.kind === "heal") {
+    return `${meta.effect.dice ?? ""}${meta.effect.mod ? "+mod" : ""} leczenia`;
+  }
+  return "stabilizacja";
+}
+
 export default function CampaignPage() {
   const { id } = useParams({ from: "/app/campaigns/$id" });
   const { user } = useAuth();
@@ -62,6 +80,39 @@ export default function CampaignPage() {
     kind: "attack" | "death-save" | "spell";
   } | null>(null);
   const rollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [spellbook, setSpellbook] = useState<{
+    spells: string[];
+    slots: { level: number; used: number; max: number }[];
+    spellcastingAbility: string;
+  } | null>(null);
+  const [spellRegistry, setSpellRegistry] = useState<SpellMeta[] | null>(null);
+
+  const member = detail?.members.find((m) => m.userId === user?.id);
+
+  const refreshSpellbook = useCallback(() => {
+    if (!member?.characterId) {
+      setSpellbook(null);
+      return;
+    }
+    characterApi
+      .sheet(member.characterId)
+      .then(({ sheet }) =>
+        setSpellbook({
+          spells: sheet.character.spells ?? [],
+          slots: sheet.spellSlots,
+          spellcastingAbility: sheet.spellcasting?.ability ?? "",
+        }),
+      )
+      .catch(() => {});
+  }, [member?.characterId]);
+
+  useEffect(() => {
+    spellbookApi.list().then((r) => setSpellRegistry(r.spells)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshSpellbook();
+  }, [refreshSpellbook, id]);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -81,9 +132,11 @@ export default function CampaignPage() {
       onConnected: () => {
         setConnState("live");
         load();
+        refreshSpellbook();
       },
       onState: (state) => {
         setDetail((prev) => (prev ? { ...prev, state } : prev));
+        refreshSpellbook();
         campaignApi
           .dmSuggestion(id)
           .then(({ suggestion }) => setSuggestion(suggestion))
@@ -91,7 +144,10 @@ export default function CampaignPage() {
       },
       onChatMessage: (message) =>
         setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message])),
-      onActionResolved: (payload) => showRoll(payload),
+      onActionResolved: (payload) => {
+        showRoll(payload);
+        refreshSpellbook();
+      },
       onEvent: (type) => {
         if (type === "character.joined") load();
       },
@@ -140,7 +196,6 @@ export default function CampaignPage() {
     }
   }
 
-  const member = detail?.members.find((m) => m.userId === user?.id);
   const legalActions = (suggestion?.availableActions.filter((a) => a.legal) ?? []).slice(0, 6);
 
   function showRoll(payload: Record<string, unknown>) {
@@ -251,6 +306,46 @@ export default function CampaignPage() {
                 >
                   🎲 <span className="font-display tracking-[0.06em] text-[#7a4b1d]">{roll.label}</span>
                   {roll.detail && <> — {roll.detail}</>}
+                </div>
+              )}
+              {member && spellbook && spellbook.spells.length > 0 && (
+                <div className="mt-3">
+                  <div className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                    Księga zaklęć
+                  </div>
+                  {spellbook.slots.filter((s) => s.max > 0).length > 0 && (
+                    <div className="text-xs italic text-[#7c6a45]">
+                      Sloty:{" "}
+                      {spellbook.slots
+                        .filter((s) => s.max > 0)
+                        .map((s) => `Poziom ${s.level}: ${s.used}/${s.max}`)
+                        .join(" · ")}
+                    </div>
+                  )}
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {spellbook.spells.map((spell) => {
+                      const meta = spellRegistry?.find((s) => s.name === spell);
+                      const level = meta?.level ?? 1;
+                      const isCantrip = level === 0;
+                      const slot = isCantrip ? undefined : spellbook.slots[level - 1];
+                      const unavailable = !isCantrip && (!slot || slot.used >= slot.max);
+                      return (
+                        <button
+                          key={spell}
+                          type="button"
+                          disabled={unavailable}
+                          title={meta ? spellEffectSummary(meta) : undefined}
+                          onClick={() => setInput(`Rzucam ${spell} na `)}
+                          className="rounded-sm border border-[#c8b184] bg-[#fbf3dd]/60 px-2 py-1 font-display text-xs tracking-[0.06em] text-[#3a2c17] hover:bg-[#f0e2bd] disabled:pointer-events-none disabled:opacity-40"
+                        >
+                          {spell}
+                          <span className="ml-1 text-[9px] uppercase text-[#a97e1f]">
+                            {isCantrip ? "∞" : `L${level}`}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               {legalActions.length > 0 && (

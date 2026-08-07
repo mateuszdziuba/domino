@@ -125,6 +125,39 @@ export const SPELLS: Record<string, SpellDef> = {
   },
 };
 
+export type SpellMeta = {
+  name: string;
+  level: 0 | 1;
+  school: string;
+  components: string;
+  castingTime: string;
+  range: string;
+  duration: string;
+  effect: {
+    kind: "damage" | "heal" | "stabilize";
+    dice?: string;
+    damageType?: string;
+    attack?: boolean;
+    save?: keyof AbilityScore;
+    mod?: boolean;
+  };
+};
+
+export function summarizeSpells(): SpellMeta[] {
+  return Object.values(SPELLS)
+    .map((spell) => ({
+      name: spell.name,
+      level: spell.level,
+      school: spell.school,
+      components: spell.components,
+      castingTime: spell.effect.castingTime,
+      range: spell.effect.range,
+      duration: spell.effect.duration,
+      effect: spell.effect,
+    }))
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+}
+
 // Cleric spell slots per caster level (SRD 5.2.1 full-caster table), columns are 1st-5th level spell slots.
 // v1 cap: caster levels above 9 use the level-9 row.
 export function spellSlotsForLevel(casterLevel: number): number[] {

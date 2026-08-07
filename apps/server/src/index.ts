@@ -5,6 +5,7 @@ import { cors } from "hono/cors";
 import { authRoutes } from "./routes/auth.js";
 import { characterRoutes } from "./routes/characters.js";
 import { campaignRoutes } from "./routes/campaigns.js";
+import { spellRoutes } from "./routes/spells.js";
 
 const app = new Hono();
 
@@ -22,6 +23,7 @@ app.get("/api/health", (c) => c.json({ ok: true, service: "domino-server" }));
 app.route("/api/auth", authRoutes);
 app.route("/api/characters", characterRoutes);
 app.route("/api/campaigns", campaignRoutes);
+app.route("/api/spells", spellRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 

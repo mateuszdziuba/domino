@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft, Shield, Sparkles, Swords, Wand2 } from "lucide-react";
-import { characterApi } from "../lib/api-client";
+import { characterApi, spellbookApi, type SpellMeta } from "../lib/api-client";
 import type { CharacterSheet } from "@domino/shared";
 import { Badge } from "../components/ui/badge";
 import {
@@ -26,6 +26,22 @@ const XP_BY_LEVEL = [
   140000, 165000, 195000, 225000, 265000, 305000, 355000,
 ];
 
+function spellEffectSummary(meta: SpellMeta): string {
+  if (meta.effect.kind === "damage") {
+    const dice = [meta.effect.dice, meta.effect.damageType].filter(Boolean).join(" ");
+    const extra = meta.effect.attack
+      ? ", atak"
+      : meta.effect.save
+        ? `, rzut obronny ${meta.effect.save}`
+        : "";
+    return `${dice}${extra}`;
+  }
+  if (meta.effect.kind === "heal") {
+    return `${meta.effect.dice ?? ""}${meta.effect.mod ? "+mod" : ""} leczenia`;
+  }
+  return "stabilizacja";
+}
+
 function SectionTitle({ icon: Icon, children }: { icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
@@ -42,6 +58,13 @@ export default function CharacterSheetPage() {
   const { id } = useParams({ from: "/app/characters/$id" });
   const [sheet, setSheet] = useState<CharacterSheet | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [registry, setRegistry] = useState<SpellMeta[] | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    spellbookApi.list().then((r) => setRegistry(r.spells)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -65,6 +88,22 @@ export default function CharacterSheetPage() {
   if (!sheet) return <div className="mx-auto max-w-4xl italic text-[#7c6a45]">Reading the parchment…</div>;
 
   const { character, abilityModifiers, savingThrows, skills, attacks, spellcasting, spellSlots } = sheet;
+
+  async function toggleSpell(name: string) {
+    if (saving) return;
+    const known = character.spells ?? [];
+    const next = known.includes(name) ? known.filter((s) => s !== name) : [...known, name];
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { character: updated } = await characterApi.update(character.id, { spells: next });
+      setSheet((prev) => (prev ? { ...prev, character: updated } : prev));
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const xp = character.xp ?? 0;
   const maxedOut = character.level >= 20;
@@ -215,7 +254,7 @@ export default function CharacterSheetPage() {
 
           <Card className="border-[#b99f6b]">
             <CardHeader className="pb-2">
-              <SectionTitle icon={Wand2}>Spells</SectionTitle>
+              <SectionTitle icon={Wand2}>Zaklęcia</SectionTitle>
               {spellcasting && (
                 <CardDescription className="mt-1">
                   DC {spellcasting.saveDc} · attack +{spellcasting.attackBonus} (
@@ -224,7 +263,45 @@ export default function CharacterSheetPage() {
               )}
             </CardHeader>
             <CardContent>
-              {spellcasting && character.spells && character.spells.length > 0 ? (
+              {spellcasting && registry ? (
+                <div className={cn("flex flex-col gap-3", saving && "pointer-events-none opacity-60")}>
+                  {[...registry]
+                    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+                    .reduce<number[]>((levels, s) => (levels.includes(s.level) ? levels : [...levels, s.level]), [])
+                    .map((level) => (
+                      <div key={level}>
+                        <div className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                          {level === 0 ? "Cantripy" : `Poziom ${level}`}
+                        </div>
+                        <div className="mt-1 flex flex-col gap-1">
+                          {registry
+                            .filter((s) => s.level === level)
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((meta) => (
+                              <label key={meta.name} className="flex items-start gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={character.spells?.includes(meta.name) ?? false}
+                                  disabled={saving}
+                                  onChange={() => toggleSpell(meta.name)}
+                                  className="mt-1 accent-[#7a4b1d]"
+                                />
+                                <span>
+                                  <span className="block font-display text-sm text-[#2e2113]">
+                                    {meta.name}
+                                  </span>
+                                  <span className="block text-xs italic text-[#7c6a45]">
+                                    {spellEffectSummary(meta)}
+                                  </span>
+                                </span>
+                              </label>
+                            ))}
+                        </div>
+                      </div>
+                    ))}
+                  {saveError && <p className="text-sm text-[#8f1d1d]">{saveError}</p>}
+                </div>
+              ) : spellcasting && character.spells && character.spells.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                   {character.spells.map((spell) => (
                     <Badge key={spell}>
@@ -234,13 +311,13 @@ export default function CharacterSheetPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm italic text-[#7c6a45]">No spells known.</p>
+                <p className="text-sm italic text-[#7c6a45]">Brak znanych zaklęć.</p>
               )}
               {spellSlots.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs italic text-[#7c6a45]">
                   {spellSlots.map((s) => (
                     <span key={s.level}>
-                      Level {s.level}: {s.used}/{s.max}
+                      Poziom {s.level}: {s.used}/{s.max}
                     </span>
                   ))}
                 </div>
