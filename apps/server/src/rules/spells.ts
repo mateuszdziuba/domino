@@ -30,6 +30,7 @@ export type SpellEffect =
       range: string;
       duration: string;
       castingTime: "action";
+      castingTimeMinutes?: number;
     }
   | {
       kind: "condition_apply";
@@ -198,6 +199,7 @@ export const SPELLS: Record<string, SpellDef> = {
       range: "30 ft",
       duration: "Instantaneous",
       castingTime: "action",
+      castingTimeMinutes: 10,
     },
   },
   "Lesser Restoration": {

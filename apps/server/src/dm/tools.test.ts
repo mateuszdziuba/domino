@@ -676,6 +676,8 @@ describe("runDmTool cast_spell (mocked store)", () => {
       ...state.combat.combatants[1]!,
       currentHp: 0,
       status: "dead",
+      deathSaveSuccesses: 2,
+      deathSaveFailures: 3,
     };
     mock.states.set("c1", state);
     mock.characters.set(
@@ -691,6 +693,8 @@ describe("runDmTool cast_spell (mocked store)", () => {
     const goblin = mock.states.get("c1")!.combat.combatants.find((c) => c.id === "enemy-1")!;
     expect(goblin.currentHp).toBe(1);
     expect(goblin.status).toBe("active");
+    expect(goblin.deathSaveFailures).toBe(0);
+    expect(goblin.deathSaveSuccesses).toBe(0);
     expect(mock.pushEvent).toHaveBeenCalledWith(
       "c1",
       "action.resolved",
@@ -715,7 +719,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
     expect(result.message).toContain("wraca do życia");
   });
 
-  it("Prayer of Healing heals every party combatant in combat", async () => {
+  it("rejects Prayer of Healing during combat (10-minute ritual)", async () => {
     const state = clericCombatState();
     state.combat.combatants.push({
       id: "char-ch1",
@@ -732,28 +736,15 @@ describe("runDmTool cast_spell (mocked store)", () => {
     });
     mock.states.set("c1", state);
     mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Prayer of Healing"] }));
-    const original = Math.random;
-    Math.random = () => 0;
     const result = await runTool("cast_spell", {
       characterId: "ch2",
       spellName: "Prayer of Healing",
       targetId: "char-ch2",
     });
-    Math.random = original;
-    expect(result.ok).toBe(true);
-    const saved = mock.states.get("c1")!;
-    const elara = saved.combat.combatants.find((c) => c.id === "char-ch2")!;
-    const aria = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
-    expect(aria.currentHp).toBe(9);
-    expect(elara.currentHp).toBe(20);
-    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 9);
-    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch2", 20);
-    expect(result.message).toContain("Aria odzyskuje");
-    expect(mock.pushEvent).toHaveBeenCalledWith(
-      "c1",
-      "action.resolved",
-      expect.objectContaining({ type: "spell", spell: "Prayer of Healing", target: "party" }),
-    );
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("10 minut");
+    expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
+    expect(mock.updateCharacterHp).not.toHaveBeenCalled();
   });
 
   it("Prayer of Healing heals all member characters outside combat", async () => {
@@ -789,6 +780,42 @@ describe("runDmTool cast_spell (mocked store)", () => {
     });
     expect(result.ok).toBe(false);
     expect(result.message).toContain("walki");
+    expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
+  });
+
+  it("rejects a cast by an incapacitated caster even on their turn", async () => {
+    const state = clericCombatState();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      conditions: ["paralyzed"],
+    };
+    mock.states.set("c1", state);
+    mock.characters.set(
+      "ch2",
+      cleric({ spells: [...baseSpells, "Hold Person"] }),
+    );
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Hold Person",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("obezwładnion");
+    expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
+  });
+
+  it("rejects Prayer of Healing during combat (10-minute ritual)", async () => {
+    mock.characters.set(
+      "ch2",
+      cleric({ level: 5, spells: [...baseSpells, "Prayer of Healing"] }),
+    );
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Prayer of Healing",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("10 minut");
     expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
   });
 });
@@ -1067,6 +1094,17 @@ describe("runDmTool take_short_rest (mocked store)", () => {
     const result = await runTool("take_short_rest", {});
     expect(result.ok).toBe(true);
     expect(result.message).toContain("nikt nie ma kości życia");
+    expect(mock.updateCharacterHp).not.toHaveBeenCalled();
+    expect(mock.updateCharacterHitDice).not.toHaveBeenCalled();
+  });
+
+  it("does not spend Hit Dice on characters at full HP", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch1", fighter({ currentHp: 20 }));
+    const result = await runTool("take_short_rest", { hitDice: 3 });
+    expect(result.ok).toBe(true);
     expect(mock.updateCharacterHp).not.toHaveBeenCalled();
     expect(mock.updateCharacterHitDice).not.toHaveBeenCalled();
   });

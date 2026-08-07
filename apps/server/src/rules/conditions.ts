@@ -83,6 +83,18 @@ export function isConditionKey(key: string): boolean {
   return CONDITIONS.some((c) => c.key === key);
 }
 
+export function canAct(combatant: {
+  status?: string;
+  conditions?: string[];
+}): boolean {
+  if (combatant.status && combatant.status !== "active") return false;
+  const conditions = combatant.conditions ?? [];
+  return !conditions.some((key) => {
+    const def = CONDITIONS.find((c) => c.key === key);
+    return def ? !def.canAct : false;
+  });
+}
+
 export function attackRollAdvantages(
   attacker: Combatant,
   target: Combatant,
@@ -100,6 +112,8 @@ export function attackRollAdvantages(
     targetConditions.has("prone") ||
     targetConditions.has("restrained") ||
     targetConditions.has("paralyzed") ||
+    targetConditions.has("petrified") ||
+    targetConditions.has("stunned") ||
     targetConditions.has("unconscious") ||
     targetConditions.has(GUIDING_BOLT_MARKER);
   if (advantage && disadvantage) return { advantage: false, disadvantage: false };

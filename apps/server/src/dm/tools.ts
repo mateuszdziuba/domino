@@ -20,6 +20,7 @@ import {
   CONDITIONS,
   GUIDING_BOLT_MARKER,
   attackRollAdvantages,
+  canAct,
   isConditionKey,
 } from "../rules/conditions.js";
 import {
@@ -384,6 +385,15 @@ export async function runDmTool(
         if (!casterCombatant || !current || current.id !== casterCombatant.id) {
           return { ok: false, message: "To nie tura tego kombatanta." };
         }
+        if (!canAct(casterCombatant)) {
+          return { ok: false, message: "Rzucający jest obezwładniony i nie może działać." };
+        }
+        if (def.effect.kind === "heal_all" && def.effect.castingTimeMinutes) {
+          return {
+            ok: false,
+            message: `Ten rytuał trwa ${def.effect.castingTimeMinutes} minut — nie można go użyć w samym środku walki.`,
+          };
+        }
         targetCombatant = findCombatant(state, parsed.data.targetId);
         if (!targetCombatant) return { ok: false, message: "Nie znaleziono celu w walce." };
         if (targetCombatant.status === "dead" && def.effect.kind !== "revive") {
@@ -426,6 +436,14 @@ export async function runDmTool(
         nextUsed[def.level - 1] = (nextUsed[def.level - 1] ?? 0) + 1;
       }
       if (nextUsed) updateCharacterSpellSlots(character.id, nextUsed);
+      if (def.effect.kind === "heal_all" && !state.combat.active) {
+        const members = getCampaignMembers(campaignId)
+          .map((m) => getCharacterById(m.characterId))
+          .filter((ch): ch is Character => Boolean(ch));
+        if (members.length === 0) {
+          return { ok: false, message: "Nie znaleziono postaci-celu." };
+        }
+      }
       if (def.effect.kind === "heal_all") {
         if (state.combat.active && casterCombatant) {
           const healed: { name: string; healed: number }[] = [];
@@ -535,6 +553,9 @@ export async function runDmTool(
               (c) => c !== result.conditionRemoved,
             ),
           };
+        }
+        if (result.revived) {
+          updated = { ...updated, deathSaveSuccesses: 0, deathSaveFailures: 0 };
         }
         const combatants = state.combat.combatants.map((c) =>
           c.id === targetCombatant.id ? updated : c,
@@ -673,6 +694,7 @@ export async function runDmTool(
       for (const member of getCampaignMembers(campaignId)) {
         const character = getCharacterById(member.characterId);
         if (!character) continue;
+        if (character.currentHp >= character.maxHp) continue;
         const available = character.level - (character.hitDiceUsed ?? 0);
         const spend = Math.min(parsed.data.hitDice ?? available, available);
         if (spend <= 0) continue;
@@ -695,7 +717,8 @@ export async function runDmTool(
       if (healed.length === 0) {
         return {
           ok: true,
-          message: "Drużyna odpoczywa, ale nikt nie ma kości życia do wykorzystania.",
+          message:
+            "Krótki odpoczynek: nikt nie ma kości życia do wykorzystania (lub wszyscy są w pełni zdrowi).",
           data: summarizeState(state),
         };
       }

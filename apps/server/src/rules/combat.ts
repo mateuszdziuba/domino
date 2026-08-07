@@ -1,6 +1,10 @@
 import type { CampaignState, Character, Combatant, CombatState } from "@domino/shared";
 import { abilityModifier } from "./abilities.js";
-import { CONDITIONS, GUIDING_BOLT_MARKER, attackRollAdvantages } from "./conditions.js";
+import {
+  GUIDING_BOLT_MARKER,
+  attackRollAdvantages,
+  canAct,
+} from "./conditions.js";
 import { d, rollDiceNotation } from "./dice.js";
 
 export type NewCombatant = {
@@ -283,19 +287,9 @@ export function performAttack(
   const target = findCombatant(state, targetId);
   if (!attacker || !target) return { ok: false, error: "Combatant not found" };
   if (attacker.id === target.id) return { ok: false, error: "Cannot attack yourself" };
-  if (
-    attacker.currentHp === 0 ||
-    attacker.status === "downed" ||
-    attacker.status === "stable" ||
-    attacker.status === "dead"
-  ) {
+  if (attacker.currentHp === 0 || !canAct(attacker)) {
     return { ok: false, error: "Attacker is incapacitated" };
   }
-  const cannotAct = (attacker.conditions ?? []).some((key) => {
-    const def = CONDITIONS.find((c) => c.key === key);
-    return def !== undefined && !def.canAct;
-  });
-  if (cannotAct) return { ok: false, error: "Attacker is incapacitated" };
   if (target.status === "dead") return { ok: false, error: "Target is dead" };
   const current = currentTurnCombatant(state);
   if (!current || current.id !== attacker.id) {

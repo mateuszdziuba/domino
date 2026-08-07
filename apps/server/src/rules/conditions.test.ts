@@ -109,13 +109,13 @@ describe("attackRollAdvantages", () => {
     });
   });
 
-  it("ignores conditions that do not affect attack rolls", () => {
-    expect(attackRollAdvantages(combatant(["stunned"]), combatant())).toEqual({
-      advantage: false,
+  it("grants advantage against stunned and petrified targets", () => {
+    expect(attackRollAdvantages(combatant(), combatant(["stunned"]))).toEqual({
+      advantage: true,
       disadvantage: false,
     });
-    expect(attackRollAdvantages(combatant(), combatant(["stunned"]))).toEqual({
-      advantage: false,
+    expect(attackRollAdvantages(combatant(), combatant(["petrified"]))).toEqual({
+      advantage: true,
       disadvantage: false,
     });
   });
