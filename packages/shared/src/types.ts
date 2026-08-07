@@ -143,6 +143,8 @@ export type ServerStreamEvent = {
   type: "connected" | GameEventType;
   campaignId: string;
   payload?: unknown;
+  id?: string;
+  createdAt?: string;
 };
 
 export type GameEvent = {
