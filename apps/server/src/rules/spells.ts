@@ -1,4 +1,5 @@
 import type { AbilityScore, Combatant } from "@domino/shared";
+import { GUIDING_BOLT_MARKER } from "./conditions.js";
 import { applyHitToTarget } from "./combat.js";
 import { d, rollDiceNotation } from "./dice.js";
 
@@ -12,6 +13,7 @@ export type SpellEffect =
       range: string;
       duration: string;
       castingTime: "action";
+      rider?: "advantage_next_attack";
     }
   | {
       kind: "heal";
@@ -117,6 +119,7 @@ export const SPELLS: Record<string, SpellDef> = {
       range: "120 ft",
       duration: "1 round",
       castingTime: "action",
+      rider: "advantage_next_attack",
     },
   },
   "Inflict Wounds": {
@@ -198,14 +201,18 @@ export type SpellCasterStats = {
 
 export type SpellRollInput = {
   attack?: number;
+  attackSecond?: number;
   save?: number;
   dice?: number[];
+  advantage?: boolean;
+  disadvantage?: boolean;
 };
 
 export type SpellCastResult = {
   hit?: boolean;
   critical?: boolean;
   attackTotal?: number;
+  attackRolls?: number[];
   saveDc?: number;
   saveTotal?: number;
   damageTotal: number;
@@ -214,7 +221,17 @@ export type SpellCastResult = {
   healRolls: number[];
   targetCurrentHp: number;
   targetStatus: Combatant["status"];
+  riderApplied?: boolean;
 };
+
+export function applySpellRider(target: Combatant, def: SpellDef): Combatant | undefined {
+  if (def.effect.kind !== "damage" || def.effect.rider !== "advantage_next_attack") {
+    return undefined;
+  }
+  const conditions = target.conditions ?? [];
+  if (conditions.includes(GUIDING_BOLT_MARKER)) return undefined;
+  return { ...target, conditions: [...conditions, GUIDING_BOLT_MARKER] };
+}
 
 export function resolveSpellCast(
   def: SpellDef,
@@ -256,10 +273,22 @@ export function resolveSpellCast(
   }
 
   if (effect.attack) {
-    const attackRoll = rolls?.attack ?? d(20, 1)[0]!;
+    const attackRoll1 = rolls?.attack ?? d(20, 1)[0]!;
+    const useAdvantage = rolls?.advantage === true && rolls?.disadvantage !== true;
+    const useDisadvantage = rolls?.disadvantage === true && rolls?.advantage !== true;
+    let attackRoll = attackRoll1;
+    let attackRolls = [attackRoll1];
+    if (useAdvantage || useDisadvantage) {
+      const attackSecond = rolls?.attackSecond ?? d(20, 1)[0]!;
+      attackRolls = [attackRoll1, attackSecond];
+      attackRoll = useAdvantage
+        ? Math.max(attackRoll1, attackSecond)
+        : Math.min(attackRoll1, attackSecond);
+    }
     const critical = attackRoll === 20;
     const attackTotal = attackRoll + caster.spellAttackBonus;
     const hit = critical || attackTotal >= target.armorClass;
+    const riderApplied = hit && effect.rider === "advantage_next_attack";
     const allDice = rolls?.dice ?? rollDiceNotation(effect.dice).rolls;
     const first = critical ? allDice.slice(0, Math.floor(allDice.length / 2)) : allDice;
     const second = critical ? allDice.slice(Math.floor(allDice.length / 2)) : [];
@@ -272,6 +301,8 @@ export function resolveSpellCast(
       hit,
       critical,
       attackTotal,
+      attackRolls,
+      riderApplied,
       damageTotal,
       damageRolls: [...first, ...second],
       healed: 0,

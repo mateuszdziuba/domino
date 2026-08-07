@@ -48,6 +48,8 @@ const attackSchema = z.object({
   damageNotation: z.string().regex(/^\d*d\d+([+-]\d+)?$/).optional(),
   attackBonus: z.number().optional(),
   damageBonus: z.number().optional(),
+  advantage: z.boolean().optional(),
+  disadvantage: z.boolean().optional(),
 });
 
 const deathSaveSchema = z.object({
@@ -243,6 +245,8 @@ combatRoutes.post("/attack", requireAuth, async (c) => {
     attackBonus,
     damageNotation,
     damageBonus,
+    advantage: parsed.data.advantage,
+    disadvantage: parsed.data.disadvantage,
   });
   if (!outcome.ok) return c.json({ error: outcome.error }, 400);
 

@@ -9,11 +9,18 @@ import {
   pushEvent,
   updateCharacterHp,
   updateCharacterSpellSlots,
+  updateCharacterHitDice,
   grantXp,
 } from "../campaign/store.js";
 import { buildDmSuggestion, getAvailableActions } from "../rules/actions.js";
 import { rollDiceNotation } from "../rules/dice.js";
-import { xpAwardForDeadEnemies } from "../rules/advancement.js";
+import { xpAwardForDeadEnemies, hitDieForClass } from "../rules/advancement.js";
+import {
+  CONDITIONS,
+  GUIDING_BOLT_MARKER,
+  attackRollAdvantages,
+  isConditionKey,
+} from "../rules/conditions.js";
 import {
   nextTurn,
   currentTurnCombatant,
@@ -31,6 +38,7 @@ import {
   SPELLS,
   spellSlotsForLevel,
   resolveSpellCast,
+  applySpellRider,
   type SpellCasterStats,
   type SpellDef,
   type SpellCastResult,
@@ -289,6 +297,8 @@ export async function runDmTool(
           damageNotation: z.string().optional(),
           attackBonus: z.number().optional(),
           damageBonus: z.number().optional(),
+          advantage: z.boolean().optional(),
+          disadvantage: z.boolean().optional(),
         })
         .safeParse(rawArgs);
       if (!parsed.success) return { ok: false, message: "Wymagane są attackerId i targetId." };
@@ -306,6 +316,8 @@ export async function runDmTool(
         attackBonus: attackBonus ?? 0,
         damageNotation: damageNotation ?? "1d6",
         damageBonus: damageBonus ?? 0,
+        advantage: parsed.data.advantage,
+        disadvantage: parsed.data.disadvantage,
       });
       if (!outcome.ok) return { ok: false, message: `${outcome.error}.` };
       if (outcome.target.characterId) {
@@ -333,6 +345,8 @@ export async function runDmTool(
           characterId: z.string().min(1),
           spellName: z.string().min(1),
           targetId: z.string().min(1),
+          advantage: z.boolean().optional(),
+          disadvantage: z.boolean().optional(),
         })
         .safeParse(rawArgs);
       if (!parsed.success) {
@@ -403,12 +417,29 @@ export async function runDmTool(
       }
       if (nextUsed) updateCharacterSpellSlots(character.id, nextUsed);
       if (state.combat.active && casterCombatant && targetCombatant) {
-        const result = resolveSpellCast(def, stats, targetCombatant);
-        const updated: Combatant = {
+        const mods = attackRollAdvantages(casterCombatant, targetCombatant);
+        const result = resolveSpellCast(def, stats, targetCombatant, {
+          advantage: mods.advantage || parsed.data.advantage,
+          disadvantage: mods.disadvantage || parsed.data.disadvantage,
+        });
+        let updated: Combatant = {
           ...targetCombatant,
           currentHp: result.targetCurrentHp,
           status: result.targetStatus,
         };
+        if (result.riderApplied) {
+          updated = applySpellRider(updated, def) ?? updated;
+        } else if (
+          result.hit &&
+          (targetCombatant.conditions ?? []).includes(GUIDING_BOLT_MARKER)
+        ) {
+          updated = {
+            ...updated,
+            conditions: (targetCombatant.conditions ?? []).filter(
+              (c) => c !== GUIDING_BOLT_MARKER,
+            ),
+          };
+        }
         const combatants = state.combat.combatants.map((c) =>
           c.id === targetCombatant.id ? updated : c,
         );
@@ -501,6 +532,10 @@ export async function runDmTool(
         if (!character) continue;
         updateCharacterHp(character.id, character.maxHp);
         updateCharacterSpellSlots(character.id, []);
+        updateCharacterHitDice(
+          character.id,
+          Math.max(0, character.level - Math.max(1, Math.floor(character.level / 2))),
+        );
         healed.push(character.name);
       }
       const state = {
@@ -513,8 +548,148 @@ export async function runDmTool(
       return {
         ok: true,
         message:
-          "Drużyna odpoczywa (długi odpoczynek): wszyscy odzyskują pełne HP i sloty zaklęć.",
+          "Drużyna odpoczywa (długi odpoczynek): wszyscy odzyskują pełne HP, sloty zaklęć i połowę kości życia (minimum 1).",
         data: summarizeState(state),
+      };
+    }
+    case "take_short_rest": {
+      const parsed = z
+        .object({ hitDice: z.number().int().min(1).max(20).optional() })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "hitDice musi być liczbą całkowitą od 1 do 20." };
+      }
+      const state = loadState(campaignId);
+      if (state.combat.active) {
+        return { ok: false, message: "Nie można odpoczywać podczas walki." };
+      }
+      const healed: { name: string; healed: number; diceSpent: number }[] = [];
+      for (const member of getCampaignMembers(campaignId)) {
+        const character = getCharacterById(member.characterId);
+        if (!character) continue;
+        const available = character.level - (character.hitDiceUsed ?? 0);
+        const spend = Math.min(parsed.data.hitDice ?? available, available);
+        if (spend <= 0) continue;
+        const conMod = abilityModifier(character.abilityScores.constitution);
+        let total = 0;
+        for (let i = 0; i < spend; i++) {
+          const die = rollDiceNotation(`1d${hitDieForClass(character.className)}`).total;
+          total += Math.max(1, die + conMod);
+        }
+        const newHp = Math.min(character.maxHp, character.currentHp + total);
+        updateCharacterHp(character.id, newHp);
+        updateCharacterHitDice(character.id, (character.hitDiceUsed ?? 0) + spend);
+        healed.push({
+          name: character.name,
+          healed: newHp - character.currentHp,
+          diceSpent: spend,
+        });
+      }
+      pushEvent(campaignId, "action.resolved", { type: "short-rest", healed });
+      if (healed.length === 0) {
+        return {
+          ok: true,
+          message: "Drużyna odpoczywa, ale nikt nie ma kości życia do wykorzystania.",
+          data: summarizeState(state),
+        };
+      }
+      return {
+        ok: true,
+        message: `Krótki odpoczynek: ${healed
+          .map((h) => `${h.name} odzyskuje ${h.healed} punktów życia (spędzone kości: ${h.diceSpent})`)
+          .join("; ")}.`,
+        data: summarizeState(state),
+      };
+    }
+    case "apply_condition": {
+      const parsed = z
+        .object({ combatantId: z.string().min(1), condition: z.string().min(1) })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "Wymagane są combatantId i condition." };
+      }
+      const state = loadState(campaignId);
+      if (!state.combat.active) return { ok: false, message: "Brak walki w toku." };
+      const combatant = findCombatant(state, parsed.data.combatantId);
+      if (!combatant) return { ok: false, message: "Nie znaleziono kombatanta." };
+      const { condition } = parsed.data;
+      if (!isConditionKey(condition)) {
+        return {
+          ok: false,
+          message: `Nieznany stan "${condition}". Dostępne stany: ${CONDITIONS.map(
+            (c) => `${c.label} (${c.key})`,
+          ).join(", ")}.`,
+        };
+      }
+      const existing = combatant.conditions ?? [];
+      const updated: Combatant = existing.includes(condition)
+        ? combatant
+        : { ...combatant, conditions: [...existing, condition] };
+      const nextState: CampaignState = {
+        ...state,
+        combat: {
+          ...state.combat,
+          combatants: state.combat.combatants.map((c) =>
+            c.id === combatant.id ? updated : c,
+          ),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      saveState(campaignId, nextState);
+      pushEvent(campaignId, "action.resolved", {
+        type: "condition",
+        action: "apply",
+        combatant: combatant.name,
+        condition,
+      });
+      const label = CONDITIONS.find((c) => c.key === condition)!.label;
+      return {
+        ok: true,
+        message: `${combatant.name} otrzymuje stan: ${label}.`,
+        data: summarizeState(nextState),
+      };
+    }
+    case "remove_condition": {
+      const parsed = z
+        .object({ combatantId: z.string().min(1), condition: z.string().min(1) })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "Wymagane są combatantId i condition." };
+      }
+      const state = loadState(campaignId);
+      if (!state.combat.active) return { ok: false, message: "Brak walki w toku." };
+      const combatant = findCombatant(state, parsed.data.combatantId);
+      if (!combatant) return { ok: false, message: "Nie znaleziono kombatanta." };
+      const { condition } = parsed.data;
+      if (!isConditionKey(condition) && condition !== GUIDING_BOLT_MARKER) {
+        return { ok: false, message: `Nieznany stan "${condition}".` };
+      }
+      const existing = combatant.conditions ?? [];
+      const updated: Combatant = existing.includes(condition)
+        ? { ...combatant, conditions: existing.filter((c) => c !== condition) }
+        : combatant;
+      const nextState: CampaignState = {
+        ...state,
+        combat: {
+          ...state.combat,
+          combatants: state.combat.combatants.map((c) =>
+            c.id === combatant.id ? updated : c,
+          ),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      saveState(campaignId, nextState);
+      pushEvent(campaignId, "action.resolved", {
+        type: "condition",
+        action: "remove",
+        combatant: combatant.name,
+        condition,
+      });
+      const label = CONDITIONS.find((c) => c.key === condition)?.label ?? condition;
+      return {
+        ok: true,
+        message: `${combatant.name} traci stan: ${label}.`,
+        data: summarizeState(nextState),
       };
     }
     case "end_combat": {

@@ -60,6 +60,7 @@ export const characters = sqliteTable(
     spells: text("spells", { mode: "json" }),
     spellSlotsUsed: text("spell_slots_used", { mode: "json" }).notNull().default([]),
     xp: integer("xp").notNull().default(0),
+    hitDiceUsed: integer("hit_dice_used").notNull().default(0),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(datetime('now'))`),

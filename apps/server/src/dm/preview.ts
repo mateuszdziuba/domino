@@ -53,6 +53,8 @@ const COMBAT_TRIGGERS = [
 const REST_TRIGGER =
   /^(i|we|the party) (need to |want to |should )?(take a |long )?(rest|sleep)|^let'?s (take a |long )?(rest|sleep)|^(we )?(make )?camp|^camp$|^odpoczywamy|^odpoczywam|^śpimy|^spać|^sen|^oboz|^biwak|^ognisk/i;
 
+const SHORT_REST_TRIGGER = /^(krótki odpoczynek|krotki odpoczynek|short rest)/i;
+
 const START_ADVENTURE_TRIGGER =
   /^zacznijmy (przygodę|przygode)|^jakąś przygodę|^jakas przygode|^startuj przygodę|^startuj przygode/i;
 
@@ -162,6 +164,13 @@ export async function previewNarrate(
 ): Promise<DmReply> {
   const trimmed = userMessage.trim();
   const lower = trimmed.toLowerCase();
+
+  if (!context.state.combat.active && lower.match(SHORT_REST_TRIGGER)) {
+    const result = await runDmTool(context.campaignId, "dm", "take_short_rest", {});
+    return {
+      narration: result.ok ? result.message : `(DM preview) ${result.message}`,
+    };
+  }
 
   if (!context.state.combat.active && lower.match(START_ADVENTURE_TRIGGER)) {
     const adventure = ADVENTURES[0]!;

@@ -1,5 +1,6 @@
 import type { CampaignState, Character, Combatant, CombatState } from "@domino/shared";
 import { abilityModifier } from "./abilities.js";
+import { CONDITIONS, GUIDING_BOLT_MARKER, attackRollAdvantages } from "./conditions.js";
 import { d, rollDiceNotation } from "./dice.js";
 
 export type NewCombatant = {
@@ -105,6 +106,8 @@ export type AttackInput = {
   attackBonus: number;
   damageNotation: string;
   damageBonus: number;
+  advantage?: boolean;
+  disadvantage?: boolean;
 };
 
 export type AttackResult = {
@@ -112,6 +115,7 @@ export type AttackResult = {
   critical: boolean;
   fumble: boolean;
   attackRoll: number;
+  attackRolls: number[];
   attackTotal: number;
   damageTotal: number;
   damageRolls: number[];
@@ -123,7 +127,18 @@ export function resolveAttack(
   target: Combatant,
   input: AttackInput,
 ): AttackResult {
-  const attackRoll = d(20, 1)[0]!;
+  const useAdvantage = input.advantage === true && input.disadvantage !== true;
+  const useDisadvantage = input.disadvantage === true && input.advantage !== true;
+  let attackRoll: number;
+  let attackRolls: number[];
+  if (useAdvantage || useDisadvantage) {
+    const [first, second] = d(20, 2);
+    attackRolls = [first!, second!];
+    attackRoll = useAdvantage ? Math.max(first!, second!) : Math.min(first!, second!);
+  } else {
+    attackRoll = d(20, 1)[0]!;
+    attackRolls = [attackRoll];
+  }
   const critical = attackRoll === 20;
   const fumble = attackRoll === 1;
   const attackTotal = attackRoll + input.attackBonus;
@@ -135,6 +150,7 @@ export function resolveAttack(
       critical: false,
       fumble,
       attackRoll,
+      attackRolls,
       attackTotal,
       damageTotal: 0,
       damageRolls: [],
@@ -156,6 +172,7 @@ export function resolveAttack(
     critical,
     fumble,
     attackRoll,
+    attackRolls,
     attackTotal,
     damageTotal,
     damageRolls,
@@ -274,15 +291,31 @@ export function performAttack(
   ) {
     return { ok: false, error: "Attacker is incapacitated" };
   }
+  const cannotAct = (attacker.conditions ?? []).some((key) => {
+    const def = CONDITIONS.find((c) => c.key === key);
+    return def !== undefined && !def.canAct;
+  });
+  if (cannotAct) return { ok: false, error: "Attacker is incapacitated" };
   if (target.status === "dead") return { ok: false, error: "Target is dead" };
   const current = currentTurnCombatant(state);
   if (!current || current.id !== attacker.id) {
     return { ok: false, error: "Not this combatant's turn" };
   }
-  const result = resolveAttack(target, input);
+  const mods = attackRollAdvantages(attacker, target);
+  const result = resolveAttack(target, {
+    ...input,
+    advantage: mods.advantage || input.advantage === true,
+    disadvantage: mods.disadvantage || input.disadvantage === true,
+  });
   let newTarget: Combatant;
   if (result.hit) {
     newTarget = applyHitToTarget(target, result.damageTotal, result.critical);
+    if ((target.conditions ?? []).includes(GUIDING_BOLT_MARKER)) {
+      newTarget = {
+        ...newTarget,
+        conditions: (target.conditions ?? []).filter((c) => c !== GUIDING_BOLT_MARKER),
+      };
+    }
     result.targetStatus = newTarget.status;
   } else {
     newTarget = { ...target, currentHp: result.targetCurrentHp, status: result.targetStatus };

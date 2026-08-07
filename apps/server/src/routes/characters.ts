@@ -199,6 +199,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     inventory: (row.inventory ?? []) as Character["inventory"],
     spells: (row.spells as string[] | undefined) ?? undefined,
     spellSlotsUsed: (row.spellSlotsUsed as number[] | undefined) ?? undefined,
+    hitDiceUsed: row.hitDiceUsed ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

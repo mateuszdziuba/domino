@@ -20,6 +20,7 @@ const mock = vi.hoisted(() => {
     pushEvent: vi.fn(),
     updateCharacterHp: vi.fn(),
     updateCharacterSpellSlots: vi.fn(),
+    updateCharacterHitDice: vi.fn(),
     grantXp: vi.fn(),
     members: vi.fn(() => [] as { characterId: string }[]),
     defaultState,
@@ -35,6 +36,7 @@ vi.mock("../campaign/store.js", () => ({
   pushEvent: mock.pushEvent,
   updateCharacterHp: mock.updateCharacterHp,
   updateCharacterSpellSlots: mock.updateCharacterSpellSlots,
+  updateCharacterHitDice: mock.updateCharacterHitDice,
   grantXp: (id: string, amount: number) => mock.grantXp(id, amount),
   getCharacterById: (id: string) => mock.characters.get(id),
   getCampaignForUser: () => ({ id: "c1" }),
@@ -119,6 +121,7 @@ beforeEach(() => {
   mock.pushEvent.mockReset();
   mock.updateCharacterHp.mockReset();
   mock.updateCharacterSpellSlots.mockReset();
+  mock.updateCharacterHitDice.mockReset();
   mock.grantXp.mockReset();
   mock.grantXp.mockImplementation((id: string, amount: number) => {
     const ch = mock.characters.get(id);
@@ -477,6 +480,7 @@ describe("runDmTool take_long_rest (mocked store)", () => {
     mock.pushEvent.mockReset();
     mock.updateCharacterHp.mockReset();
     mock.updateCharacterSpellSlots.mockReset();
+    mock.updateCharacterHitDice.mockReset();
     mock.members.mockReset();
     mock.members.mockReturnValue([{ characterId: "ch1" }, { characterId: "ch2" }]);
     mock.states.set("c1", mock.defaultState());
@@ -507,6 +511,7 @@ describe("runDmTool take_long_rest (mocked store)", () => {
     mock.pushEvent.mockReset();
     mock.updateCharacterHp.mockReset();
     mock.updateCharacterSpellSlots.mockReset();
+    mock.updateCharacterHitDice.mockReset();
     mock.members.mockReset();
     mock.members.mockReturnValue([{ characterId: "ch1" }]);
     mock.states.set("c1", stateWithCombat());
@@ -517,7 +522,240 @@ describe("runDmTool take_long_rest (mocked store)", () => {
     expect(result.message).toContain("walki");
     expect(mock.updateCharacterHp).not.toHaveBeenCalled();
     expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
+    expect(mock.updateCharacterHitDice).not.toHaveBeenCalled();
     expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("resets spent Hit Dice to half of the level (minimum 1)", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch1", { ...aria, level: 3, hitDiceUsed: 3, currentHp: 4 });
+
+    const result = await runTool("take_long_rest", {});
+
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterHitDice).toHaveBeenCalledWith("ch1", 2);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 10);
+  });
+
+  it("never resets Hit Dice below zero at level 1", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch1", { ...aria, level: 1, hitDiceUsed: 1 });
+
+    const result = await runTool("take_long_rest", {});
+
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterHitDice).toHaveBeenCalledWith("ch1", 0);
+  });
+
+  it("mentions Hit Dice in the narration", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    mock.states.set("c1", mock.defaultState());
+
+    const result = await runTool("take_long_rest", {});
+
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("kości życia");
+  });
+});
+
+describe("runDmTool conditions (mocked store)", () => {
+  it("apply_condition adds the condition, saves state and pushes an event", async () => {
+    const result = await runTool("apply_condition", {
+      combatantId: "enemy-1",
+      condition: "prone",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("otrzymuje stan");
+    expect(result.message).toContain("Powalony");
+    const saved = mock.states.get("c1")!;
+    const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions).toEqual(["prone"]);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "condition",
+        action: "apply",
+        combatant: "Goblin",
+        condition: "prone",
+      }),
+    );
+  });
+
+  it("apply_condition dedupes an existing condition", async () => {
+    await runTool("apply_condition", { combatantId: "enemy-1", condition: "prone" });
+    await runTool("apply_condition", { combatantId: "enemy-1", condition: "prone" });
+    const saved = mock.states.get("c1")!;
+    const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions).toEqual(["prone"]);
+  });
+
+  it("apply_condition rejects an unknown condition and lists the available labels", async () => {
+    const result = await runTool("apply_condition", {
+      combatantId: "enemy-1",
+      condition: "teleport",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Nieznany stan");
+    expect(result.message).toContain("Ślepota");
+    expect(result.message).toContain("Nieprzytomny");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("apply_condition rejects without active combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    const result = await runTool("apply_condition", {
+      combatantId: "enemy-1",
+      condition: "prone",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Brak walki");
+  });
+
+  it("remove_condition clears the condition and pushes an event", async () => {
+    await runTool("apply_condition", { combatantId: "enemy-1", condition: "prone" });
+    const result = await runTool("remove_condition", {
+      combatantId: "enemy-1",
+      condition: "prone",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("traci stan");
+    expect(result.message).toContain("Powalony");
+    const saved = mock.states.get("c1")!;
+    const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions).toEqual([]);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "condition",
+        action: "remove",
+        combatant: "Goblin",
+        condition: "prone",
+      }),
+    );
+  });
+
+  it("remove_condition also removes the internal guiding_bolt marker", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["guiding_bolt"],
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("remove_condition", {
+      combatantId: "enemy-1",
+      condition: "guiding_bolt",
+    });
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions).toEqual([]);
+  });
+});
+
+describe("runDmTool take_short_rest (mocked store)", () => {
+  function fighter(overrides: Partial<Character> = {}): Character {
+    return {
+      ...aria,
+      level: 3,
+      currentHp: 5,
+      maxHp: 20,
+      hitDiceUsed: 0,
+      abilityScores: { ...aria.abilityScores, constitution: 14 },
+      ...overrides,
+    };
+  }
+
+  it("heals with spent Hit Dice and updates hitDiceUsed", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch1", fighter());
+    const seq = [0, 0, 0]; // 1d10 = 1 each -> (1 + 2 CON) * 3 = 9
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const result = await runTool("take_short_rest", { hitDice: 3 });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Krótki odpoczynek");
+    expect(result.message).toContain("odzyskuje 9 punktów życia");
+    expect(result.message).toContain("spędzone kości: 3");
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 14);
+    expect(mock.updateCharacterHitDice).toHaveBeenCalledWith("ch1", 3);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "short-rest",
+        healed: [{ name: "Aria", healed: 9, diceSpent: 3 }],
+      }),
+    );
+  });
+
+  it("caps spent dice at the character's available Hit Dice", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch1", fighter({ hitDiceUsed: 1 }));
+    const seq = [0, 0]; // 2 dice
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const result = await runTool("take_short_rest", { hitDice: 5 });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 11);
+    expect(mock.updateCharacterHitDice).toHaveBeenCalledWith("ch1", 3);
+  });
+
+  it("clamps healing to max HP", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch1", fighter({ currentHp: 17 }));
+    const seq = [0.95, 0.95, 0.95]; // 1d10 = 10 each -> (10 + 2) * 3 = 36
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const result = await runTool("take_short_rest", { hitDice: 3 });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 20);
+    expect(result.message).toContain("odzyskuje 3 punktów życia");
+  });
+
+  it("rejects resting during combat", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    const result = await runTool("take_short_rest", { hitDice: 2 });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("walki");
+    expect(mock.updateCharacterHp).not.toHaveBeenCalled();
+    expect(mock.updateCharacterHitDice).not.toHaveBeenCalled();
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("reports when nobody has Hit Dice to spend", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch1", fighter({ hitDiceUsed: 3 }));
+    const result = await runTool("take_short_rest", {});
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("nikt nie ma kości życia");
+    expect(mock.updateCharacterHp).not.toHaveBeenCalled();
+    expect(mock.updateCharacterHitDice).not.toHaveBeenCalled();
+  });
+
+  it("validates the hitDice argument", async () => {
+    mock.states.set("c1", mock.defaultState());
+    const result = await runTool("take_short_rest", { hitDice: 0 });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("hitDice");
   });
 });
 

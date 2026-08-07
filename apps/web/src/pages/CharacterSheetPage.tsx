@@ -143,6 +143,7 @@ export default function CharacterSheetPage() {
   const xpProgress = maxedOut
     ? 100
     : Math.max(0, Math.min(100, ((xp - prevThreshold) / Math.max(nextThreshold - prevThreshold, 1)) * 100));
+  const hitDiceAvailable = Math.max(0, character.level - (character.hitDiceUsed ?? 0));
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -180,7 +181,7 @@ export default function CharacterSheetPage() {
           <p className="text-sm text-[#7c6a45]">
             {character.race} {character.className} · poziom {character.level}
           </p>
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
               {maxedOut ? `XP ${xp} · maks. poziom` : `XP ${xp} / ${nextThreshold}`}
             </span>
@@ -190,6 +191,21 @@ export default function CharacterSheetPage() {
                 style={{ width: `${xpProgress}%` }}
               />
             </span>
+            <TooltipProvider delayDuration={250}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                    Kości życia: {hitDiceAvailable}/{character.level}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                    Krótki odpoczynek pozwala spędzić kości życia, aby się leczyć (kość klasy +
+                    modyfikator Kondycji). Długi odpoczynek przywraca połowę z nich.
+                  </span>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
         <div className="ml-auto flex gap-2">

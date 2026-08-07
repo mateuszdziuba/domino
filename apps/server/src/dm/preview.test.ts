@@ -68,6 +68,7 @@ const mock = vi.hoisted(() => {
     pushEvent: vi.fn(),
     updateCharacterHp: vi.fn(),
     updateCharacterSpellSlots: vi.fn(),
+    updateCharacterHitDice: vi.fn(),
     defaultState,
   };
 });
@@ -81,6 +82,7 @@ vi.mock("../campaign/store.js", () => ({
   pushEvent: mock.pushEvent,
   updateCharacterHp: mock.updateCharacterHp,
   updateCharacterSpellSlots: mock.updateCharacterSpellSlots,
+  updateCharacterHitDice: mock.updateCharacterHitDice,
   getCharacterById: (id: string) => mock.characters.get(id),
   getCampaignForUser: () => ({ id: "c1" }),
   getCampaignMembers: () => mock.members,
@@ -386,6 +388,39 @@ describe("previewNarrate long rest and stable combatants", () => {
       "state.updated",
       expect.objectContaining({ action: "long_rest" }),
     );
+  });
+
+  it("triggers a short rest from a Polish short-rest message", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.members = [{ characterId: "ch1" }];
+    mock.characters.set("ch1", { ...aria });
+    mock.states.set("c1", mock.defaultState());
+
+    const reply = await previewNarrate(
+      context(mock.defaultState()),
+      "Krótki odpoczynek przy ognisku",
+    );
+
+    expect(reply.narration).toContain("Krótki odpoczynek");
+    expect(reply.narration).not.toContain("(DM preview) Mówisz");
+    const saved = mock.states.get("c1")!;
+    expect(saved.combat.active).toBe(false);
+  });
+
+  it("triggers a short rest from an English 'short rest' message", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.members = [{ characterId: "ch1" }];
+    mock.characters.set("ch1", { ...aria });
+    mock.states.set("c1", mock.defaultState());
+
+    const reply = await previewNarrate(context(mock.defaultState()), "Short rest");
+
+    expect(reply.narration).toContain("Krótki odpoczynek");
+    expect(reply.narration).not.toContain("(DM preview) Mówisz");
   });
 
   it('generates an encounter for "I attack the sleeping guard" instead of a long rest', async () => {

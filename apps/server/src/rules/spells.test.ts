@@ -6,6 +6,7 @@ import {
   resolveSpellCast,
   spellSlotsForLevel,
   summarizeSpells,
+  applySpellRider,
   type SpellCasterStats,
 } from "./spells.js";
 
@@ -173,6 +174,83 @@ describe("resolveSpellCast — attack-roll damage spells", () => {
     expect(result.damageRolls).toHaveLength(8);
     expect(result.targetCurrentHp).toBe(0);
     expect(result.targetStatus).toBe("downed");
+  });
+
+  it("uses the higher die on an attack roll with advantage", () => {
+    const result = resolveSpellCast(GUIDING_BOLT, casterStats, target(), {
+      attack: 5,
+      attackSecond: 18,
+      advantage: true,
+      dice: [1, 2, 3, 4],
+    });
+    expect(result.attackRolls).toEqual([5, 18]);
+    expect(result.attackTotal).toBe(23);
+    expect(result.hit).toBe(true);
+  });
+
+  it("uses the lower die on an attack roll with disadvantage", () => {
+    const result = resolveSpellCast(GUIDING_BOLT, casterStats, target(), {
+      attack: 18,
+      attackSecond: 5,
+      disadvantage: true,
+      dice: [1, 2, 3, 4],
+    });
+    expect(result.attackRolls).toEqual([18, 5]);
+    expect(result.attackTotal).toBe(10);
+    expect(result.hit).toBe(false);
+  });
+
+  it("treats both advantage and disadvantage as a normal roll", () => {
+    const result = resolveSpellCast(GUIDING_BOLT, casterStats, target(), {
+      attack: 15,
+      attackSecond: 3,
+      advantage: true,
+      disadvantage: true,
+      dice: [1, 2, 3, 4],
+    });
+    expect(result.attackRolls).toEqual([15]);
+    expect(result.attackTotal).toBe(20);
+    expect(result.hit).toBe(true);
+  });
+
+  it("sets riderApplied when Guiding Bolt hits", () => {
+    const result = resolveSpellCast(GUIDING_BOLT, casterStats, target(), {
+      attack: 15,
+      dice: [1, 2, 3, 4],
+    });
+    expect(result.hit).toBe(true);
+    expect(result.riderApplied).toBe(true);
+  });
+
+  it("does not apply the rider when Guiding Bolt misses", () => {
+    const result = resolveSpellCast(GUIDING_BOLT, casterStats, target(), {
+      attack: 5,
+      dice: [1, 2, 3, 4],
+    });
+    expect(result.hit).toBe(false);
+    expect(result.riderApplied).toBe(false);
+  });
+
+  it("carries the rider only on Guiding Bolt", () => {
+    expect(GUIDING_BOLT.effect).toMatchObject({
+      kind: "damage",
+      attack: true,
+      rider: "advantage_next_attack",
+    });
+    expect(SPELLS["Inflict Wounds"]!.effect).not.toHaveProperty("rider");
+    const result = resolveSpellCast(SPELLS["Inflict Wounds"]!, casterStats, target(), {
+      attack: 15,
+      dice: [1, 2, 3],
+    });
+    expect(result.riderApplied).toBe(false);
+  });
+
+  it("applySpellRider appends the guiding_bolt marker once", () => {
+    const marked = applySpellRider(target(), GUIDING_BOLT);
+    expect(marked?.conditions).toEqual(["guiding_bolt"]);
+    const again = applySpellRider(marked!, GUIDING_BOLT);
+    expect(again).toBeUndefined();
+    expect(applySpellRider(target(), SPELLS["Cure Wounds"]!)).toBeUndefined();
   });
 });
 

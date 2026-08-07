@@ -132,6 +132,13 @@ export function updateCharacterSpellSlots(characterId: string, used: number[]): 
     .run();
 }
 
+export function updateCharacterHitDice(characterId: string, used: number): void {
+  db.update(characters)
+    .set({ hitDiceUsed: Math.max(0, used), updatedAt: isoNow() })
+    .where(eq(characters.id, characterId))
+    .run();
+}
+
 export function grantXp(characterId: string, amount: number): { xp: number; level: number } {
   const row = db.select().from(characters).where(eq(characters.id, characterId)).get();
   if (!row) return { xp: 0, level: 1 };
@@ -199,6 +206,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     inventory: (row.inventory ?? []) as Character["inventory"],
     spells: (row.spells as string[] | undefined) ?? undefined,
     spellSlotsUsed: (row.spellSlotsUsed as number[] | undefined) ?? undefined,
+    hitDiceUsed: row.hitDiceUsed ?? 0,
     xp: row.xp ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

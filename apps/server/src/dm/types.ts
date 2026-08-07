@@ -11,7 +11,10 @@ export type DmToolName =
   | "resolve_death_save"
   | "advance_turn"
   | "end_combat"
+  | "take_short_rest"
   | "take_long_rest"
+  | "apply_condition"
+  | "remove_condition"
   | "award_xp"
   | "update_world_state"
   | "start_adventure"
@@ -90,10 +93,28 @@ export const DM_TOOLS: DmTool[] = [
     parameters: {},
   },
   {
+    name: "take_short_rest",
+    description:
+      "The party takes a short rest (at least 1 hour): each character may spend Hit Dice to heal (class die + CON mod per die). Only outside combat.",
+    parameters: { hitDice: { type: "number" } },
+  },
+  {
     name: "take_long_rest",
     description:
-      "The party takes a long rest (at least 8 hours, per SRD): every character in the campaign recovers to full HP and regains spell slots. Only allowed outside combat.",
+      "The party takes a long rest (at least 8 hours, per SRD): every character in the campaign recovers to full HP, regains spell slots, and restores half of its Hit Dice (minimum 1). Only allowed outside combat.",
     parameters: {},
+  },
+  {
+    name: "apply_condition",
+    description:
+      "Apply a SRD condition (blinded, frightened, poisoned, prone, restrained, paralyzed, petrified, stunned, unconscious, incapacitated) to a combatant in the active combat.",
+    parameters: { combatantId: { type: "string" }, condition: { type: "string" } },
+  },
+  {
+    name: "remove_condition",
+    description:
+      "Remove a condition from a combatant in the active combat. Also works for the internal guiding_bolt marker.",
+    parameters: { combatantId: { type: "string" }, condition: { type: "string" } },
   },
   {
     name: "award_xp",

@@ -225,6 +225,246 @@ describe("performAttack", () => {
     });
     expect(enemy(state).currentHp).toBe(8);
   });
+
+  it("rolls twice and keeps the higher die with advantage", () => {
+    const seq = [0.2, 0.85, 0.0]; // d20: 5, 18; damage 1d1
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+      advantage: true,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([5, 18]);
+    expect(outcome.result.attackRoll).toBe(18);
+    expect(outcome.result.hit).toBe(true);
+  });
+
+  it("rolls twice and keeps the lower die with disadvantage", () => {
+    const seq = [0.85, 0.2, 0.0]; // d20: 18, 5
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+      disadvantage: true,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([18, 5]);
+    expect(outcome.result.attackRoll).toBe(5);
+    expect(outcome.result.hit).toBe(false);
+  });
+
+  it("crits with advantage when the higher die is a natural 20", () => {
+    const seq = [0.2, 0.95, 0.0, 0.0]; // d20: 5, 20; crit doubles 1d1
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+      advantage: true,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([5, 20]);
+    expect(outcome.result.attackRoll).toBe(20);
+    expect(outcome.result.critical).toBe(true);
+    expect(outcome.result.damageRolls).toHaveLength(2);
+  });
+
+  it("does not crit with disadvantage unless the taken die is 20", () => {
+    const seq = [0.95, 0.2, 0.0]; // d20: 20, 5 -> effective 5
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+      disadvantage: true,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRoll).toBe(5);
+    expect(outcome.result.critical).toBe(false);
+  });
+
+  it("crits with disadvantage only when the lower die is a natural 20", () => {
+    const seq = [0.95, 0.95, 0.0, 0.0]; // d20: 20, 20
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+      disadvantage: true,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([20, 20]);
+    expect(outcome.result.attackRoll).toBe(20);
+    expect(outcome.result.critical).toBe(true);
+  });
+
+  it("applies condition-driven disadvantage (blinded attacker)", () => {
+    const seq = [0.85, 0.2, 0.0]; // d20: 18, 5
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      conditions: ["blinded"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([18, 5]);
+    expect(outcome.result.attackRoll).toBe(5);
+  });
+
+  it("cancels condition advantage and disadvantage into a normal roll", () => {
+    const seq = [0.5]; // single d20: 11
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      conditions: ["blinded"],
+    };
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["prone"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([11]);
+  });
+
+  it("merges explicit flags with condition modifiers (both present -> normal roll)", () => {
+    const seq = [0.5]; // single d20: 11
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      conditions: ["blinded"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+      advantage: true,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([11]);
+  });
+
+  it("rejects an attacker with a canAct-false condition (unconscious)", () => {
+    const state = combatState(0);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      conditions: ["unconscious"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
+  });
+
+  it("rejects a paralyzed attacker", () => {
+    const state = combatState(0);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      conditions: ["paralyzed"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
+  });
+
+  it("allows a blinded attacker to act (disadvantage only)", () => {
+    const state = combatState(0);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      conditions: ["blinded"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    expect(outcome.ok).toBe(true);
+  });
+
+  it("consumes the guiding_bolt marker on a successful hit", () => {
+    const state = combatState(0);
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["guiding_bolt"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(enemy(outcome.state).conditions).toEqual([]);
+  });
+
+  it("keeps the guiding_bolt marker on a miss", () => {
+    const seq = [0.0]; // d20: 1 -> miss (attack total 1 < AC 12)
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["guiding_bolt"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d8",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.hit).toBe(false);
+    expect(enemy(outcome.state).conditions).toEqual(["guiding_bolt"]);
+  });
 });
 
 describe("lethal damage at 0 HP and stable status", () => {

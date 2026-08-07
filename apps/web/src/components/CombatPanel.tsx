@@ -8,6 +8,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Select } from "./ui/select";
 import { cn } from "../lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
+
+const CONDITION_LABELS: Record<string, string> = {
+  blinded: "ślepota",
+  frightened: "przerażony",
+  poisoned: "zatruty",
+  prone: "powalony",
+  restrained: "skrępowany",
+  paralyzed: "sparaliżowany",
+  petrified: "skamieniały",
+  stunned: "ogłuszony",
+  unconscious: "nieprzytomny",
+  incapacitated: "obezwładniony",
+};
 
 type Props = {
   campaignId: string;
@@ -105,6 +124,7 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
         {combat.active && (
           <>
             <div className="flex flex-col gap-1">
+              <TooltipProvider delayDuration={250}>
               {combat.combatants.map((c, i) => (
                 <div
                   key={c.id}
@@ -129,6 +149,22 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                     )}
                     {c.status === "downed" && <Badge variant="outline">powalony</Badge>}
                     {c.status === "stable" && <Badge variant="outline">stabilny</Badge>}
+                    {(c.conditions ?? [])
+                      .filter((cond) => cond !== "guiding_bolt")
+                      .map((cond) => (
+                        <Tooltip key={cond}>
+                          <TooltipTrigger asChild>
+                            <span className="rounded-sm border border-[#8f1d1d]/40 bg-[#8f1d1d]/10 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em] text-[#8f1d1d]">
+                              {CONDITION_LABELS[cond] ?? cond}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <span className="text-[11px] text-[#f6ead0]">
+                              {CONDITION_LABELS[cond] ?? cond}
+                            </span>
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
                   </span>
                   <span className="flex items-center gap-2">
                     {c.isPlayer ? (
@@ -151,6 +187,7 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                   </span>
                 </div>
               ))}
+              </TooltipProvider>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">

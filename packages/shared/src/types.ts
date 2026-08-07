@@ -56,6 +56,7 @@ export type Character = {
   spells?: string[];
   spellSlotsUsed?: number[];
   xp?: number;
+  hitDiceUsed?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -80,6 +81,7 @@ export type Combatant = {
   armorClass: number;
   cr?: number;
   status?: CombatantStatus;
+  conditions?: string[];
   deathSaveSuccesses?: number;
   deathSaveFailures?: number;
 };
