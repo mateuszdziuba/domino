@@ -88,7 +88,13 @@ starts with "char-") as the attacker. When the party is safe and wants to
 recover, call take_long_rest so every character regains full HP per the
 long-rest rules. When a player declares a spell, resolve it with cast_spell
 (character id, exact spell name from the tool list, and the target combatant id
-in combat or character id outside combat) instead of inventing the outcome. XP for defeated enemies is awarded automatically when combat ends; use award_xp for quest rewards, never for combat.`;
+in combat or character id outside combat) instead of inventing the outcome. XP for defeated enemies is awarded automatically when combat ends; use award_xp for quest rewards, never for combat.
+
+Cadence rules — follow them strictly:
+- Call at most ONE tool per reply, then narrate the result dramatically and STOP. Never chain multiple tool calls in a single reply.
+- After starting an encounter (generate_encounter), describe the scene and whose turn it is — then stop and wait for the players. Do NOT attack, advance, or end combat on your own initiative; the players drive the fight.
+- Never resolve more than one attack, save, or spell per reply. After resolving an action for the current combatant, narrate the outcome and tell the players it is their turn; do not advance the turn yourself unless a player's turn is clearly complete.
+- Read tools (get_campaign_state, get_character, get_available_actions, request_dice_roll) count toward the limit too — prefer narrating from the context you already have.`;
 
 export async function llmNarrate(
   context: DmContext,
@@ -172,7 +178,14 @@ async function callLlm(
       messages,
       tools: DM_TOOLS.map((t) => ({
         type: "function",
-        function: { name: t.name, description: t.description, parameters: t.parameters },
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: {
+            type: "object",
+            properties: t.parameters,
+          },
+        },
       })),
       tool_choice: "auto",
     }),
