@@ -1,0 +1,1 @@
+ALTER TABLE `characters` ADD `spell_slots_used` text DEFAULT '[]' NOT NULL;

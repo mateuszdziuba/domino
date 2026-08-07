@@ -40,6 +40,34 @@ const aria: Character = {
   updatedAt: "2026-01-01T00:00:00Z",
 };
 
+const cleric: Character = {
+  id: "ch2",
+  userId: "u1",
+  name: "Elara",
+  race: "Human",
+  className: "Cleric",
+  level: 1,
+  abilityScores: {
+    strength: 10,
+    dexterity: 10,
+    constitution: 13,
+    intelligence: 10,
+    wisdom: 16,
+    charisma: 12,
+  },
+  maxHp: 10,
+  currentHp: 10,
+  armorClass: 15,
+  speed: 30,
+  proficiencyBonus: 2,
+  skills: {},
+  inventory: [],
+  spells: ["Cure Wounds", "Guiding Bolt"],
+  spellSlotsUsed: [],
+  createdAt: "2026-01-01T00:00:00Z",
+  updatedAt: "2026-01-01T00:00:00Z",
+};
+
 function stateWithCombat(): CampaignState {
   return {
     phase: "combat",
@@ -99,11 +127,14 @@ beforeAll(async () => {
 
   db.insert(users).values({ id: "u1", username: "tester", passwordHash: "x" }).run();
   db.insert(characters).values({ ...aria, userId: "u1" }).run();
+  db.insert(characters).values({ ...cleric, userId: "u1" }).run();
   db.insert(campaigns).values({ id: "c1", name: "T", ownerId: "u1" }).run();
 });
 
 beforeEach(() => {
   store.saveState("c1", stateWithCombat());
+  store.updateCharacterSpellSlots("ch2", []);
+  store.updateCharacterHp("ch2", 10);
 });
 
 afterAll(() => {
@@ -165,5 +196,124 @@ describe("runDmTool combat tools (real store)", () => {
       .where(eq(characters.id, "ch1"))
       .get()!;
     expect(row.currentHp).toBe(ariaCombatant.currentHp);
+  });
+});
+
+describe("runDmTool cast_spell (real store)", () => {
+  // AC 0 makes every d20+5 spell attack roll hit; 999 HP keeps the target alive
+  // so repeated casts stay deterministic (no instant death, no dead-target errors).
+  function spellCombatState(): CampaignState {
+    return {
+      ...stateWithCombat(),
+      combat: {
+        active: true,
+        turnIndex: 0,
+        round: 1,
+        combatants: [
+          {
+            id: "char-ch2",
+            name: "Elara",
+            characterId: "ch2",
+            isPlayer: true,
+            initiative: 18,
+            currentHp: 10,
+            maxHp: 10,
+            armorClass: 15,
+            status: "active",
+            deathSaveSuccesses: 0,
+            deathSaveFailures: 0,
+          },
+          {
+            id: "enemy-1",
+            name: "Goblin",
+            isPlayer: false,
+            initiative: 5,
+            currentHp: 999,
+            maxHp: 999,
+            armorClass: 0,
+            status: "active",
+            deathSaveSuccesses: 0,
+            deathSaveFailures: 0,
+          },
+        ],
+      },
+    };
+  }
+
+  it("hits an enemy in combat, records an action.resolved event, and reduces its HP", async () => {
+    store.saveState("c1", spellCombatState());
+    const before = store.loadState("c1").combat.combatants.find((c) => c.id === "enemy-1")!;
+
+    const result = await runDmTool("c1", "dm", "cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(true);
+
+    const enemyAfter = store
+      .loadState("c1")
+      .combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(enemyAfter.currentHp).toBeLessThan(before.currentHp);
+
+    const events = db
+      .select()
+      .from(gameEvents)
+      .where(eq(gameEvents.campaignId, "c1"))
+      .all();
+    expect(
+      events.some(
+        (e) =>
+          e.type === "action.resolved" &&
+          (e.payload as { spell?: string })?.spell === "Guiding Bolt",
+      ),
+    ).toBe(true);
+  });
+
+  it("consumes spell slots and refuses further casts once exhausted", async () => {
+    store.saveState("c1", spellCombatState());
+    const first = await runDmTool("c1", "dm", "cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    expect(first.ok).toBe(true);
+    const second = await runDmTool("c1", "dm", "cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    expect(second.ok).toBe(true);
+
+    const third = await runDmTool("c1", "dm", "cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    expect(third.ok).toBe(false);
+    expect(third.message).toContain("slots");
+  });
+
+  it("heals a character outside combat", async () => {
+    store.saveState("c1", {
+      ...store.loadState("c1"),
+      phase: "exploration",
+      combat: { active: false, combatants: [], turnIndex: 0, round: 1 },
+    });
+    store.updateCharacterHp("ch2", 3);
+
+    const result = await runDmTool("c1", "dm", "cast_spell", {
+      characterId: "ch2",
+      spellName: "Cure Wounds",
+      targetId: "ch2",
+    });
+    expect(result.ok).toBe(true);
+
+    const row = db
+      .select()
+      .from(characters)
+      .where(eq(characters.id, "ch2"))
+      .get()!;
+    expect(row.currentHp).toBeGreaterThan(3);
   });
 });

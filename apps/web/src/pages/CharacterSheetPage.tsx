@@ -59,7 +59,7 @@ export default function CharacterSheetPage() {
 
   if (!sheet) return <div className="mx-auto max-w-4xl italic text-[#7c6a45]">Reading the parchment…</div>;
 
-  const { character, abilityModifiers, savingThrows, skills, attacks, spellcasting } = sheet;
+  const { character, abilityModifiers, savingThrows, skills, attacks, spellcasting, spellSlots } = sheet;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -211,6 +211,15 @@ export default function CharacterSheetPage() {
                 </div>
               ) : (
                 <p className="text-sm italic text-[#7c6a45]">No spells known.</p>
+              )}
+              {spellSlots.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs italic text-[#7c6a45]">
+                  {spellSlots.map((s) => (
+                    <span key={s.level}>
+                      Level {s.level}: {s.used}/{s.max}
+                    </span>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

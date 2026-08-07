@@ -86,7 +86,9 @@ resolve it with the tools instead of describing a vague outcome. When a player
 declares an attack, call attack_combatant with the player's combatant id (which
 starts with "char-") as the attacker. When the party is safe and wants to
 recover, call take_long_rest so every character regains full HP per the
-long-rest rules.`;
+long-rest rules. When a player declares a spell, resolve it with cast_spell
+(character id, exact spell name from the tool list, and the target combatant id
+in combat or character id outside combat) instead of inventing the outcome.`;
 
 export async function llmNarrate(
   context: DmContext,

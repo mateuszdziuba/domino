@@ -1,31 +1,30 @@
 # Loop state
 
 ## Runde
-1
+4 (cel #2: AI DM combat — PASS; cel #3: death & recovery — PASS)
 
 ## Cel
-Real-time combat: SSE dla walki, czatu DM i stanu kampanii; klient aktualizuje UI bez refreshu.
+SRD spellcasting v1: silnik zaklęć, sloty, cast_spell, preview "I cast X", sloty w arkuszu, nazwy postaci w czacie/Party.
 
 ## Wykonane zadania
-- R1: Hub pub/sub w pamięci (`apps/server/src/campaign/hub.ts`) + testy (4).
-- R1: `store.ts` — `saveState`/`pushEvent` broadcastują do subskrybentów (jedyny punkt emisji, inwariant 1 zachowany).
-- R1: Endpoint `GET /api/campaigns/:id/stream` (SSE, requireAuth, heartbeat 15s, cleanup na abort).
-- R1: Nowy typ eventu `chat.message` + `ServerStreamEvent` w `packages/shared`.
-- R1: Klient — `apps/web/src/lib/stream.ts` (EventSource, dedupe, reconnect), integracja w CampaignPage + wskaźnik Live/Connecting/Offline.
-- R1: Fix pre-existing bug: `POST /:id/join` zwracał 404 dla nowych użytkowników (getCampaignForUser filtrował nie-członków) — blokował multiplayer.
-- R2 (po critic FAIL): dedupe wiadomości w `onSend` (nadawca dostawał swoją wiadomość 2×), odświeżanie dm-suggestion na `state.updated`, reload Party na `character.joined`.
+- R1 (cel #1 SSE): hub, stream, chat.message, join fix — PASS
+- R2 (cel #2 DM combat): performAttack/DeathSave/characterAttackInput,
+  attack_combatant/resolve_death_save/end_combat, prompt, preview combat,
+  fixy SRD (incapacitated, HP persist, PATCH hp) — PASS
+- R3 (cel #3 death & recovery): lethal damage, stable status, take_long_rest,
+  gating actions, trigger fixes — PASS (109 testów)
+- R4 (cel #4 w toku): kontrakt (Character.spellSlotsUsed, CharacterSheet.spellSlots,
+  CampaignMember.characterName), schema + migracja 0001, cast_spell w DM_TOOLS
 
 ## Testy
-PASS — typecheck 3/3, 45 testów (6 plików, w tym hub.test.ts), lint 3/3, build OK.
-E2E: 2 klienty SSE otrzymały identyczne eventy (state.updated, turn.advanced, chat.message×2, encounter.started); negatywy: nie-członek 404, bez ciasteczka 401.
+PASS — 109 testów (typecheck 3/3, lint, build) przed rundą 4.
 
 ## Critic
-PASS (runa 2). Runa 1: FAIL — duplikacja własnych wiadomości u nadawcy (SSE emitowane przed await dmNarrate). Naprawione dedupe per-id.
+PASS (r2/r3 po korektach)
 
 ## Największa luka
-brak (po poprawkach)
+- (r4) brak silnika zaklęć — kleryk nie może rzucać w silniku
 
 ## Odrzucone podejścia
-- WS/WebSocket — SSE wystarcza (jednokierunkowy stream, REST pozostaje autorytatywny, zero dependency).
-- Replay eventów z `id:` w SSE — zamiast tego resync przez `load()` na `connected` (prościej, spójne z REST).
-- Broadcast z poszczególnych route'ów — odrzucone na rzecz broadcastu z `saveState`/`pushEvent` (jeden punkt emisji, pokrywa też mutacje DM tools).
+- Spells jako czysty prompt — odrzucone: musi iść przez rules engine (inwariant)
+- Bless/Bane w v1 — odrzucone: brak mechaniki buffów, zostawione na później

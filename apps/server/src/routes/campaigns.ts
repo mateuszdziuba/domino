@@ -20,6 +20,7 @@ import { dmProvider, isDmConfigured } from "../dm/llm.js";
 import {
   getCampaignCharacters,
   getCampaignMembers,
+  getCharacterById,
   getMember,
   getRecentMessages,
   loadState,
@@ -187,7 +188,7 @@ campaignRoutes.post("/:id/messages", requireAuth, async (c) => {
     id: newId(),
     campaignId: campaign.id,
     senderId: user.id,
-    senderName: member?.characterId ?? user.username,
+    senderName: member ? getCharacterById(member.characterId)?.name ?? user.username : user.username,
     role: "player",
     content: parsed.data.content,
     createdAt: isoNow(),

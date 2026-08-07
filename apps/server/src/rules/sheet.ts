@@ -9,6 +9,7 @@ import {
   type SheetAttack,
 } from "@domino/shared";
 import { abilityModifier, proficiencyBonus } from "./abilities.js";
+import { spellSlotsForLevel } from "./spells.js";
 
 export function buildCharacterSheet(character: Character): CharacterSheet {
   const level = Math.max(1, character.level);
@@ -78,5 +79,12 @@ export function buildCharacterSheet(character: Character): CharacterSheet {
     skills,
     attacks,
     spellcasting,
+    spellSlots: spellSlotsForLevel(character.level)
+      .map((max, i) => ({
+        level: i + 1,
+        used: (character.spellSlotsUsed ?? [])[i] ?? 0,
+        max,
+      }))
+      .filter((s) => s.max > 0),
   };
 }

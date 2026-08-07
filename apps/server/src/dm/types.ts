@@ -7,6 +7,7 @@ export type DmToolName =
   | "request_dice_roll"
   | "resolve_action"
   | "attack_combatant"
+  | "cast_spell"
   | "resolve_death_save"
   | "advance_turn"
   | "end_combat"
@@ -56,6 +57,16 @@ export const DM_TOOLS: DmTool[] = [
       damageNotation: { type: "string" },
       attackBonus: { type: "number" },
       damageBonus: { type: "number" },
+    },
+  },
+  {
+    name: "cast_spell",
+    description:
+      "Cast a known spell through the rules engine. In combat the caster must be the current combatant; the target is a combatant id. Outside combat only healing/stabilizing cantrips and spells are allowed, and the target is a character id. Consumes a spell slot (cantrips are free). Spells are resolved by the engine — never invent damage or healing.",
+    parameters: {
+      characterId: { type: "string" },
+      spellName: { type: "string" },
+      targetId: { type: "string" },
     },
   },
   {

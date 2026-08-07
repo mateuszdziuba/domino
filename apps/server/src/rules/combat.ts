@@ -228,6 +228,27 @@ export function combatantByCharacter(
   return state.combat.combatants.find((c) => c.characterId === characterId);
 }
 
+export function applyHitToTarget(
+  target: Combatant,
+  damageTotal: number,
+  critical: boolean,
+): Combatant {
+  if (target.currentHp === 0 && damageTotal > 0) {
+    const failures = (target.deathSaveFailures ?? 0) + (critical ? 2 : 1);
+    const dead = damageTotal >= target.maxHp || failures >= 3;
+    const status: Combatant["status"] = dead
+      ? "dead"
+      : target.status === "stable"
+        ? "stable"
+        : "downed";
+    return { ...target, currentHp: 0, status, deathSaveFailures: dead ? 3 : failures };
+  }
+  const currentHp = Math.max(0, target.currentHp - damageTotal);
+  const status: Combatant["status"] =
+    currentHp === 0 ? "downed" : target.status ?? "active";
+  return { ...target, currentHp, status };
+}
+
 export type AttackOutcome =
   | { ok: true; state: CampaignState; result: AttackResult; attacker: Combatant; target: Combatant }
   | { ok: false; error: string };
@@ -258,21 +279,9 @@ export function performAttack(
   }
   const result = resolveAttack(target, input);
   let newTarget: Combatant;
-  if (result.hit && target.currentHp === 0) {
-    const failures = (target.deathSaveFailures ?? 0) + (result.critical ? 2 : 1);
-    const dead = result.damageTotal >= target.maxHp || failures >= 3;
-    const status: Combatant["status"] = dead
-      ? "dead"
-      : target.status === "stable"
-        ? "stable"
-        : "downed";
-    newTarget = {
-      ...target,
-      currentHp: 0,
-      status,
-      deathSaveFailures: dead ? 3 : failures,
-    };
-    result.targetStatus = status;
+  if (result.hit) {
+    newTarget = applyHitToTarget(target, result.damageTotal, result.critical);
+    result.targetStatus = newTarget.status;
   } else {
     newTarget = { ...target, currentHp: result.targetCurrentHp, status: result.targetStatus };
   }

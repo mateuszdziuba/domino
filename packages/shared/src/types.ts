@@ -53,6 +53,7 @@ export type Character = {
   skills?: Partial<Record<SkillName, boolean>>;
   inventory?: InventoryItem[];
   spells?: string[];
+  spellSlotsUsed?: number[];
   createdAt: string;
   updatedAt: string;
 };
@@ -111,6 +112,7 @@ export type CampaignMember = {
   campaignId: string;
   userId: string;
   characterId: string;
+  characterName?: string;
   joinedAt: string;
 };
 
@@ -289,4 +291,5 @@ export type CharacterSheet = {
   skills: SheetSkill[];
   attacks: SheetAttack[];
   spellcasting: SheetSpellcasting | null;
+  spellSlots: { level: number; used: number; max: number }[];
 };

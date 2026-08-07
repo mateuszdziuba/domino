@@ -18,6 +18,7 @@ const mock = vi.hoisted(() => {
     characters: new Map<string, Character>(),
     pushEvent: vi.fn(),
     updateCharacterHp: vi.fn(),
+    updateCharacterSpellSlots: vi.fn(),
     members: vi.fn(() => [] as { characterId: string }[]),
     defaultState,
   };
@@ -31,6 +32,7 @@ vi.mock("../campaign/store.js", () => ({
   },
   pushEvent: mock.pushEvent,
   updateCharacterHp: mock.updateCharacterHp,
+  updateCharacterSpellSlots: mock.updateCharacterSpellSlots,
   getCharacterById: (id: string) => mock.characters.get(id),
   getCampaignForUser: () => ({ id: "c1" }),
   getCampaignMembers: mock.members,
@@ -113,6 +115,7 @@ beforeEach(() => {
   mock.characters.clear();
   mock.pushEvent.mockReset();
   mock.updateCharacterHp.mockReset();
+  mock.updateCharacterSpellSlots.mockReset();
   mock.characters.set("ch1", { ...aria });
   mock.states.set("c1", stateWithCombat());
 });
@@ -190,12 +193,200 @@ describe("runDmTool combat tools (mocked store)", () => {
   });
 });
 
+describe("runDmTool cast_spell (mocked store)", () => {
+  function cleric(overrides: Partial<Character> = {}): Character {
+    return {
+      id: "ch2",
+      userId: "u2",
+      name: "Elara",
+      race: "Human",
+      className: "Cleric",
+      level: 3,
+      abilityScores: {
+        strength: 10,
+        dexterity: 10,
+        constitution: 13,
+        intelligence: 10,
+        wisdom: 16,
+        charisma: 12,
+      },
+      maxHp: 20,
+      currentHp: 20,
+      armorClass: 15,
+      speed: 30,
+      proficiencyBonus: 2,
+      skills: {},
+      inventory: [],
+      spells: ["Cure Wounds", "Guiding Bolt", "Sacred Flame", "Spare the Dying"],
+      spellSlotsUsed: [],
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      ...overrides,
+    };
+  }
+
+  function clericCombatState(overrides: Partial<CampaignState> = {}): CampaignState {
+    return {
+      ...mock.defaultState(),
+      phase: "combat",
+      combat: {
+        active: true,
+        turnIndex: 0,
+        round: 1,
+        combatants: [
+          {
+            id: "char-ch2",
+            name: "Elara",
+            characterId: "ch2",
+            isPlayer: true,
+            initiative: 18,
+            currentHp: 20,
+            maxHp: 20,
+            armorClass: 15,
+            status: "active",
+            deathSaveSuccesses: 0,
+            deathSaveFailures: 0,
+          },
+          {
+            id: "enemy-1",
+            name: "Goblin",
+            isPlayer: false,
+            initiative: 5,
+            currentHp: 7,
+            maxHp: 7,
+            armorClass: 12,
+            status: "active",
+            deathSaveSuccesses: 0,
+            deathSaveFailures: 0,
+          },
+        ],
+      },
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    mock.characters.set("ch2", cleric());
+    mock.states.set("c1", clericCombatState());
+  });
+
+  it("casts a known spell on the current combatant's turn and consumes a slot", async () => {
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterSpellSlots).toHaveBeenCalledWith("ch2", [1]);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "spell",
+        spell: "Guiding Bolt",
+        caster: "Elara",
+        target: "Goblin",
+      }),
+    );
+  });
+
+  it("refuses an off-turn cast without consuming a slot", async () => {
+    const state = clericCombatState();
+    state.combat.turnIndex = 1;
+    mock.states.set("c1", state);
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("turn");
+    expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
+  });
+
+  it("rejects a spell unknown to the rules engine", async () => {
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Fireball",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("not known to the rules engine");
+  });
+
+  it("rejects a known spell the character does not know", async () => {
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Healing Word",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("does not know that spell");
+  });
+
+  it("rejects a cast when no slots are left for that level", async () => {
+    mock.characters.set("ch2", cleric({ spellSlotsUsed: [4, 2, 0, 0, 0] }));
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("slots");
+  });
+
+  it("casts a cantrip without consuming a slot", async () => {
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Sacred Flame",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
+  });
+
+  it("heals a character outside combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch2", cleric({ currentHp: 5 }));
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Cure Wounds",
+      targetId: "ch2",
+    });
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch2", expect.any(Number));
+  });
+
+  it("rejects a damage spell outside combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("combat");
+  });
+
+  it("rejects a stabilize spell outside combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Spare the Dying",
+      targetId: "ch2",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("combat");
+  });
+});
+
 describe("runDmTool take_long_rest (mocked store)", () => {
   it("heals every campaign member to full and returns to exploration", async () => {
     mock.states.clear();
     mock.characters.clear();
     mock.pushEvent.mockReset();
     mock.updateCharacterHp.mockReset();
+    mock.updateCharacterSpellSlots.mockReset();
     mock.members.mockReset();
     mock.members.mockReturnValue([{ characterId: "ch1" }, { characterId: "ch2" }]);
     mock.states.set("c1", mock.defaultState());
@@ -208,6 +399,8 @@ describe("runDmTool take_long_rest (mocked store)", () => {
     expect(result.message).toContain("long rest");
     expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 10);
     expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch2", 12);
+    expect(mock.updateCharacterSpellSlots).toHaveBeenCalledWith("ch1", []);
+    expect(mock.updateCharacterSpellSlots).toHaveBeenCalledWith("ch2", []);
     expect(mock.pushEvent).toHaveBeenCalledWith(
       "c1",
       "state.updated",
@@ -223,6 +416,7 @@ describe("runDmTool take_long_rest (mocked store)", () => {
     mock.characters.clear();
     mock.pushEvent.mockReset();
     mock.updateCharacterHp.mockReset();
+    mock.updateCharacterSpellSlots.mockReset();
     mock.members.mockReset();
     mock.members.mockReturnValue([{ characterId: "ch1" }]);
     mock.states.set("c1", stateWithCombat());
@@ -232,6 +426,7 @@ describe("runDmTool take_long_rest (mocked store)", () => {
     expect(result.ok).toBe(false);
     expect(result.message).toContain("combat");
     expect(mock.updateCharacterHp).not.toHaveBeenCalled();
+    expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
     expect(mock.pushEvent).not.toHaveBeenCalled();
   });
 });

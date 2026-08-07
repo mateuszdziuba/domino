@@ -1,6 +1,7 @@
 import type { DmContext, DmReply, DmToolName } from "./types.js";
 import { runDmTool } from "./tools.js";
 import { currentTurnCombatant } from "../rules/combat.js";
+import { SPELLS } from "../rules/spells.js";
 
 const COMBAT_TRIGGERS = [
   "attack",
@@ -33,6 +34,90 @@ const COMBAT_TRIGGERS = [
 const REST_TRIGGER =
   /^(i|we|the party) (need to |want to |should )?(take a |long )?(rest|sleep)|^let'?s (take a |long )?(rest|sleep)|^(we )?(make )?camp|^camp$/i;
 
+const TARGET_PATTERN = /(?:on|at|against|towards?)\s+([a-z' -]+)/i;
+
+function findKnownSpell(message: string): string | null {
+  const text = message.toLowerCase();
+  for (const name of Object.keys(SPELLS)) {
+    if (text.includes(name.toLowerCase())) return name;
+  }
+  return null;
+}
+
+function normalizeTargetName(name: string): string {
+  return name.trim().replace(/^(the|a|an)\s+/i, "").trim();
+}
+
+async function tryCastSpell(
+  context: DmContext,
+  userMessage: string,
+): Promise<DmReply | null> {
+  const trimmed = userMessage.trim();
+  if (!/cast/i.test(trimmed)) return null;
+  const spellName = findKnownSpell(trimmed);
+  if (!spellName) return null;
+
+  const targetMatch = TARGET_PATTERN.exec(trimmed);
+  if (!targetMatch?.[1]) {
+    return { narration: `(DM preview) "Cast on whom?"` };
+  }
+  const targetName = normalizeTargetName(targetMatch[1]);
+
+  let characterId: string;
+  if (context.state.combat.active) {
+    const current = currentTurnCombatant(context.state);
+    if (!current?.isPlayer || !current.characterId) {
+      return { narration: `(DM preview) It is not your turn.` };
+    }
+    characterId = current.characterId;
+  } else {
+    if (context.characters.length !== 1) {
+      return { narration: `(DM preview) Which character casts?` };
+    }
+    characterId = context.characters[0]!.id;
+  }
+
+  let targetId: string;
+  if (context.state.combat.active) {
+    const combatant =
+      context.state.combat.combatants.find(
+        (c) => c.name.toLowerCase() === targetName.toLowerCase(),
+      ) ??
+      context.state.combat.combatants.find((c) => {
+        const name = c.name.toLowerCase();
+        const target = targetName.toLowerCase();
+        return name.includes(target) || target.includes(name);
+      });
+    if (!combatant) {
+      return { narration: `(DM preview) No such target: "${targetName}".` };
+    }
+    targetId = combatant.id;
+  } else {
+    const character =
+      context.characters.find(
+        (c) => c.name.toLowerCase() === targetName.toLowerCase(),
+      ) ??
+      context.characters.find((c) => {
+        const name = c.name.toLowerCase();
+        const target = targetName.toLowerCase();
+        return name.includes(target) || target.includes(name);
+      });
+    if (!character) {
+      return { narration: `(DM preview) No such target: "${targetName}".` };
+    }
+    targetId = character.id;
+  }
+
+  const result = await runDmTool(context.campaignId, "dm", "cast_spell", {
+    characterId,
+    spellName,
+    targetId,
+  });
+  return {
+    narration: result.ok ? result.message : `(DM preview) ${result.message}`,
+  };
+}
+
 export function shouldAutoGenerateCombat(message: string): boolean {
   const text = message.toLowerCase();
   if (/\bhit\b/.test(text)) return true;
@@ -56,6 +141,9 @@ export async function previewNarrate(
       narration: result.ok ? result.message : `(DM preview) ${result.message}`,
     };
   }
+
+  const castReply = await tryCastSpell(context, userMessage);
+  if (castReply) return castReply;
 
   if (!context.state.combat.active && shouldAutoGenerateCombat(userMessage)) {
     const result = await runDmTool(context.campaignId, "dm", "generate_encounter", {
@@ -87,6 +175,9 @@ export async function previewNarrate(
         narration: result.ok ? result.message : `(DM preview) ${result.message}`,
       };
     }
+
+    const combatCastReply = await tryCastSpell(context, userMessage);
+    if (combatCastReply) return combatCastReply;
 
     if (shouldAutoGenerateCombat(userMessage)) {
       const current = currentTurnCombatant(context.state);

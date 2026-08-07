@@ -8,6 +8,7 @@ import {
   saveState,
   pushEvent,
   updateCharacterHp,
+  updateCharacterSpellSlots,
 } from "../campaign/store.js";
 import { buildDmSuggestion, getAvailableActions } from "../rules/actions.js";
 import { rollDiceNotation } from "../rules/dice.js";
@@ -17,13 +18,28 @@ import {
   startCombat,
   endCombat,
   findCombatant,
+  combatantByCharacter,
   performAttack,
   performDeathSave,
   characterAttackInput,
 } from "../rules/combat.js";
+import { abilityModifier } from "../rules/abilities.js";
+import {
+  SPELLS,
+  spellSlotsForLevel,
+  resolveSpellCast,
+  type SpellCasterStats,
+  type SpellDef,
+  type SpellCastResult,
+} from "../rules/spells.js";
 import { buildEncounter } from "../rules/monsters.js";
 import type { DmToolName } from "./types.js";
-import type { CampaignState, Character } from "@domino/shared";
+import {
+  spellcastingAbility,
+  type CampaignState,
+  type Character,
+  type Combatant,
+} from "@domino/shared";
 
 const rollSchema = z.object({
   notation: z.string().min(1),
@@ -243,6 +259,142 @@ export async function runDmTool(
         data: outcome.result,
       };
     }
+    case "cast_spell": {
+      const parsed = z
+        .object({
+          characterId: z.string().min(1),
+          spellName: z.string().min(1),
+          targetId: z.string().min(1),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "characterId, spellName, and targetId are required." };
+      }
+      const character = getCharacterById(parsed.data.characterId);
+      if (!character) return { ok: false, message: "Character not found." };
+      const def = SPELLS[parsed.data.spellName];
+      if (!def) {
+        return {
+          ok: false,
+          message: `Spell "${parsed.data.spellName}" is not known to the rules engine.`,
+        };
+      }
+      if (!character.spells?.includes(parsed.data.spellName)) {
+        return { ok: false, message: "Character does not know that spell." };
+      }
+      if (character.currentHp === 0) {
+        return { ok: false, message: "The caster is unconscious and cannot cast." };
+      }
+      const state = loadState(campaignId);
+      let casterCombatant: Combatant | undefined;
+      let targetCombatant: Combatant | undefined;
+      let targetCharacter: Character | undefined;
+      if (state.combat.active) {
+        casterCombatant = combatantByCharacter(state, character.id);
+        const current = currentTurnCombatant(state);
+        if (!casterCombatant || !current || current.id !== casterCombatant.id) {
+          return { ok: false, message: "Not this combatant's turn." };
+        }
+        targetCombatant = findCombatant(state, parsed.data.targetId);
+        if (!targetCombatant) return { ok: false, message: "Target not found in combat." };
+        if (targetCombatant.status === "dead") {
+          return { ok: false, message: "Target is dead." };
+        }
+      } else {
+        if (def.effect.kind === "damage") {
+          return { ok: false, message: "Damage spells require active combat." };
+        }
+        if (def.effect.kind === "stabilize") {
+          return {
+            ok: false,
+            message: "Spare the Dying requires a combatant at 0 HP in combat.",
+          };
+        }
+        targetCharacter = getCharacterById(parsed.data.targetId);
+        if (!targetCharacter) {
+          return { ok: false, message: "Target character not found." };
+        }
+      }
+      const castingAbility = spellcastingAbility(character.className) ?? "wisdom";
+      const mod = abilityModifier(character.abilityScores[castingAbility]);
+      const prof = character.proficiencyBonus;
+      const stats: SpellCasterStats = {
+        spellAttackBonus: prof + mod,
+        spellSaveDc: 8 + prof + mod,
+        spellAbilityMod: mod,
+      };
+      let nextUsed: number[] | null = null;
+      if (def.level > 0) {
+        const max = spellSlotsForLevel(character.level)[def.level - 1] ?? 0;
+        const used = character.spellSlotsUsed ?? [];
+        if ((used[def.level - 1] ?? 0) >= max) {
+          return { ok: false, message: `No spell slots left for level ${def.level}.` };
+        }
+        nextUsed = [...used];
+        nextUsed[def.level - 1] = (nextUsed[def.level - 1] ?? 0) + 1;
+      }
+      if (nextUsed) updateCharacterSpellSlots(character.id, nextUsed);
+      if (state.combat.active && casterCombatant && targetCombatant) {
+        const result = resolveSpellCast(def, stats, targetCombatant);
+        const updated: Combatant = {
+          ...targetCombatant,
+          currentHp: result.targetCurrentHp,
+          status: result.targetStatus,
+        };
+        const combatants = state.combat.combatants.map((c) =>
+          c.id === targetCombatant.id ? updated : c,
+        );
+        saveState(campaignId, {
+          ...state,
+          combat: { ...state.combat, combatants },
+          updatedAt: new Date().toISOString(),
+        });
+        if (targetCombatant.characterId) {
+          updateCharacterHp(targetCombatant.characterId, result.targetCurrentHp);
+        }
+        pushEvent(campaignId, "action.resolved", {
+          type: "spell",
+          spell: def.name,
+          caster: casterCombatant.name,
+          target: targetCombatant.name,
+          ...result,
+        });
+        const message = spellNarration(
+          def,
+          casterCombatant.name,
+          targetCombatant,
+          result,
+        );
+        return { ok: true, message, data: result };
+      }
+      if (targetCharacter) {
+        const synthetic: Combatant = {
+          id: targetCharacter.id,
+          name: targetCharacter.name,
+          isPlayer: true,
+          initiative: 0,
+          currentHp: targetCharacter.currentHp,
+          maxHp: targetCharacter.maxHp,
+          armorClass: targetCharacter.armorClass,
+          status: targetCharacter.currentHp > 0 ? "active" : "downed",
+        };
+        const result = resolveSpellCast(def, stats, synthetic);
+        updateCharacterHp(targetCharacter.id, result.targetCurrentHp);
+        pushEvent(campaignId, "action.resolved", {
+          type: "spell",
+          spell: def.name,
+          caster: character.name,
+          target: targetCharacter.name,
+          ...result,
+        });
+        return {
+          ok: true,
+          message: `${character.name} casts ${def.name} on ${targetCharacter.name} — healing ${result.healed} hit points.`,
+          data: result,
+        };
+      }
+      return { ok: false, message: "Target not found." };
+    }
     case "resolve_death_save": {
       const parsed = z.object({ combatantId: z.string().min(1) }).safeParse(rawArgs);
       if (!parsed.success) return { ok: false, message: "combatantId required." };
@@ -280,6 +432,7 @@ export async function runDmTool(
         const character = getCharacterById(member.characterId);
         if (!character) continue;
         updateCharacterHp(character.id, character.maxHp);
+        updateCharacterSpellSlots(character.id, []);
         healed.push(character.name);
       }
       const state = {
@@ -291,7 +444,8 @@ export async function runDmTool(
       pushEvent(campaignId, "state.updated", { by: "dm", action: "long_rest", healed });
       return {
         ok: true,
-        message: "The party takes a long rest and recovers fully.",
+        message:
+          "The party takes a long rest, recovers fully, and regains all spent spell slots.",
         data: summarizeState(state),
       };
     }
@@ -313,6 +467,30 @@ export async function runDmTool(
       };
     }
   }
+}
+
+function spellNarration(
+  def: SpellDef,
+  casterName: string,
+  target: Combatant,
+  result: SpellCastResult,
+): string {
+  if (def.effect.kind === "damage" && def.effect.attack) {
+    if (result.hit) {
+      return `${casterName} casts ${def.name} at ${target.name} — ${result.critical ? "critically hits" : "hits"} (attack ${result.attackTotal} vs AC ${target.armorClass}) for ${result.damageTotal} ${def.effect.damageType} damage.`;
+    }
+    return `${casterName} casts ${def.name} at ${target.name} — misses (attack ${result.attackTotal} vs AC ${target.armorClass}).`;
+  }
+  if (def.effect.kind === "damage") {
+    if (result.hit) {
+      return `${casterName} casts ${def.name} on ${target.name} — the target fails its save (${result.saveTotal} vs DC ${result.saveDc}) and takes ${result.damageTotal} ${def.effect.damageType} damage.`;
+    }
+    return `${casterName} casts ${def.name} on ${target.name} — the target succeeds on its save (${result.saveTotal} vs DC ${result.saveDc}) and takes no damage.`;
+  }
+  if (def.effect.kind === "heal") {
+    return `${casterName} casts ${def.name} on ${target.name} — healing ${result.healed} hit points.`;
+  }
+  return `${casterName} casts ${def.name} on ${target.name} — stabilizing them.`;
 }
 
 function summarizeState(state: CampaignState) {

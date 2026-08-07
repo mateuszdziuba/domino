@@ -48,7 +48,7 @@ db.insert(characters)
       { id: "i2", name: "Priest's pack", quantity: 1 },
       { id: "i3", name: "Healing potion", quantity: 2 },
     ],
-    spells: ["Cure Wounds", "Bless", "Guiding Bolt", "Sacred Flame"],
+    spells: ["Cure Wounds", "Healing Word", "Guiding Bolt", "Inflict Wounds", "Sacred Flame", "Spare the Dying"],
     createdAt: now,
     updatedAt: now,
   })

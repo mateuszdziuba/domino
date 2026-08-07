@@ -87,6 +87,7 @@ export function getCampaignMembers(campaignId: string): CampaignMember[] {
     campaignId: member.campaignId,
     userId: member.userId,
     characterId: member.characterId,
+    characterName: getCharacterById(member.characterId)?.name,
     joinedAt: member.joinedAt,
   }));
 }
@@ -113,6 +114,13 @@ export function getCampaignCharacters(campaignId: string): Character[] {
 export function updateCharacterHp(characterId: string, currentHp: number): void {
   db.update(characters)
     .set({ currentHp: Math.max(0, currentHp), updatedAt: isoNow() })
+    .where(eq(characters.id, characterId))
+    .run();
+}
+
+export function updateCharacterSpellSlots(characterId: string, used: number[]): void {
+  db.update(characters)
+    .set({ spellSlotsUsed: used, updatedAt: isoNow() })
     .where(eq(characters.id, characterId))
     .run();
 }
@@ -159,6 +167,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     skills: (row.skills ?? {}) as Character["skills"],
     inventory: (row.inventory ?? []) as Character["inventory"],
     spells: (row.spells as string[] | undefined) ?? undefined,
+    spellSlotsUsed: (row.spellSlotsUsed as number[] | undefined) ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

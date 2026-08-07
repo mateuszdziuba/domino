@@ -193,6 +193,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     skills: (row.skills ?? {}) as Character["skills"],
     inventory: (row.inventory ?? []) as Character["inventory"],
     spells: (row.spells as string[] | undefined) ?? undefined,
+    spellSlotsUsed: (row.spellSlotsUsed as number[] | undefined) ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

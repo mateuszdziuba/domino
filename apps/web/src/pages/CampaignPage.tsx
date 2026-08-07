@@ -250,7 +250,7 @@ export default function CampaignPage() {
                 <div key={m.characterId} className="flex items-center justify-between border-b border-dotted border-[#c8b184] pb-1">
                   <span>
                     <span className="mr-1 text-[10px] text-[#a97e1f]">✦</span>
-                    {m.characterId}
+                    {m.characterName ?? m.characterId}
                   </span>
                   <Badge variant="outline">joined</Badge>
                 </div>
