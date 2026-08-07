@@ -1,13 +1,13 @@
 # Cel
 
-Wygodna gra wieloosobowa — 3 obszary:
+Tooltips w czacie + awans z dialogiem wyboru subklasy i modyfikacją czarów:
 
-1. **Zaproszenia (invite codes)**: `inviteCode` na kampanii (migracja), `POST /:id/invite` (właściciel generuje/kod z linkiem), `GET /api/campaigns/invite/:code` (rozwiązywanie kodu), `POST /api/campaigns/join` (dołączenie po kodzie), strona `/join?code=` (logowanie/rejestracja → wybór postaci → join → redirect), UI "Zaproś graczy" z linkiem i kopiowaniem.
-2. **Biblioteka darmowych kampanii D&D 5e dla agenta**: dane `rules/adventures.ts` (3 darmowe przygody: "A Most Potent Brew", "The Wolves of Welton", "The Delian Tomb" — hook, lokacje, beaty, potwory, po polsku), narzędzia DM `start_adventure { title }` (preferowane) i `create_adventure { description }` (customowe z opisu), prompt każe preferować bibliotekę, preview triggery ("zacznijmy przygodę" / "wymyśl kampanię o X").
-3. **Czytelność (Baymard)**: czat — większa, nie-italic czcionka, leading, kontrast; globalna typografia (body 15-16px, line-height, hierarchia, mniej italików dla treści).
+1. **Tooltips w czacie**: wiadomości DM parsowane — nazwy czarów (rejestr) i umiejętności (angielskie + polskie nazwy) podświetlane i otwierają tooltip z opisem (komponent `RichMessageText` + współdzielone opisy skilli).
+2. **Dialog wyboru subklasy przy awansie**: `subclassLevelForClass` (dane, 3), xp-award payload wzbogacony o `levelUps: [{ characterId, name, level, className }]` (award_xp + end_combat + REST /end); CampaignPage wykrywa (event + refetch po wejściu, gdy level ≥ próg i brak subklasy) → modal z kartami subklas (nazwa + cechy z `subclassDetails` w GET /api/features) → PATCH subclass; hint o modyfikacji zaklęć.
+3. **Wybór/modyfikacja czarów**: zarządzanie w arkuszu istnieje; dialog podpowiada, że przy awansie można dodać/zamienić zaklęcia; CharacterSheetPage dostaje banner wyboru subklasy gdy kwalifikuje.
 
 ## Kryteria ukończenia
 
-1. Nowy gracz: rejestracja → link zaproszenia → wybór postaci → w grze (E2E 2 graczy).
-2. DM (LLM + preview) potrafi wystartować przygodę z biblioteki lub wygenerować customową z opisu; stan kampanii (location/scene/worldProgress) aktualizowany przez silnik.
-3. Czat i cała aplikacja czytelne (non-italic body, dobre leadingi, kontrast); bramki zielone.
+1. Tooltips w czacie na czarach i umiejętnościach (hover), bez psucia renderu wiadomości.
+2. Awans na poziom ≥ próg subklasy → dialog z wyborem → PATCH → odświeżenie (też na arkuszu).
+3. xp-award events zawierają levelUps; bramki zielone.

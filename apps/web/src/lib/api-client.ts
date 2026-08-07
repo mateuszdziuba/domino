@@ -52,6 +52,7 @@ export type SpellMeta = {
   castingTime: string;
   range: string;
   duration: string;
+  description?: string;
   effect: {
     kind: "damage" | "heal" | "stabilize";
     dice?: string;
@@ -72,8 +73,14 @@ export const spellbookApi = {
   list: () => api<{ spells: SpellMeta[] }>("/spells"),
 };
 
+export type SubclassInfo = {
+  name: string;
+  features: { name: string; description: string }[];
+};
+
 export type FeaturesCatalog = {
   subclasses: Record<string, string[]>;
+  subclassDetails?: Record<string, SubclassInfo[]>;
   races: string[];
   classes: string[];
 };

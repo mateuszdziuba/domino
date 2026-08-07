@@ -181,14 +181,25 @@ combatRoutes.post("/end", requireAuth, async (c) => {
     .filter((ch): ch is Character => Boolean(ch));
   if (xpTotal > 0 && members.length > 0) {
     const share = Math.floor(xpTotal / members.length);
+    const levelUps: { characterId: string; name: string; level: number; className: string }[] = [];
     for (const member of members) {
-      grantXp(member.id, share);
+      const prevLevel = member.level;
+      const { level } = grantXp(member.id, share);
+      if (level > prevLevel) {
+        levelUps.push({
+          characterId: member.id,
+          name: member.name,
+          level,
+          className: member.className,
+        });
+      }
     }
     pushEvent(campaignId, "action.resolved", {
       type: "xp-award",
       source: "combat",
       total: xpTotal,
       perCharacter: share,
+      levelUps,
     });
   }
   return c.json({ state });

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { Send, Users } from "lucide-react";
+import { Send, Users, Dices } from "lucide-react";
 import {
   campaignApi,
   characterApi,
+  featuresApi,
   spellbookApi,
   type CampaignDetail,
+  type FeaturesCatalog,
   type SpellMeta,
 } from "../lib/api-client";
 import type { ChatMessage, DmSuggestion } from "@domino/shared";
@@ -28,7 +30,25 @@ import {
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import { CombatPanel } from "../components/CombatPanel";
+import { SubclassPicker } from "../components/SubclassPicker";
 import { subscribeCampaign } from "../lib/stream";
+import { RichMessageText } from "../lib/chat-tooltips";
+
+type RollEntry = {
+  id: string;
+  kind: "attack" | "death-save" | "spell";
+  label: string;
+  detail: string;
+  createdAt: string;
+  animated?: boolean;
+};
+
+type LevelUpInfo = {
+  characterId: string;
+  name: string;
+  level: number;
+  className: string;
+};
 
 const ACTION_PROMPTS: Record<string, string> = {
   attack: "Atakuję najbliższego wroga!",
@@ -95,19 +115,24 @@ export default function CampaignPage() {
   const [connState, setConnState] = useState<"connecting" | "live" | "offline">("connecting");
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const [roll, setRoll] = useState<{
-    id: number;
-    label: string;
-    detail: string;
-    kind: "attack" | "death-save" | "spell";
-  } | null>(null);
-  const rollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [rolls, setRolls] = useState<RollEntry[]>([]);
+  const seenRollIdsRef = useRef<Set<string>>(new Set());
   const [spellbook, setSpellbook] = useState<{
     spells: string[];
     slots: { level: number; used: number; max: number }[];
     spellcastingAbility: string;
   } | null>(null);
   const [spellRegistry, setSpellRegistry] = useState<SpellMeta[] | null>(null);
+  const [featuresCatalog, setFeaturesCatalog] = useState<FeaturesCatalog | null>(null);
+  const [pendingLevelUp, setPendingLevelUp] = useState<LevelUpInfo | null>(null);
+  const [subclassDialogOpen, setSubclassDialogOpen] = useState(false);
+  const [subclassSaving, setSubclassSaving] = useState(false);
+  const [levelUpError, setLevelUpError] = useState<string | null>(null);
+  const [subclassSaved, setSubclassSaved] = useState<{ name: string; subclass: string } | null>(
+    null,
+  );
+  const subclassCheckDoneRef = useRef(false);
+  const subclassSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const member = detail?.members.find((m) => m.userId === user?.id);
 
@@ -118,19 +143,45 @@ export default function CampaignPage() {
     }
     characterApi
       .sheet(member.characterId)
-      .then(({ sheet }) =>
+      .then(({ sheet }) => {
         setSpellbook({
           spells: sheet.character.spells ?? [],
           slots: sheet.spellSlots,
           spellcastingAbility: sheet.spellcasting?.ability ?? "",
-        }),
-      )
+        });
+        if (
+          !subclassCheckDoneRef.current &&
+          featuresCatalog &&
+          sheet.character.level >= 3 &&
+          !sheet.character.subclass &&
+          (featuresCatalog.subclassDetails?.[sheet.character.className] ?? []).length > 0
+        ) {
+          subclassCheckDoneRef.current = true;
+          setPendingLevelUp({
+            characterId: sheet.character.id,
+            name: sheet.character.name,
+            level: sheet.character.level,
+            className: sheet.character.className,
+          });
+          setSubclassDialogOpen(true);
+        }
+      })
       .catch(() => {});
-  }, [member?.characterId]);
+  }, [member?.characterId, featuresCatalog]);
 
   useEffect(() => {
     spellbookApi.list().then((r) => setSpellRegistry(r.spells)).catch(() => {});
+    featuresApi.get().then(setFeaturesCatalog).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!subclassDialogOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSubclassDialogOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [subclassDialogOpen]);
 
   useEffect(() => {
     refreshSpellbook();
@@ -166,22 +217,71 @@ export default function CampaignPage() {
       },
       onChatMessage: (message) =>
         setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message])),
-      onActionResolved: (payload) => {
-        showRoll(payload);
+      onActionResolved: (payload, event) => {
+        const mapped = mapRollPayload(payload);
+        if (mapped) {
+          const eventId = event?.id ?? hashPayload(payload);
+          if (eventId && !seenRollIdsRef.current.has(eventId)) {
+            seenRollIdsRef.current.add(eventId);
+            setRolls((prev) => [
+              ...prev,
+              {
+                id: eventId,
+                ...mapped,
+                createdAt: event?.createdAt ?? new Date().toISOString(),
+                animated: true,
+              },
+            ]);
+          }
+        }
         refreshSpellbook();
+        if (payload.type === "xp-award" && Array.isArray(payload.levelUps)) {
+          const levelUp = (payload.levelUps as LevelUpInfo[]).find(
+            (lu) => lu.characterId === member?.characterId,
+          );
+          if (levelUp) {
+            setPendingLevelUp(levelUp);
+            setLevelUpError(null);
+            setSubclassDialogOpen(true);
+          }
+        }
       },
       onEvent: (type) => {
         if (type === "character.joined") load();
       },
       onOffline: () => setConnState("offline"),
     });
-  }, [load]);
+  }, [load, member?.characterId]);
+
+  useEffect(() => {
+    subclassCheckDoneRef.current = false;
+    setSubclassSaved(null);
+  }, [member?.characterId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, rolls, sending]);
 
   if (!id) return null;
+
+  async function onSubclassSelect(subclass: string) {
+    if (!pendingLevelUp || subclassSaving) return;
+    setSubclassSaving(true);
+    setLevelUpError(null);
+    try {
+      await characterApi.update(pendingLevelUp.characterId, { subclass });
+      setSubclassDialogOpen(false);
+      setSubclassSaved({ name: pendingLevelUp.name, subclass });
+      if (subclassSavedTimerRef.current) clearTimeout(subclassSavedTimerRef.current);
+      subclassSavedTimerRef.current = setTimeout(() => setSubclassSaved(null), 3500);
+      refreshSpellbook();
+      load();
+    } catch (err) {
+      setLevelUpError(err instanceof Error ? err.message : "Nie udało się zapisać subklasy");
+    } finally {
+      setSubclassSaving(false);
+    }
+  }
 
   async function onJoin(e: FormEvent) {
     e.preventDefault();
@@ -220,9 +320,13 @@ export default function CampaignPage() {
 
   const legalActions = (suggestion?.availableActions.filter((a) => a.legal) ?? []).slice(0, 6);
 
-  function showRoll(payload: Record<string, unknown>) {
+  function mapRollPayload(payload: Record<string, unknown>): {
+    kind: "attack" | "death-save" | "spell";
+    label: string;
+    detail: string;
+  } | null {
     const type = payload.type;
-    if (type !== "attack" && type !== "death-save" && type !== "spell") return;
+    if (type !== "attack" && type !== "death-save" && type !== "spell") return null;
     let label = "";
     let detail = "";
     if (type === "attack") {
@@ -256,14 +360,56 @@ export default function CampaignPage() {
       if (healed > 0) label += ` · Leczenie: ${healed}`;
       else if (damage > 0) label += ` · Obrażenia: ${damage}`;
     }
-    if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
-    setRoll({ id: Date.now(), label, detail, kind: type });
-    rollTimerRef.current = setTimeout(() => setRoll(null), 4000);
+    return { kind: type, label, detail };
   }
+
+  function hashPayload(payload: Record<string, unknown>): string {
+    const str = JSON.stringify(payload);
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return `p${hash}`;
+  }
+
+  useEffect(() => {
+    if (!id) return;
+    campaignApi
+      .events(id)
+      .then(({ events }) => {
+        const history: RollEntry[] = [];
+        for (const event of events) {
+          if (event.type !== "action.resolved") continue;
+          const payload = (event.payload ?? {}) as Record<string, unknown>;
+          const mapped = mapRollPayload(payload);
+          if (!mapped) continue;
+          if (event.id) seenRollIdsRef.current.add(event.id);
+          history.push({
+            id: event.id,
+            ...mapped,
+            createdAt: event.createdAt,
+            animated: false,
+          });
+        }
+        history.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        setRolls(history.slice(-20));
+      })
+      .catch(() => {});
+  }, [id]);
 
   function onStateChange(newState: NonNullable<CampaignDetail["state"]>) {
     setDetail((prev) => (prev ? { ...prev, state: newState } : prev));
   }
+
+  const timeline = [
+    ...messages.map((message) => ({ kind: "message" as const, message })),
+    ...rolls.map((roll) => ({ kind: "roll" as const, roll })),
+  ].sort((a, b) => {
+    const ta = a.kind === "message" ? a.message.createdAt : a.roll.createdAt;
+    const tb = b.kind === "message" ? b.message.createdAt : b.roll.createdAt;
+    return ta.localeCompare(tb);
+  });
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -293,42 +439,77 @@ export default function CampaignPage() {
               <CardDescription className="not-italic">Opisz, co robi twoja postać.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="scroll-parchment scroll-pretty flex max-h-[55vh] min-h-[300px] flex-col gap-3 overflow-y-auto pr-1">
-                {messages.length === 0 && (
-                  <p className="text-sm text-[#7c6a45]">
-                    Przygoda jeszcze się nie zaczęła. Napisz coś do DM-a.
-                  </p>
-                )}
-                {messages.map((message, i) => (
-                  <div
-                    key={message.id}
-                    className={`max-w-[85%] animate-fade-up px-3.5 py-2.5 text-[15px] leading-relaxed shadow-[0_2px_6px_-3px_rgba(60,40,10,0.4)] ${
-                      message.role === "dm"
-                        ? "self-start rounded-r-md rounded-tl-sm border border-[#c8b184] border-l-2 border-l-[#a97e1f] bg-[#efe2c4] text-[#2e2113]"
-                        : "self-end rounded-l-md rounded-tr-sm border border-[#4a3417] bg-[#2e2113] text-[#f6ead0]"
-                    }`}
-                    style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
-                  >
-                    <div
-                      className={`mb-1 font-display text-[10px] uppercase tracking-[0.18em] ${
-                        message.role === "dm" ? "text-[#8a5a20]" : "text-[#c9b183]"
-                      }`}
-                    >
-                      {message.senderName}
+              <TooltipProvider delayDuration={250}>
+                <div className="scroll-parchment scroll-pretty flex max-h-[55vh] min-h-[300px] flex-col gap-3 overflow-y-auto pr-1">
+                  {timeline.length === 0 && (
+                    <p className="text-sm text-[#7c6a45]">
+                      Przygoda jeszcze się nie zaczęła. Napisz coś do DM-a.
+                    </p>
+                  )}
+                  {timeline.map((item, i) => {
+                    if (item.kind === "message") {
+                      const { message } = item;
+                      return (
+                        <div
+                          key={message.id}
+                          className={`max-w-[85%] animate-fade-up px-3.5 py-2.5 text-[15px] leading-relaxed shadow-[0_2px_6px_-3px_rgba(60,40,10,0.4)] ${
+                            message.role === "dm"
+                              ? "self-start rounded-r-md rounded-tl-sm border border-[#c8b184] border-l-2 border-l-[#a97e1f] bg-[#efe2c4] text-[#2e2113]"
+                              : "self-end rounded-l-md rounded-tr-sm border border-[#4a3417] bg-[#2e2113] text-[#f6ead0]"
+                          }`}
+                          style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
+                        >
+                          <div
+                            className={`mb-1 font-display text-[10px] uppercase tracking-[0.18em] ${
+                              message.role === "dm" ? "text-[#8a5a20]" : "text-[#c9b183]"
+                            }`}
+                          >
+                            {message.senderName}
+                          </div>
+                          <div className="whitespace-pre-wrap">
+                            <RichMessageText text={message.content} spellRegistry={spellRegistry} />
+                          </div>
+                        </div>
+                      );
+                    }
+                    const { roll } = item;
+                    return (
+                      <div
+                        key={roll.id}
+                        className={`self-start flex max-w-[85%] items-center gap-2 rounded-sm border border-[#a97e1f]/50 bg-[#efe2c4] px-2.5 py-1.5 text-xs ${
+                          roll.animated ? "animate-dice-roll" : ""
+                        }`}
+                      >
+                        <Dices
+                          className={`size-3.5 shrink-0 text-[#7a4b1d] ${
+                            roll.animated ? "animate-dice-spin" : ""
+                          }`}
+                        />
+                        <span className="font-display tracking-[0.06em] text-[#7a4b1d]">{roll.label}</span>
+                        {roll.detail && <span className="text-[#2e2113]">{roll.detail}</span>}
+                      </div>
+                    );
+                  })}
+                  {sending && (
+                    <div className="animate-fade-up self-start flex items-center gap-2.5 rounded-md rounded-tl-sm border border-[#c8b184] border-l-2 border-l-[#a97e1f] bg-[#efe2c4] px-3.5 py-2.5">
+                      <span className="flex items-center gap-1">
+                        <span className="thinking-dot size-1.5 rounded-full bg-[#8a5a20]" />
+                        <span className="thinking-dot size-1.5 rounded-full bg-[#8a5a20]" />
+                        <span className="thinking-dot size-1.5 rounded-full bg-[#8a5a20]" />
+                      </span>
+                      <span className="font-display text-[10px] uppercase tracking-[0.18em] text-[#8a5a20]">
+                        DM myśli…
+                      </span>
                     </div>
-                    <div className="whitespace-pre-wrap">{message.content}</div>
-                  </div>
-                ))}
-                <div ref={bottomRef} />
-              </div>
-              {roll && (
-                <div
-                  key={roll.id}
-                  className="animate-dice-roll mt-3 rounded-sm border-l-2 border-l-[#a97e1f] bg-[#efe2c4] px-3 py-2 text-sm"
-                >
-                  🎲 <span className="font-display tracking-[0.06em] text-[#7a4b1d]">{roll.label}</span>
-                  {roll.detail && <> — {roll.detail}</>}
+                  )}
+                  <div ref={bottomRef} />
                 </div>
+              </TooltipProvider>
+              {subclassSaved && (
+                <p className="mt-2 text-sm text-[#2e7d32]">
+                  {subclassSaved.name} przyjął subklasę {subclassSaved.subclass} — arkusz został
+                  zaktualizowany.
+                </p>
               )}
               {member && spellbook && spellbook.spells.length > 0 && (
                 <div className="mt-3 rounded-sm border border-[#c8b184]/70 bg-[#fbf3dd]/40 p-2.5">
@@ -441,6 +622,11 @@ export default function CampaignPage() {
                                             {meta.level === 0 ? " · cantrip" : ` · poziom ${meta.level}`}
                                           </span>
                                         </div>
+                                        {meta.description && (
+                                          <div className="text-[11px] leading-relaxed text-[#f6ead0]">
+                                            {meta.description}
+                                          </div>
+                                        )}
                                         <div className="text-[10px] text-[#c9b183]">
                                           {meta.castingTime} · {meta.range} · {meta.duration} ·{" "}
                                           {meta.components}
@@ -634,6 +820,54 @@ export default function CampaignPage() {
           </Card>
         </div>
       </div>
+
+      {pendingLevelUp && subclassDialogOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2e2113]/60 p-4"
+          onClick={() => setSubclassDialogOpen(false)}
+        >
+          <Card
+            className="max-h-[80vh] w-full max-w-lg animate-fade-up overflow-y-auto border-[#b99f6b] shadow-[0_10px_30px_-12px_rgba(60,40,10,0.55)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CardHeader className="pb-3">
+              <CardTitle>
+                <span className="mr-2 text-[#a97e1f]">✦</span>
+                Awans! {pendingLevelUp.name} osiąga poziom {pendingLevelUp.level}
+              </CardTitle>
+              <CardDescription>Wybierz subklasę ({pendingLevelUp.className}):</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {levelUpError && <p className="text-sm text-[#8f1d1d]">{levelUpError}</p>}
+              <SubclassPicker
+                catalog={featuresCatalog}
+                className={pendingLevelUp.className}
+                busy={subclassSaving}
+                onSelect={onSubclassSelect}
+              />
+              <p className="text-xs text-[#7c6a45]">
+                Przy awansie możesz też dodać lub zamienić zaklęcia — zrób to w{" "}
+                <Link
+                  to="/app/characters/$id"
+                  params={{ id: pendingLevelUp.characterId }}
+                  className="font-display text-[11px] uppercase tracking-[0.1em] text-[#7a4b1d] underline-offset-4 hover:underline"
+                >
+                  arkuszu postaci
+                </Link>
+                .
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                className="self-end"
+                onClick={() => setSubclassDialogOpen(false)}
+              >
+                Później
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

@@ -558,6 +558,39 @@ describe("runDmTool XP award (mocked store)", () => {
         source: "combat",
         total: 200,
         perCharacter: 100,
+        levelUps: [],
+      }),
+    );
+  });
+
+  it("end_combat reports level-ups in the xp-award payload", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants.push({
+      id: "enemy-2",
+      name: "Bugbear",
+      isPlayer: false,
+      initiative: 3,
+      currentHp: 0,
+      maxHp: 27,
+      armorClass: 16,
+      cr: 1,
+      status: "dead",
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+    });
+    mock.states.set("c1", state);
+    mock.characters.set("ch1", { ...aria, xp: 290 });
+
+    const result = await runTool("end_combat");
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Aria osiąga poziom 2!");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "xp-award",
+        source: "combat",
+        levelUps: [{ characterId: "ch1", name: "Aria", level: 2, className: "Fighter" }],
       }),
     );
   });
@@ -586,6 +619,7 @@ describe("runDmTool XP award (mocked store)", () => {
         amount: 100,
         reason: "saving the village",
         perCharacter: 50,
+        levelUps: [],
       }),
     );
 
@@ -609,5 +643,13 @@ describe("runDmTool XP award (mocked store)", () => {
     expect(ariaNow.level).toBe(2);
     expect(ariaNow.maxHp).toBe(18);
     expect(result.message).toContain("Aria osiąga poziom 2!");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "xp-award",
+        levelUps: [{ characterId: "ch1", name: "Aria", level: 2, className: "Fighter" }],
+      }),
+    );
   });
 });

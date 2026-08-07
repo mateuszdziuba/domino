@@ -5,6 +5,8 @@ import {
   buildCharacterFeatures,
   subclassesForClass,
   subclassNames,
+  subclassLevelForClass,
+  subclassDetails,
 } from "./features.js";
 
 describe("SRD 5.2.1 races", () => {
@@ -129,6 +131,28 @@ describe("subclass helpers", () => {
     expect(Object.keys(names)).toHaveLength(12);
     for (const subs of Object.values(names)) {
       expect(subs.length).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("subclassLevelForClass returns the subclass level for known classes", () => {
+    expect(subclassLevelForClass("Cleric")).toBe(3);
+    expect(subclassLevelForClass("Fighter")).toBe(3);
+    expect(subclassLevelForClass("Unknown")).toBeNull();
+  });
+
+  it("subclassDetails covers all 12 classes with named subclasses and features", () => {
+    const details = subclassDetails();
+    expect(Object.keys(details)).toHaveLength(12);
+    for (const classSubclasses of Object.values(details)) {
+      expect(classSubclasses.length).toBeGreaterThanOrEqual(1);
+      for (const subclass of classSubclasses) {
+        expect(subclass.name.length).toBeGreaterThan(0);
+        expect(subclass.features.length).toBeGreaterThanOrEqual(1);
+        for (const feature of subclass.features) {
+          expect(feature.name.length).toBeGreaterThan(0);
+          expect(feature.description.length).toBeGreaterThan(0);
+        }
+      }
     }
   });
 });

@@ -532,22 +532,33 @@ export async function runDmTool(
       const members = getCampaignMembers(campaignId)
         .map((m) => getCharacterById(m.characterId))
         .filter((ch): ch is Character => Boolean(ch));
-      const levelUps: string[] = [];
+      const levelUps: { characterId: string; name: string; level: number; className: string }[] = [];
+      const levelUpLines: string[] = [];
       let xpLine = "";
       if (xpTotal > 0 && members.length > 0) {
         const share = Math.floor(xpTotal / members.length);
         for (const member of members) {
+          const prevLevel = member.level;
           const { level } = grantXp(member.id, share);
-          if (level > member.level) levelUps.push(`${member.name} osiąga poziom ${level}!`);
+          if (level > prevLevel) {
+            levelUps.push({
+              characterId: member.id,
+              name: member.name,
+              level,
+              className: member.className,
+            });
+            levelUpLines.push(`${member.name} osiąga poziom ${level}!`);
+          }
         }
         pushEvent(campaignId, "action.resolved", {
           type: "xp-award",
           source: "combat",
           total: xpTotal,
           perCharacter: share,
+          levelUps,
         });
         xpLine = ` Drużyna zdobywa ${xpTotal} XP (${share} na osobę).${
-          levelUps.length > 0 ? ` ${levelUps.join(" ")}` : ""
+          levelUpLines.length > 0 ? ` ${levelUpLines.join(" ")}` : ""
         }`;
       }
       return {
@@ -574,10 +585,20 @@ export async function runDmTool(
       }
       const { amount, reason } = parsed.data;
       const share = Math.max(1, Math.floor(amount / members.length));
-      const levelUps: string[] = [];
+      const levelUps: { characterId: string; name: string; level: number; className: string }[] = [];
+      const levelUpLines: string[] = [];
       for (const member of members) {
+        const prevLevel = member.level;
         const { level } = grantXp(member.id, share);
-        if (level > member.level) levelUps.push(`${member.name} osiąga poziom ${level}!`);
+        if (level > prevLevel) {
+          levelUps.push({
+            characterId: member.id,
+            name: member.name,
+            level,
+            className: member.className,
+          });
+          levelUpLines.push(`${member.name} osiąga poziom ${level}!`);
+        }
       }
       pushEvent(campaignId, "action.resolved", {
         type: "xp-award",
@@ -585,12 +606,13 @@ export async function runDmTool(
         amount,
         reason,
         perCharacter: share,
+        levelUps,
       });
       return {
         ok: true,
         message: `Drużyna zdobywa ${amount} XP (${share} na osobę)${
           reason ? ` za ${reason}` : ""
-        }.${levelUps.length > 0 ? ` ${levelUps.join(" ")}` : ""}`,
+        }.${levelUpLines.length > 0 ? ` ${levelUpLines.join(" ")}` : ""}`,
       };
     }
   }

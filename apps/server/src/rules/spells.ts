@@ -33,6 +33,7 @@ export type SpellDef = {
   level: 0 | 1;
   school: string;
   components: string;
+  description: string;
   effect: SpellEffect;
 };
 
@@ -42,6 +43,8 @@ export const SPELLS: Record<string, SpellDef> = {
     level: 0,
     school: "Evocation",
     components: "V, S",
+    description:
+      "Płomień zstępuje z nieba na cel w zasięgu 60 stóp. Cel wykonuje rzut obronny na Zręczność; nieudany rzut oznacza 1k8 obrażeń promienistych. Błysk obejmuje cel nawet za osłoną — nie ma on korzyści z osłony.",
     effect: {
       kind: "damage",
       dice: "1d8",
@@ -58,6 +61,8 @@ export const SPELLS: Record<string, SpellDef> = {
     level: 0,
     school: "Necromancy",
     components: "V, S",
+    description:
+      "Dotykasz umierającej istoty z 0 punktami życia. Staje się ona stabilna: nie musi już wykonywać rzutów obronnych przed śmiercią, choć pozostaje nieprzytomna, dopóki nie zostanie wyleczona.",
     effect: {
       kind: "stabilize",
       range: "Touch",
@@ -70,6 +75,8 @@ export const SPELLS: Record<string, SpellDef> = {
     level: 1,
     school: "Evocation",
     components: "V, S",
+    description:
+      "Dotyk leczy rany istoty: odzyskuje ona 1k8 + modyfikator twojej zdolności rzucania zaklęć punktów życia. Leczenie nie może przekroczyć maksymalnego poziomu życia celu.",
     effect: {
       kind: "heal",
       dice: "1d8",
@@ -84,6 +91,8 @@ export const SPELLS: Record<string, SpellDef> = {
     level: 1,
     school: "Evocation",
     components: "V",
+    description:
+      "Wypowiadasz uzdrawiające słowo w zasięgu 60 stóp (akcja dodatkowa): cel odzyskuje 1k4 + modyfikator zdolności rzucania zaklęć punktów życia. Idealne do przywrócenia sojusznika do walki.",
     effect: {
       kind: "heal",
       dice: "1d4",
@@ -98,6 +107,8 @@ export const SPELLS: Record<string, SpellDef> = {
     level: 1,
     school: "Evocation",
     components: "V, S",
+    description:
+      "Smuga światła uderza w cel w zasięgu 120 stóp. Wykonaj rzut ataku; trafienie zadaje 4k6 obrażeń promienistych, a następny rzut ataku przeciwko celowi wykonuje z przewagą.",
     effect: {
       kind: "damage",
       dice: "4d6",
@@ -113,6 +124,8 @@ export const SPELLS: Record<string, SpellDef> = {
     level: 1,
     school: "Necromancy",
     components: "V, S",
+    description:
+      "Dotyk przepełnia cel nekrotyczną energią. Wykonaj rzut ataku w zwarciu; trafienie zadaje 3k10 obrażeń nekrotycznych — bolesny cios dla wrogów w bezpośredniej walce.",
     effect: {
       kind: "damage",
       dice: "3d10",
@@ -130,6 +143,7 @@ export type SpellMeta = {
   level: 0 | 1;
   school: string;
   components: string;
+  description: string;
   castingTime: string;
   range: string;
   duration: string;
@@ -150,6 +164,7 @@ export function summarizeSpells(): SpellMeta[] {
       level: spell.level,
       school: spell.school,
       components: spell.components,
+      description: spell.description,
       castingTime: spell.effect.castingTime,
       range: spell.effect.range,
       duration: spell.effect.duration,

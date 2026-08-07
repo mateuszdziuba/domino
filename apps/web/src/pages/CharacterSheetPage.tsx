@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft, ScrollText, Shield, Sparkles, Swords, Wand2 } from "lucide-react";
-import { characterApi, spellbookApi, type SpellMeta } from "../lib/api-client";
+import {
+  characterApi,
+  featuresApi,
+  spellbookApi,
+  type FeaturesCatalog,
+  type SpellMeta,
+} from "../lib/api-client";
 import type { CharacterSheet } from "@domino/shared";
 import { Badge } from "../components/ui/badge";
 import {
@@ -9,6 +15,7 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
+  CardTitle,
 } from "../components/ui/card";
 import { cn } from "../lib/utils";
 import {
@@ -17,6 +24,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../components/ui/tooltip";
+import { SubclassPicker } from "../components/SubclassPicker";
+import { SKILL_DESCRIPTIONS } from "../lib/chat-tooltips";
 
 const ABILITY_LABELS: Record<string, string> = {
   strength: "STR",
@@ -31,27 +40,6 @@ const XP_BY_LEVEL = [
   300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000,
   140000, 165000, 195000, 225000, 265000, 305000, 355000,
 ];
-
-const SKILL_DESCRIPTIONS: Record<string, string> = {
-  acrobatics: "Skakanie, balansowanie i unikanie upadków.",
-  animalHandling: "Uspokajanie i prowadzenie zwierząt.",
-  arcana: "Wiedza o magii, artefaktach i planach egzystencji.",
-  athletics: "Wspinaczka, pływanie, skoki i zmagania fizyczne.",
-  deception: "Kłamstwo i wprowadzanie innych w błąd.",
-  history: "Wiedza o przeszłości, legendach i dawnych królestwach.",
-  insight: "Odczytywanie intencji i nastroju rozmówcy.",
-  intimidation: "Wymuszanie postawy groźbą i siłą woli.",
-  investigation: "Przeszukiwanie, dedukcja i odnajdywanie ukrytych szczegółów.",
-  medicine: "Stabilizowanie rannych i diagnozowanie chorób.",
-  nature: "Wiedza o zwierzętach, roślinach i dzikich terenach.",
-  perception: "Dostrzeganie ukrytych rzeczy, dźwięków i ruchów.",
-  performance: "Sztuka, muzyka, taniec i widowiska.",
-  persuasion: "Przekonywanie i wpływanie na innych słowem.",
-  religion: "Wiedza o bóstwach, obrzędach i istotach boskich.",
-  sleightOfHand: "Kieszonkowstwo, kuglarstwo i zręczne manipulowanie przedmiotami.",
-  stealth: "Poruszanie się bezszelestnie i ukrywanie.",
-  survival: "Polowanie, orientacja w terenie i tropienie.",
-};
 
 function spellEffectSummary(meta: SpellMeta): string {
   if (meta.effect.kind === "damage") {
@@ -86,11 +74,13 @@ export default function CharacterSheetPage() {
   const [sheet, setSheet] = useState<CharacterSheet | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [registry, setRegistry] = useState<SpellMeta[] | null>(null);
+  const [featuresCatalog, setFeaturesCatalog] = useState<FeaturesCatalog | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     spellbookApi.list().then((r) => setRegistry(r.spells)).catch(() => {});
+    featuresApi.get().then(setFeaturesCatalog).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -132,6 +122,20 @@ export default function CharacterSheetPage() {
     }
   }
 
+  async function selectSubclass(subclass: string) {
+    if (saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { character: updated } = await characterApi.update(character.id, { subclass });
+      setSheet((prev) => (prev ? { ...prev, character: updated } : prev));
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Nie udało się zapisać");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const xp = character.xp ?? 0;
   const maxedOut = character.level >= 20;
   const nextThreshold = XP_BY_LEVEL[Math.min(character.level - 1, XP_BY_LEVEL.length - 1)]!;
@@ -142,6 +146,31 @@ export default function CharacterSheetPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
+      {character.level >= 3 &&
+        !character.subclass &&
+        (featuresCatalog?.subclassDetails?.[character.className] ?? []).length > 0 && (
+          <Card className="mb-4 border-[#a97e1f]/70 bg-[#f3e6c4]/60">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Sparkles className="size-4 text-[#a97e1f]" />
+                Wybierz subklasę
+              </CardTitle>
+              <CardDescription className="not-italic">
+                Osiągnąłeś poziom 3 — wybierz ścieżkę klasy {character.className}.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SubclassPicker
+                className={character.className}
+                catalog={featuresCatalog}
+                busy={saving}
+                onSelect={selectSubclass}
+              />
+              {saveError && <p className="mt-2 text-sm text-[#8f1d1d]">{saveError}</p>}
+            </CardContent>
+          </Card>
+        )}
+
       <div className="mb-4 flex items-center gap-3">
         <Link to="/app/characters" className="text-[#7c6a45] hover:text-[#4a3417]">
           <ArrowLeft className="size-4" />

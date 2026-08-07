@@ -9,7 +9,10 @@ export type ClassDef = {
   hitDie: number;
   savingThrows: string[];
   features: ClassFeatureDef[];
-  subclasses: { name: string; features: { name: string; description: string }[] }[];
+  subclasses: {
+    name: string;
+    features: { name: string; description: string; level: number }[];
+  }[];
 };
 
 export const RACES: RaceDef[] = [
@@ -260,6 +263,7 @@ export const CLASSES: ClassDef[] = [
         features: [
           {
             name: "Szał berserkerski (Frenzy)",
+            level: 3,
             description:
               "Wchodząc w szał, możesz wejść w szał berserkerski: podczas szału możesz wykonać dodatkowy atak bronią walki wręcz jako akcję bonusową.",
           },
@@ -302,10 +306,12 @@ export const CLASSES: ClassDef[] = [
         features: [
           {
             name: "Dodatkowe biegłości (Bonus Proficiencies)",
+            level: 3,
             description: "Uzyskujesz biegłość w trzech umiejętnościach według własnego wyboru.",
           },
           {
             name: "Cięte słowa (Cutting Words)",
+            level: 3,
             description:
               "Gdy istota w zasięgu 60 stóp wykona rzut ataku, umiejętności lub obrażeń, możesz wydać kość inspiracji barda, aby odjąć jej wynik od rzutu.",
           },
@@ -342,11 +348,13 @@ export const CLASSES: ClassDef[] = [
         features: [
           {
             name: "Uczeń życia (Disciple of Life)",
+            level: 3,
             description:
               "Zaklęcia leczące rzucane przez sloty 1. poziomu lub wyższe leczą dodatkowo o 2 punkty życia.",
           },
           {
             name: "Kanał bóstwa: Zachowanie życia (Preserve Life)",
+            level: 3,
             description:
               "Akcją możesz przywrócić istotom w zasięgu 30 stóp punkty życia z puli równej 5 × poziom kapłana, dzieląc ją według uznania.",
           },
@@ -377,11 +385,13 @@ export const CLASSES: ClassDef[] = [
         features: [
           {
             name: "Walka w dzikiej formie (Combat Wild Shape)",
+            level: 3,
             description:
               "Dziką formę przybierasz jako akcję bonusową i możesz koncentrować się na zaklęciach w dzikiej formie; raz na turę w formie bestii możesz wykonać Smocze uderzenie (Bestial Strike).",
           },
           {
             name: "Ulepszone dzikie kształty (Improved Wild Shape)",
+            level: 3,
             description:
               "Twoje dzikie formy mają AC co najmniej 15, a ich ataki liczą się jako magiczne; od 6. poziomu przybierasz również formy o wyższym poziomie wyzwania.",
           },
@@ -418,6 +428,7 @@ export const CLASSES: ClassDef[] = [
         features: [
           {
             name: "Ulepszony krytyk (Improved Critical)",
+            level: 3,
             description: "Twoje ataki trafiają krytycznie przy naturalnym 19 lub 20.",
           },
         ],
@@ -460,6 +471,7 @@ export const CLASSES: ClassDef[] = [
         features: [
           {
             name: "Sztuki cienia (Shadow Arts)",
+            level: 3,
             description:
               "Znasz zaklęcia Przywołanie cienia (Darkness), Wizja w ciemności (Darkvision), Wkradanie się (Pass without Trace) i Cisza (Silence); możesz je rzucać za punkty skupienia, a w swojej Przywołaniu cienia widzisz jak w jasnym świetle.",
           },
@@ -507,11 +519,13 @@ export const CLASSES: ClassDef[] = [
         features: [
           {
             name: "Kanał bóstwa: Święta broń (Sacred Weapon)",
+            level: 3,
             description:
               "Akcją bonusową możesz na 1 minutę dodać modyfikator Charyzmy do ataków wykonywanych jedną bronią i sprawić, że jej ataki liczą się jako magiczne.",
           },
           {
             name: "Kanał bóstwa: Przeciw złu (Turn the Unholy)",
+            level: 3,
             description:
               "Akcją możesz zmusić feje i nieumarłych w zasięgu 30 stóp do wykonania rzutu obronnego Mądrości lub ucieczki na 1 minutę.",
           },
@@ -547,6 +561,7 @@ export const CLASSES: ClassDef[] = [
         features: [
           {
             name: "Łup łowcy (Hunter's Prey)",
+            level: 3,
             description:
               "Wybierasz jedną z opcji: Zabójca kolosów (raz na turę +1k8 obrażeń zranionemu celowi), Pogromca hord (dodatkowy atak na inny cel w pobliżu) lub Zabójca olbrzymów (reakcją atak po trafieniu przez większą istotę).",
           },
@@ -590,11 +605,13 @@ export const CLASSES: ClassDef[] = [
         features: [
           {
             name: "Zwinne ręce (Fast Hands)",
+            level: 3,
             description:
               "Akcją bonusową możesz użyć przedmiotu, wykonać test Zręczności (np. kradzież kieszonkową) lub użyć narzędzi złodziejskich.",
           },
           {
             name: "Robota na wysokości (Second-Story Work)",
+            level: 3,
             description:
               "Szarżowanie kosztuje cię tylko 5 stóp szybkości, a przy skoku z rozbiegu dodajesz modyfikator Zręczności do długości skoku.",
           },
@@ -631,6 +648,7 @@ export const CLASSES: ClassDef[] = [
         features: [
           {
             name: "Smocza wytrzymałość (Draconic Resilience)",
+            level: 3,
             description:
               "Gdy nie nosisz pancerza, twój AC wynosi 13 + modyfikator Zręczności, a twoje maksimum punktów życia rośnie o 1 za każdy poziom czarnoksiężnika.",
           },
@@ -668,6 +686,7 @@ export const CLASSES: ClassDef[] = [
         features: [
           {
             name: "Piekielne błogosławieństwo (Dark One's Blessing)",
+            level: 3,
             description:
               "Gdy pokonasz wroga, zyskujesz tymczasowe punkty życia równe modyfikatorowi Charyzmy + poziomowi czarownika.",
           },
@@ -698,11 +717,13 @@ export const CLASSES: ClassDef[] = [
         features: [
           {
             name: "Rzeźbienie zaklęć (Sculpt Spells)",
+            level: 3,
             description:
               "Kiedy rzucasz zaklęcie obszarowe, możesz wybrać istoty, które automatycznie odniosą sukces w rzucie obronnym.",
           },
           {
             name: "Silna cantrip (Potent Cantrip)",
+            level: 3,
             description:
               "Gdy istota zda rzut obronny przeciw twojemu cantripowi, nadal otrzymuje połowę obrażeń.",
           },
@@ -735,14 +756,16 @@ export function buildCharacterFeatures(character: {
     }
   }
   const subclass = klass?.subclasses.find((s) => s.name === character.subclass);
-  if (subclass && level >= 3) {
+  if (subclass) {
     for (const def of subclass.features) {
-      features.push({
-        name: def.name,
-        description: def.description,
-        level: 3,
-        category: "subclass",
-      });
+      if (level >= def.level) {
+        features.push({
+          name: def.name,
+          description: def.description,
+          level: def.level,
+          category: "subclass",
+        });
+      }
     }
   }
   return features;
@@ -754,4 +777,25 @@ export function subclassesForClass(className: string): string[] {
 
 export function subclassNames(): Record<string, string[]> {
   return Object.fromEntries(CLASSES.map((c) => [c.name, c.subclasses.map((s) => s.name)]));
+}
+
+export function subclassLevelForClass(className: string): number | null {
+  const klass = CLASSES.find((c) => c.name === className);
+  if (!klass || klass.subclasses.length === 0) return null;
+  return Math.min(...klass.subclasses.flatMap((s) => s.features.map((f) => f.level)));
+}
+
+export function subclassDetails(): Record<
+  string,
+  { name: string; features: { name: string; description: string }[] }[]
+> {
+  return Object.fromEntries(
+    CLASSES.map((c) => [
+      c.name,
+      c.subclasses.map((s) => ({
+        name: s.name,
+        features: s.features.map((f) => ({ name: f.name, description: f.description })),
+      })),
+    ]),
+  );
 }

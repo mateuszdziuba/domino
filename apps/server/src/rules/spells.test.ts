@@ -339,11 +339,29 @@ describe("summarizeSpells", () => {
         level: expect.any(Number),
         school: expect.any(String),
         components: expect.any(String),
+        description: expect.any(String),
         castingTime: expect.any(String),
         range: expect.any(String),
         duration: expect.any(String),
         effect: { kind: expect.stringMatching(/^(damage|heal|stabilize)$/) },
       });
     }
+  });
+
+  it("gives every spell a rich Polish description", () => {
+    for (const meta of summarizeSpells()) {
+      expect(meta.description.length).toBeGreaterThan(30);
+    }
+  });
+
+  it("describes the Guiding Bolt advantage rider and damage dice", () => {
+    const guidingBolt = summarizeSpells().find((m) => m.name === "Guiding Bolt");
+    expect(guidingBolt?.description).toContain("przewag");
+    expect(guidingBolt?.description).toContain("4k6");
+  });
+
+  it("describes Cure Wounds healing dice", () => {
+    const cureWounds = summarizeSpells().find((m) => m.name === "Cure Wounds");
+    expect(cureWounds?.description).toContain("1k8");
   });
 });

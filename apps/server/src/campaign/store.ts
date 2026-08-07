@@ -74,7 +74,13 @@ export function pushEvent(
     createdAt: isoNow(),
   };
   db.insert(gameEvents).values(event).run();
-  broadcast(campaignId, { type, campaignId, payload });
+  broadcast(campaignId, {
+    type: event.type,
+    campaignId,
+    payload: event.payload,
+    id: event.id,
+    createdAt: event.createdAt,
+  });
   return event;
 }
 
