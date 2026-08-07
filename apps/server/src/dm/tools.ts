@@ -74,72 +74,72 @@ export async function runDmTool(
 ): Promise<ToolResult> {
   const isSystemActor = userId === "dm";
   const campaign = isSystemActor ? { id: campaignId } : getCampaignForUser(campaignId, userId);
-  if (!campaign) return { ok: false, message: "Campaign not found or no access." };
+  if (!campaign) return { ok: false, message: "Kampania nie została znaleziona lub brak dostępu." };
 
   switch (name) {
     case "get_campaign_state": {
       const state = loadState(campaignId);
-      return { ok: true, message: "Current campaign state.", data: summarizeState(state) };
+      return { ok: true, message: "Bieżący stan kampanii.", data: summarizeState(state) };
     }
     case "get_character": {
       const args = z.object({ characterId: z.string().min(1) }).safeParse(rawArgs);
-      if (!args.success) return { ok: false, message: "characterId required." };
+      if (!args.success) return { ok: false, message: "Wymagany jest identyfikator postaci (characterId)." };
       const character = getCharacterById(args.data.characterId);
-      if (!character) return { ok: false, message: "Character not found." };
-      return { ok: true, message: "Character sheet.", data: character };
+      if (!character) return { ok: false, message: "Nie znaleziono postaci." };
+      return { ok: true, message: "Karta postaci.", data: character };
     }
     case "get_available_actions": {
       const args = z.object({ characterId: z.string().min(1) }).safeParse(rawArgs);
-      if (!args.success) return { ok: false, message: "characterId required." };
+      if (!args.success) return { ok: false, message: "Wymagany jest identyfikator postaci (characterId)." };
       const character = getCharacterById(args.data.characterId);
-      if (!character) return { ok: false, message: "Character not found." };
+      if (!character) return { ok: false, message: "Nie znaleziono postaci." };
       const state = loadState(campaignId);
       const suggestion = buildDmSuggestion(character, state);
       return {
         ok: true,
-        message: "Actions currently legal for this character per the rules engine.",
+        message: "Akcje legalne dla tej postaci według silnika zasad.",
         data: suggestion,
       };
     }
     case "request_dice_roll": {
       const parsed = rollSchema.safeParse(rawArgs);
-      if (!parsed.success) return { ok: false, message: "Invalid dice notation." };
+      if (!parsed.success) return { ok: false, message: "Nieprawidłowy zapis kości." };
       try {
         const result = rollDiceNotation(parsed.data.notation);
         return {
           ok: true,
-          message: `Rolled ${parsed.data.notation}${parsed.data.reason ? ` (${parsed.data.reason})` : ""}: total ${result.total} (rolls: ${result.rolls.join(", ")}).`,
+          message: `Wyrzucono ${parsed.data.notation}${parsed.data.reason ? ` (${parsed.data.reason})` : ""}: suma ${result.total} (rzuty: ${result.rolls.join(", ")}).`,
           data: result,
         };
       } catch {
-        return { ok: false, message: "Invalid dice notation." };
+        return { ok: false, message: "Nieprawidłowy zapis kości." };
       }
     }
     case "resolve_action": {
       const parsed = actionSchema.safeParse(rawArgs);
-      if (!parsed.success) return { ok: false, message: "characterId and action required." };
+      if (!parsed.success) return { ok: false, message: "Wymagane są characterId i action." };
       const character = getCharacterById(parsed.data.characterId);
-      if (!character) return { ok: false, message: "Character not found." };
+      if (!character) return { ok: false, message: "Nie znaleziono postaci." };
       const state = loadState(campaignId);
       const actions = getAvailableActions(character, state);
       const legal = actions.find((a) => a.key === parsed.data.action || a.label === parsed.data.action);
       if (!legal) {
-        return { ok: false, message: `Action "${parsed.data.action}" is not known to the rules engine.` };
+        return { ok: false, message: `Akcja "${parsed.data.action}" nie jest znana silnikowi zasad.` };
       }
       if (!legal.legal) {
-        return { ok: false, message: `Action is not legal: ${legal.reason ?? "unknown reason"}.` };
+        return { ok: false, message: `Akcja jest niedozwolona: ${legal.reason ?? "nieznany powód"}.` };
       }
       const roll = rollDiceNotation("1d20");
       return {
         ok: true,
-        message: `Action "${legal.label}" is legal. Suggested d20 roll: ${roll.total} for narration flavor; authoritative resolution happens through the combat/game endpoints.`,
+        message: `Akcja "${legal.label}" jest dozwolona. Sugerowany rzut k20: ${roll.total} dla narracji; autorytatywne rozstrzygnięcie następuje przez endpointy walki i gry.`,
         data: { action: legal, suggestion: roll.total },
       };
     }
     case "advance_turn": {
       let state = loadState(campaignId);
       if (!state.combat.active) {
-        return { ok: false, message: "No combat in progress; nothing to advance." };
+        return { ok: false, message: "Brak walki w toku; nie ma czego przesunąć." };
       }
       state = nextTurn(state);
       saveState(campaignId, state);
@@ -151,14 +151,14 @@ export async function runDmTool(
       });
       return {
         ok: true,
-        message: `Advanced to round ${state.combat.round}, turn ${state.combat.turnIndex + 1}. It is now ${current?.name}'s turn.`,
+        message: `Przesunięto do rundy ${state.combat.round}, tury ${state.combat.turnIndex + 1}. Teraz tura: ${current?.name}.`,
         data: current ? { name: current.name, id: current.id } : null,
       };
     }
     case "update_world_state": {
       const parsed = worldPatchSchema.safeParse(rawArgs);
       if (!parsed.success) {
-        return { ok: false, message: "Patch must only contain location, scene, worldProgress, or notes." };
+        return { ok: false, message: "Aktualizacja może zawierać tylko location, scene, worldProgress lub notes." };
       }
       let state = loadState(campaignId);
       state = {
@@ -170,20 +170,20 @@ export async function runDmTool(
       };
       state = saveState(campaignId, state);
       pushEvent(campaignId, "state.updated", { by: "dm", patch: parsed.data });
-      return { ok: true, message: "Campaign state updated.", data: summarizeState(state) };
+      return { ok: true, message: "Stan kampanii zaktualizowany.", data: summarizeState(state) };
     }
     case "generate_encounter": {
       const parsed = z.object({ description: z.string().max(300).optional() }).safeParse(rawArgs);
-      if (!parsed.success) return { ok: false, message: "description must be a short string." };
+      if (!parsed.success) return { ok: false, message: "description musi być krótkim tekstem." };
       const state0 = loadState(campaignId);
       if (state0.combat.active) {
-        return { ok: false, message: "Combat is already in progress." };
+        return { ok: false, message: "Walka już trwa." };
       }
       const party = getCampaignMembers(campaignId)
         .map((m) => getCharacterById(m.characterId))
         .filter((ch): ch is Character => Boolean(ch));
       if (party.length === 0) {
-        return { ok: false, message: "The campaign has no characters yet." };
+        return { ok: false, message: "Kampania nie ma jeszcze postaci." };
       }
       const description = parsed.data.description?.trim() || "a random encounter";
       const monsters = buildEncounter(description, party.length);
@@ -206,7 +206,7 @@ export async function runDmTool(
       });
       return {
         ok: true,
-        message: `Combat started: ${monsters.map((m) => m.name).join(", ")}. The initiative order is set; describe the scene and hand over to the first combatant.`,
+        message: `Walka rozpoczęta: ${monsters.map((m) => m.name).join(", ")}. Inicjatywa ustalona; opisz scenę i oddaj turę pierwszemu kombatantowi.`,
         data: summarizeState(state),
       };
     }
@@ -220,10 +220,10 @@ export async function runDmTool(
           damageBonus: z.number().optional(),
         })
         .safeParse(rawArgs);
-      if (!parsed.success) return { ok: false, message: "attackerId and targetId required." };
+      if (!parsed.success) return { ok: false, message: "Wymagane są attackerId i targetId." };
       const state = loadState(campaignId);
       const attacker = findCombatant(state, parsed.data.attackerId);
-      if (!attacker) return { ok: false, message: "Combatant not found." };
+      if (!attacker) return { ok: false, message: "Nie znaleziono kombatanta." };
       let { attackBonus, damageNotation, damageBonus } = parsed.data;
       if (attacker.characterId) {
         const defaults = characterAttackInput(attacker, getCharacterById(attacker.characterId));
@@ -247,17 +247,12 @@ export async function runDmTool(
         target: outcome.target.name,
         ...outcome.result,
       });
-      const verb = outcome.result.critical
-        ? "critically hits"
-        : outcome.result.hit
-          ? "hits"
-          : "misses";
-      const damage = outcome.result.hit
-        ? ` for ${outcome.result.damageTotal} damage${outcome.result.critical ? " (critical)" : ""}`
-        : "";
+      const hitMessage = outcome.result.hit
+        ? `${outcome.attacker.name} trafia ${outcome.target.name} za ${outcome.result.damageTotal} obrażeń (atak ${outcome.result.attackTotal} vs AC ${outcome.target.armorClass}).${outcome.result.critical ? " Krytyk!" : ""}`
+        : `${outcome.attacker.name} chybia ${outcome.target.name} (atak ${outcome.result.attackTotal} vs AC ${outcome.target.armorClass}).`;
       return {
         ok: true,
-        message: `${outcome.attacker.name} ${verb} ${outcome.target.name} (attack ${outcome.result.attackTotal} vs AC ${outcome.target.armorClass})${damage}${outcome.result.fumble ? " — fumble!" : ""}.`,
+        message: `${hitMessage}${outcome.result.fumble ? " — pudło!" : ""}`,
         data: outcome.result,
       };
     }
@@ -270,22 +265,22 @@ export async function runDmTool(
         })
         .safeParse(rawArgs);
       if (!parsed.success) {
-        return { ok: false, message: "characterId, spellName, and targetId are required." };
+        return { ok: false, message: "Wymagane są characterId, spellName i targetId." };
       }
       const character = getCharacterById(parsed.data.characterId);
-      if (!character) return { ok: false, message: "Character not found." };
+      if (!character) return { ok: false, message: "Nie znaleziono postaci." };
       const def = SPELLS[parsed.data.spellName];
       if (!def) {
         return {
           ok: false,
-          message: `Spell "${parsed.data.spellName}" is not known to the rules engine.`,
+          message: `Zaklęcie "${parsed.data.spellName}" nie jest znane silnikowi zasad.`,
         };
       }
       if (!character.spells?.includes(parsed.data.spellName)) {
-        return { ok: false, message: "Character does not know that spell." };
+        return { ok: false, message: "Postać nie zna tego zaklęcia." };
       }
       if (character.currentHp === 0) {
-        return { ok: false, message: "The caster is unconscious and cannot cast." };
+        return { ok: false, message: "Rzucający jest nieprzytomny i nie może rzucać." };
       }
       const state = loadState(campaignId);
       let casterCombatant: Combatant | undefined;
@@ -295,26 +290,26 @@ export async function runDmTool(
         casterCombatant = combatantByCharacter(state, character.id);
         const current = currentTurnCombatant(state);
         if (!casterCombatant || !current || current.id !== casterCombatant.id) {
-          return { ok: false, message: "Not this combatant's turn." };
+          return { ok: false, message: "To nie tura tego kombatanta." };
         }
         targetCombatant = findCombatant(state, parsed.data.targetId);
-        if (!targetCombatant) return { ok: false, message: "Target not found in combat." };
+        if (!targetCombatant) return { ok: false, message: "Nie znaleziono celu w walce." };
         if (targetCombatant.status === "dead") {
-          return { ok: false, message: "Target is dead." };
+          return { ok: false, message: "Cel jest martwy." };
         }
       } else {
         if (def.effect.kind === "damage") {
-          return { ok: false, message: "Damage spells require active combat." };
+          return { ok: false, message: "Zaklęcia obrażeń wymagają aktywnej walki." };
         }
         if (def.effect.kind === "stabilize") {
           return {
             ok: false,
-            message: "Spare the Dying requires a combatant at 0 HP in combat.",
+            message: "Spare the Dying wymaga kombatanta z 0 HP w walce.",
           };
         }
         targetCharacter = getCharacterById(parsed.data.targetId);
         if (!targetCharacter) {
-          return { ok: false, message: "Target character not found." };
+          return { ok: false, message: "Nie znaleziono postaci-celu." };
         }
       }
       const castingAbility = spellcastingAbility(character.className) ?? "wisdom";
@@ -330,7 +325,7 @@ export async function runDmTool(
         const max = spellSlotsForLevel(character.level)[def.level - 1] ?? 0;
         const used = character.spellSlotsUsed ?? [];
         if ((used[def.level - 1] ?? 0) >= max) {
-          return { ok: false, message: `No spell slots left for level ${def.level}.` };
+          return { ok: false, message: `Brak slotów zaklęć na poziomie ${def.level}.` };
         }
         nextUsed = [...used];
         nextUsed[def.level - 1] = (nextUsed[def.level - 1] ?? 0) + 1;
@@ -391,15 +386,15 @@ export async function runDmTool(
         });
         return {
           ok: true,
-          message: `${character.name} casts ${def.name} on ${targetCharacter.name} — healing ${result.healed} hit points.`,
+          message: `${character.name} rzuca ${def.name} na ${targetCharacter.name} — leczy o ${result.healed} punktów życia.`,
           data: result,
         };
       }
-      return { ok: false, message: "Target not found." };
+      return { ok: false, message: "Nie znaleziono celu." };
     }
     case "resolve_death_save": {
       const parsed = z.object({ combatantId: z.string().min(1) }).safeParse(rawArgs);
-      if (!parsed.success) return { ok: false, message: "combatantId required." };
+      if (!parsed.success) return { ok: false, message: "Wymagany jest combatantId." };
       const state = loadState(campaignId);
       const outcome = performDeathSave(state, parsed.data.combatantId);
       if (!outcome.ok) return { ok: false, message: `${outcome.error}.` };
@@ -413,10 +408,10 @@ export async function runDmTool(
         ...outcome.result,
       });
       const verdict = outcome.result.dead
-        ? "dies"
+        ? "umiera"
         : outcome.result.stable
-          ? "stabilizes"
-          : `death save: ${outcome.result.roll} (${outcome.result.successes} success, ${outcome.result.failures} failure)`;
+          ? "stabilizuje się"
+          : `rzut obronny: ${outcome.result.roll} (${outcome.result.successes} sukces, ${outcome.result.failures} porażek)`;
       return {
         ok: true,
         message: `${outcome.combatant.name} ${verdict}.`,
@@ -427,7 +422,7 @@ export async function runDmTool(
       z.object({ hours: z.number().optional() }).safeParse(rawArgs);
       const state0 = loadState(campaignId);
       if (state0.combat.active) {
-        return { ok: false, message: "Cannot rest during combat." };
+        return { ok: false, message: "Nie można odpoczywać podczas walki." };
       }
       const healed: string[] = [];
       for (const member of getCampaignMembers(campaignId)) {
@@ -447,13 +442,13 @@ export async function runDmTool(
       return {
         ok: true,
         message:
-          "The party takes a long rest, recovers fully, and regains all spent spell slots.",
+          "Drużyna odpoczywa (długi odpoczynek): wszyscy odzyskują pełne HP i sloty zaklęć.",
         data: summarizeState(state),
       };
     }
     case "end_combat": {
       let state = loadState(campaignId);
-      if (!state.combat.active) return { ok: false, message: "No combat in progress." };
+      if (!state.combat.active) return { ok: false, message: "Brak walki w toku." };
       const xpTotal = xpAwardForDeadEnemies(state.combat.combatants);
       for (const combatant of state.combat.combatants) {
         if (combatant.characterId) {
@@ -472,7 +467,7 @@ export async function runDmTool(
         const share = Math.floor(xpTotal / members.length);
         for (const member of members) {
           const { level } = grantXp(member.id, share);
-          if (level > member.level) levelUps.push(`${member.name} reaches level ${level}!`);
+          if (level > member.level) levelUps.push(`${member.name} osiąga poziom ${level}!`);
         }
         pushEvent(campaignId, "action.resolved", {
           type: "xp-award",
@@ -480,13 +475,13 @@ export async function runDmTool(
           total: xpTotal,
           perCharacter: share,
         });
-        xpLine = ` The party earns ${xpTotal} XP (${share} each).${
+        xpLine = ` Drużyna zdobywa ${xpTotal} XP (${share} na osobę).${
           levelUps.length > 0 ? ` ${levelUps.join(" ")}` : ""
         }`;
       }
       return {
         ok: true,
-        message: `Combat has ended. HP written back to the characters; the party returns to exploration.${xpLine}`,
+        message: `Walka zakończona. Punkty życia zapisane na kartach postaci; drużyna wraca do eksploracji.${xpLine}`,
         data: summarizeState(state),
       };
     }
@@ -498,20 +493,20 @@ export async function runDmTool(
         })
         .safeParse(rawArgs);
       if (!parsed.success) {
-        return { ok: false, message: "amount must be a positive integer." };
+        return { ok: false, message: "amount musi być dodatnią liczbą całkowitą." };
       }
       const members = getCampaignMembers(campaignId)
         .map((m) => getCharacterById(m.characterId))
         .filter((ch): ch is Character => Boolean(ch));
       if (members.length === 0) {
-        return { ok: false, message: "The campaign has no characters to award XP to." };
+        return { ok: false, message: "Brak postaci w kampanii, którym można przyznać XP." };
       }
       const { amount, reason } = parsed.data;
       const share = Math.max(1, Math.floor(amount / members.length));
       const levelUps: string[] = [];
       for (const member of members) {
         const { level } = grantXp(member.id, share);
-        if (level > member.level) levelUps.push(`${member.name} reaches level ${level}!`);
+        if (level > member.level) levelUps.push(`${member.name} osiąga poziom ${level}!`);
       }
       pushEvent(campaignId, "action.resolved", {
         type: "xp-award",
@@ -522,8 +517,8 @@ export async function runDmTool(
       });
       return {
         ok: true,
-        message: `The party earns ${amount} XP (${share} each)${
-          reason ? ` for ${reason}` : ""
+        message: `Drużyna zdobywa ${amount} XP (${share} na osobę)${
+          reason ? ` za ${reason}` : ""
         }.${levelUps.length > 0 ? ` ${levelUps.join(" ")}` : ""}`,
       };
     }
@@ -538,20 +533,20 @@ function spellNarration(
 ): string {
   if (def.effect.kind === "damage" && def.effect.attack) {
     if (result.hit) {
-      return `${casterName} casts ${def.name} at ${target.name} — ${result.critical ? "critically hits" : "hits"} (attack ${result.attackTotal} vs AC ${target.armorClass}) for ${result.damageTotal} ${def.effect.damageType} damage.`;
+      return `${casterName} rzuca ${def.name} na ${target.name} — ${result.critical ? "krytyczne trafienie" : "trafienie"} za ${result.damageTotal} obrażeń (${def.effect.damageType}) (atak ${result.attackTotal} vs AC ${target.armorClass}).`;
     }
-    return `${casterName} casts ${def.name} at ${target.name} — misses (attack ${result.attackTotal} vs AC ${target.armorClass}).`;
+    return `${casterName} rzuca ${def.name} na ${target.name} — pudło (atak ${result.attackTotal} vs AC ${target.armorClass}).`;
   }
   if (def.effect.kind === "damage") {
     if (result.hit) {
-      return `${casterName} casts ${def.name} on ${target.name} — the target fails its save (${result.saveTotal} vs DC ${result.saveDc}) and takes ${result.damageTotal} ${def.effect.damageType} damage.`;
+      return `${casterName} rzuca ${def.name} na ${target.name} — nieudany rzut obronny (${result.saveTotal} vs ST ${result.saveDc}) za ${result.damageTotal} obrażeń (${def.effect.damageType}).`;
     }
-    return `${casterName} casts ${def.name} on ${target.name} — the target succeeds on its save (${result.saveTotal} vs DC ${result.saveDc}) and takes no damage.`;
+    return `${casterName} rzuca ${def.name} na ${target.name} — udany rzut obronny (${result.saveTotal} vs ST ${result.saveDc}), brak obrażeń.`;
   }
   if (def.effect.kind === "heal") {
-    return `${casterName} casts ${def.name} on ${target.name} — healing ${result.healed} hit points.`;
+    return `${casterName} rzuca ${def.name} na ${target.name} — leczy o ${result.healed} punktów życia.`;
   }
-  return `${casterName} casts ${def.name} on ${target.name} — stabilizing them.`;
+  return `${casterName} rzuca ${def.name} na ${target.name} — stabilizuje ${target.name}.`;
 }
 
 function summarizeState(state: CampaignState) {

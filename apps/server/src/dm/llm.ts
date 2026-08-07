@@ -62,6 +62,10 @@ type ApiMessage = {
 
 const SYSTEM_PROMPT = `You are the Dungeon Master of a D&D 5.2.1 game (SRD rules).
 
+NARRATE IN POLISH (pl-PL). The players are Polish — all narration, questions, and descriptions must be written in Polish, vividly and naturally. Spell names and mechanical terms may stay in English.
+
+Never use Markdown or any markup: no asterisks (** or *), no backticks, no # headings, no bullet symbols. Write plain text only.
+
 The rules engine is authoritative: you must never invent or override rules, HP, AC,
 initiative, or campaign state. Use the provided tools to read game state and rules
 before adjudicating, and to update world state after adjudication. Narrate vividly
@@ -89,6 +93,8 @@ recover, call take_long_rest so every character regains full HP per the
 long-rest rules. When a player declares a spell, resolve it with cast_spell
 (character id, exact spell name from the tool list, and the target combatant id
 in combat or character id outside combat) instead of inventing the outcome. XP for defeated enemies is awarded automatically when combat ends; use award_xp for quest rewards, never for combat.
+
+NEVER reveal a creature's numeric hit points (current HP or HP totals). Describe the enemy's condition in words instead: e.g. 'ranny', 'ciężko ranny', 'ledwo trzyma się na nogach', 'dopiero co zraniony'. Player characters' own HP may be described normally.
 
 Cadence rules — follow them strictly:
 - Call at most ONE tool per reply, then narrate the result dramatically and STOP. Never chain multiple tool calls in a single reply.
@@ -121,7 +127,7 @@ export async function llmNarrate(
     const toolCalls = response.tool_calls ?? [];
 
     if (toolCalls.length === 0) {
-      const narration = response.content ?? "(no response)";
+      const narration = stripMarkdown(response.content ?? "(no response)");
       return { narration, toolCalls: mapToolCalls(toolCalls) };
     }
 
@@ -204,6 +210,16 @@ async function callLlm(
     content: message?.content ?? null,
     tool_calls: message?.tool_calls ?? [],
   };
+}
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .trim();
 }
 
 function mapToolCalls(toolCalls: NonNullable<ApiMessage["tool_calls"]>) {

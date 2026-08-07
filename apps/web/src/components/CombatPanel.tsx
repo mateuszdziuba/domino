@@ -130,15 +130,23 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                     {c.status === "stable" && <Badge variant="outline">stable</Badge>}
                   </span>
                   <span className="flex items-center gap-2">
-                    <span className="h-1.5 w-14 overflow-hidden rounded-full bg-[#dcc89a]">
-                      <span
-                        className="block h-full rounded-full bg-[#7a4b1d]"
-                        style={{ width: `${Math.max(0, Math.min(100, (c.currentHp / Math.max(c.maxHp, 1)) * 100))}%` }}
-                      />
-                    </span>
-                    <span className="font-display text-[10px] tracking-wide text-[#7c6a45]">
-                      {c.currentHp}/{c.maxHp} · AC {c.armorClass}
-                    </span>
+                    {c.isPlayer ? (
+                      <>
+                        <span className="h-1.5 w-14 overflow-hidden rounded-full bg-[#dcc89a]">
+                          <span
+                            className="block h-full rounded-full bg-[#7a4b1d]"
+                            style={{ width: `${Math.max(0, Math.min(100, (c.currentHp / Math.max(c.maxHp, 1)) * 100))}%` }}
+                          />
+                        </span>
+                        <span className="font-display text-[10px] tracking-wide text-[#7c6a45]">
+                          {c.currentHp}/{c.maxHp} · AC {c.armorClass}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="font-display text-[10px] tracking-wide text-[#7c6a45]">
+                        AC {c.armorClass}
+                      </span>
+                    )}
                   </span>
                 </div>
               ))}

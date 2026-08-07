@@ -86,6 +86,28 @@
   animation: fade-up 0.35s ease-out both;
 }
 
+@keyframes dice-roll {
+  0% {
+    transform: rotate(0deg) scale(0.6);
+    opacity: 0;
+  }
+  40% {
+    transform: rotate(540deg) scale(1.15);
+    opacity: 1;
+  }
+  70% {
+    transform: rotate(700deg) scale(0.95);
+  }
+  100% {
+    transform: rotate(720deg) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-dice-roll {
+  animation: dice-roll 0.7s ease-out both;
+}
+
 .scroll-parchment {
   scrollbar-width: thin;
   scrollbar-color: #a97e1f transparent;

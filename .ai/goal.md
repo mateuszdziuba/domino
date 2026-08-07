@@ -1,22 +1,21 @@
 # Cel
 
-SRD advancement — XP, leveling, nagrody:
+Polski DM + ukryte HP + animacje rzutów + sugerowane akcje:
 
-1. **Tabele SRD** (`rules/advancement.ts`): XP za CR (0→10, 1/8→25, 1/4→50, 1/2→100, 1→200, 2→450, 3→700, 4→1100, 5→1800, 6→2300, 7→2900, 8→3900, 9→5000, 10→5900), progi poziomów 2-20 (300, 900, 2700, ...), hit die per klasa (d6-d12), przyrost max HP (avg die + CON mod / poziom), levelForXp.
-2. **XP za pokonane potwory**: `Combatant.cr` z katalogu; na końcu walki (REST /end ORAZ DM end_combat) suma XP pokonanych (status dead) dzielona równo między postacie członków; narracja + event.
-3. **Narzędzie `award_xp`**: ręczna nagroda (quest), równy podział, walidacja.
-4. **Level-up automatyczny**: level = levelForXp; wzrost max HP (avg hit die + CON mod za każdy poziom), proficiencyBonus wg SRD; currentHp bez zmian (SRD: level-up nie leczy).
-5. **UI**: XP i postęp do następnego poziomu w arkuszu.
+1. **DM mówi po polsku**: SYSTEM_PROMPT (narracja pl-PL, nigdy nie zdradzać liczbowego HP wrogów — opisywać rany: "ranny", "ledwo stoi"), preview + wiadomości narzędzi po polsku, polskie triggery (atak/odpoczynek/koniec tury/czary), polskie tagi potworów (gobliny→goblin itd.).
+2. **HP wrogów niewidoczne**: CombatPanel nie renderuje HP/paska dla nie-graczy; prompt zakazuje liczb HP w narracji.
+3. **Animacja rzutów w czacie**: SSE `action.resolved` → baner rzutu (kostka, wynik, Trafienie/Pudło/Krytyk/Rzut obronny), CSS animation, auto-znikanie.
+4. **Sugerowane akcje nad czatem**: klikalne chipy z legalnych akcji gracza (dm-suggestion), klik → wypełnia input polską frazą.
 
 ## Kryteria ukończenia
 
-1. XP przyznawany identycznie w REST i DM end_combat (wspólna logika).
-2. Level-up poprawny wg SRD (max HP, prof bonus), bez regresji death/recovery/spells.
-3. `award_xp` w DM_TOOLS z walidacją i eventem.
-4. UI pokazuje XP/progi; `Character.xp` w sync (schema + rowToCharacter obie kopie).
-5. Testy + bramki zielone.
+1. Wszystkie narracje DM (LLM + preview + tool messages) po polsku; testy zaktualizowane.
+2. HP wrogów nigdzie w UI; LLM opisuje rany słownie (prompt).
+3. Baner rzutu animowany, po polsku, dla każdego action.resolved (atak/śmierć/czar).
+4. Chipy nad inputem czatu (tylko legalne akcje), polskie frazy; labelki akcji po polsku w rules/actions.ts.
+5. Bramki zielone (typecheck/test/lint/build).
 
 ## Poza zakresem
 
-- Short rest / Hit Dice — osobna iteracja.
-- Loot/przedmioty, feats, multiclass — osobna iteracja.
+- Polskie komunikaty błędów REST (developer-facing) — osobna iteracja.
+- Loot, short rest, więcej zaklęć — osobne iteracje.

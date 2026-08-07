@@ -294,7 +294,7 @@ describe("runDmTool cast_spell (real store)", () => {
       targetId: "enemy-1",
     });
     expect(third.ok).toBe(false);
-    expect(third.message).toContain("slots");
+    expect(third.message).toContain("slotów");
   });
 
   it("heals a character outside combat", async () => {
@@ -411,7 +411,7 @@ describe("runDmTool XP award (real store)", () => {
     await killGoblin();
     const result = await runDmTool("c1", "dm", "end_combat", {});
     expect(result.ok).toBe(true);
-    expect(result.message).toContain("Aria reaches level 2!");
+    expect(result.message).toContain("Aria osiąga poziom 2!");
 
     const row = db
       .select()

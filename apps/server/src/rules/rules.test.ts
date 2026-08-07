@@ -150,7 +150,7 @@ describe("getAvailableActions incapacitation gating", () => {
     expect(actions.length).toBeGreaterThan(0);
     for (const action of actions) {
       expect(action.legal).toBe(false);
-      expect(action.reason).toBe("Unconscious at 0 HP — no actions possible.");
+      expect(action.reason).toBe("Nieprzytomny (0 HP) — żadne akcje nie są możliwe.");
     }
   });
 
@@ -159,7 +159,7 @@ describe("getAvailableActions incapacitation gating", () => {
     expect(actions.length).toBeGreaterThan(0);
     for (const action of actions) {
       expect(action.legal).toBe(false);
-      expect(action.reason).toBe("Dead — no actions possible.");
+      expect(action.reason).toBe("Martwy — żadne akcje nie są możliwe.");
     }
   });
 
@@ -168,7 +168,7 @@ describe("getAvailableActions incapacitation gating", () => {
     const actions = getAvailableActions(caster, inCombat(0));
     const cast = actions.find((a) => a.key === "cast-spell");
     expect(cast?.legal).toBe(false);
-    expect(cast?.reason).toBe("Unconscious at 0 HP — no actions possible.");
+    expect(cast?.reason).toBe("Nieprzytomny (0 HP) — żadne akcje nie są możliwe.");
   });
 
   it("keeps a healthy combatant's attack legal", () => {
@@ -208,7 +208,7 @@ describe("getAvailableActions incapacitation gating", () => {
     expect(actions.length).toBeGreaterThan(0);
     for (const action of actions) {
       expect(action.legal).toBe(false);
-      expect(action.reason).toBe("Unconscious at 0 HP — no actions possible.");
+      expect(action.reason).toBe("Nieprzytomny (0 HP) — żadne akcje nie są możliwe.");
     }
   });
 });

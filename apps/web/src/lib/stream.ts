@@ -5,6 +5,7 @@ export type CampaignStreamHandlers = {
   onState: (state: CampaignState) => void;
   onChatMessage: (message: ChatMessage) => void;
   onEvent: (type: GameEventType) => void;
+  onActionResolved: (payload: Record<string, unknown>) => void;
   onOffline: () => void;
 };
 
@@ -37,6 +38,15 @@ export function subscribeCampaign(
   });
 
   source.addEventListener("character.joined", () => handlers.onEvent("character.joined"));
+
+  source.addEventListener("action.resolved", (event) => {
+    try {
+      const data = JSON.parse((event as MessageEvent).data) as ServerStreamEvent;
+      handlers.onActionResolved(data.payload as Record<string, unknown>);
+    } catch {
+      // ignore malformed stream data
+    }
+  });
 
   source.addEventListener("error", () => handlers.onOffline());
 

@@ -29,12 +29,30 @@ const COMBAT_TRIGGERS = [
   "orc",
   "undead",
   "bandit",
+  "atak",
+  "cios",
+  "walk",
+  "uderz",
+  "szarż",
+  "miecz",
+  "topór",
+  "łuk",
+  "strzał",
+  "wrog",
+  "potwor",
+  "goblin",
+  "ork",
+  "szczur",
+  "nieumarł",
+  "bandyt",
+  "bij",
+  "bije",
 ];
 
 const REST_TRIGGER =
-  /^(i|we|the party) (need to |want to |should )?(take a |long )?(rest|sleep)|^let'?s (take a |long )?(rest|sleep)|^(we )?(make )?camp|^camp$/i;
+  /^(i|we|the party) (need to |want to |should )?(take a |long )?(rest|sleep)|^let'?s (take a |long )?(rest|sleep)|^(we )?(make )?camp|^camp$|^odpoczywamy|^odpoczywam|^śpimy|^spać|^sen|^oboz|^biwak|^ognisk/i;
 
-const TARGET_PATTERN = /(?:on|at|against|towards?)\s+([a-z' -]+)/i;
+const TARGET_PATTERN = /(?:on|at|against|towards?|na)\s+([a-zą-ż' -]+)/i;
 
 function findKnownSpell(message: string): string | null {
   const text = message.toLowerCase();
@@ -53,13 +71,13 @@ async function tryCastSpell(
   userMessage: string,
 ): Promise<DmReply | null> {
   const trimmed = userMessage.trim();
-  if (!/cast/i.test(trimmed)) return null;
+  if (!/cast|rzucam|rzucę|rzuca|zaklęcie|zaklęcia/i.test(trimmed)) return null;
   const spellName = findKnownSpell(trimmed);
   if (!spellName) return null;
 
   const targetMatch = TARGET_PATTERN.exec(trimmed);
   if (!targetMatch?.[1]) {
-    return { narration: `(DM preview) "Cast on whom?"` };
+    return { narration: `(DM preview) Komu rzuca?` };
   }
   const targetName = normalizeTargetName(targetMatch[1]);
 
@@ -67,12 +85,12 @@ async function tryCastSpell(
   if (context.state.combat.active) {
     const current = currentTurnCombatant(context.state);
     if (!current?.isPlayer || !current.characterId) {
-      return { narration: `(DM preview) It is not your turn.` };
+      return { narration: `(DM preview) To nie twoja tura.` };
     }
     characterId = current.characterId;
   } else {
     if (context.characters.length !== 1) {
-      return { narration: `(DM preview) Which character casts?` };
+      return { narration: `(DM preview) Która postać rzuca?` };
     }
     characterId = context.characters[0]!.id;
   }
@@ -89,7 +107,7 @@ async function tryCastSpell(
         return name.includes(target) || target.includes(name);
       });
     if (!combatant) {
-      return { narration: `(DM preview) No such target: "${targetName}".` };
+      return { narration: `(DM preview) Nie ma takiego celu: "${targetName}".` };
     }
     targetId = combatant.id;
   } else {
@@ -103,7 +121,7 @@ async function tryCastSpell(
         return name.includes(target) || target.includes(name);
       });
     if (!character) {
-      return { narration: `(DM preview) No such target: "${targetName}".` };
+      return { narration: `(DM preview) Nie ma takiego celu: "${targetName}".` };
     }
     targetId = character.id;
   }
@@ -163,13 +181,13 @@ export async function previewNarrate(
     return {
       narration:
         hostiles.length > 0
-          ? `Combat begins! ${hostiles.join(", ")} bar your way — initiative is rolled, steel is drawn.`
-          : "Combat begins! Initiative is rolled.",
+          ? `Walka zaczyna się! ${hostiles.join(", ")} zagradzają wam drogę — inicjatywa rzucona, stal w dłoniach.`
+          : "Walka zaczyna się! Inicjatywa rzucona.",
     };
   }
 
   if (context.state.combat.active) {
-    if (/^(end turn|next|advance|continue)$/i.test(userMessage.trim())) {
+    if (/^(end turn|next|advance|continue|koniec tury|kończę turę|dalej|następny)$/i.test(userMessage.trim())) {
       const result = await runDmTool(context.campaignId, "dm", "advance_turn", {});
       return {
         narration: result.ok ? result.message : `(DM preview) ${result.message}`,
@@ -201,7 +219,7 @@ export async function previewNarrate(
             if (!target) {
               const ended = await runDmTool(context.campaignId, "dm", "end_combat", {});
               return {
-                narration: ended.ok ? ended.message : "Victory! The enemies are defeated.",
+                narration: ended.ok ? ended.message : "Zwycięstwo! Wrogowie pokonani.",
               };
             }
             args = { attackerId: current.id, targetId: target.id };
@@ -217,7 +235,7 @@ export async function previewNarrate(
             if (!target) {
               const ended = await runDmTool(context.campaignId, "dm", "end_combat", {});
               return {
-                narration: ended.ok ? ended.message : "The party has been defeated.",
+                narration: ended.ok ? ended.message : "Drużyna została pokonana.",
               };
             }
             args = { attackerId: current.id, targetId: target.id };
@@ -228,17 +246,17 @@ export async function previewNarrate(
           return { narration: `(DM preview) ${result.message}` };
         }
         const advance = await runDmTool(context.campaignId, "dm", "advance_turn", {});
-        const advanceMsg = advance.ok ? advance.message : "The turn passes.";
+        const advanceMsg = advance.ok ? advance.message : "Tura przechodzi dalej.";
         return { narration: `${result.message} ${advanceMsg}` };
       }
     }
 
     return {
-      narration: `(DM preview) Combat is underway — describe an attack or say "end turn".`,
+      narration: `(DM preview) Walka w toku — opisz atak albo napisz "koniec tury".`,
     };
   }
 
   return {
-    narration: `(DM preview) You say: "${userMessage}". The rules engine is authoritative; the AI narrator will be connected later.`,
+    narration: `(DM preview) Mówisz: "${userMessage}". Silnik zasad jest autorytatywny; narrator AI zostanie podłączony później.`,
   };
 }

@@ -11,6 +11,14 @@ describe("shouldAutoGenerateCombat", () => {
     expect(shouldAutoGenerateCombat("the bandits attack us!")).toBe(true);
   });
 
+  it("detects Polish combat intent", () => {
+    expect(shouldAutoGenerateCombat("Atakuję najbliższego wroga!")).toBe(true);
+    expect(shouldAutoGenerateCombat("Zaczynam atak na gobliny!")).toBe(true);
+    expect(shouldAutoGenerateCombat("Widzę bandytów przy drodze")).toBe(true);
+    expect(shouldAutoGenerateCombat("Dobijam go mieczem")).toBe(true);
+    expect(shouldAutoGenerateCombat("Handluję z kupcem")).toBe(false);
+  });
+
   it("detects common attack verbs", () => {
     expect(shouldAutoGenerateCombat("I slash at them!")).toBe(true);
     expect(shouldAutoGenerateCombat("I stab the guard")).toBe(true);
@@ -29,7 +37,7 @@ describe("shouldAutoGenerateCombat", () => {
 
   it('treats "kill" only as a whole word', () => {
     expect(shouldAutoGenerateCombat("I use my skills")).toBe(false);
-    expect(shouldAutoGenerateCombat("I killed the goblin")).toBe(false);
+    expect(shouldAutoGenerateCombat("I killed the creature")).toBe(false);
     expect(shouldAutoGenerateCombat("kill the goblin")).toBe(true);
   });
 
@@ -59,6 +67,7 @@ const mock = vi.hoisted(() => {
     members: [] as { characterId: string }[],
     pushEvent: vi.fn(),
     updateCharacterHp: vi.fn(),
+    updateCharacterSpellSlots: vi.fn(),
     defaultState,
   };
 });
@@ -71,6 +80,7 @@ vi.mock("../campaign/store.js", () => ({
   },
   pushEvent: mock.pushEvent,
   updateCharacterHp: mock.updateCharacterHp,
+  updateCharacterSpellSlots: mock.updateCharacterSpellSlots,
   getCharacterById: (id: string) => mock.characters.get(id),
   getCampaignForUser: () => ({ id: "c1" }),
   getCampaignMembers: () => mock.members,
@@ -162,9 +172,9 @@ describe("previewNarrate combat loop", () => {
     const reply = await previewNarrate(context(combatState()), "I attack the goblin");
 
     expect(reply.narration).not.toBe(
-      `(DM preview) Combat is underway — describe an attack or say "end turn".`,
+      `(DM preview) Walka w toku — opisz atak albo napisz "koniec tury".`,
     );
-    expect(reply.narration).toContain("turn");
+    expect(reply.narration).toContain("tura");
     expect(mock.pushEvent).toHaveBeenCalledWith(
       "c1",
       "action.resolved",
@@ -180,7 +190,19 @@ describe("previewNarrate combat loop", () => {
 
     const reply = await previewNarrate(context(combatState()), "end turn");
 
-    expect(reply.narration).toContain("turn");
+    expect(reply.narration).toContain("tura");
+    expect(mock.pushEvent).toHaveBeenCalledWith("c1", "turn.advanced", expect.anything());
+  });
+
+  it('advances the turn on a Polish "koniec tury" message', async () => {
+    mock.states.clear();
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria });
+    mock.states.set("c1", combatState());
+
+    const reply = await previewNarrate(context(combatState()), "koniec tury");
+
+    expect(reply.narration).toContain("tura");
     expect(mock.pushEvent).toHaveBeenCalledWith("c1", "turn.advanced", expect.anything());
   });
 
@@ -192,7 +214,7 @@ describe("previewNarrate combat loop", () => {
 
     const reply = await previewNarrate(context(combatState()), "I look around the room");
 
-    expect(reply.narration).toContain("Combat is underway");
+    expect(reply.narration).toContain("Walka w toku");
   });
 
   it("rolls a death save when a downed hostile is on its turn", async () => {
@@ -235,9 +257,9 @@ describe("previewNarrate combat loop", () => {
       expect.objectContaining({ type: "attack" }),
     );
     expect(reply.narration).not.toBe(
-      `(DM preview) Combat is underway — describe an attack or say "end turn".`,
+      `(DM preview) Walka w toku — opisz atak albo napisz "koniec tury".`,
     );
-    expect(reply.narration).toContain("turn");
+    expect(reply.narration).toContain("tura");
   });
 });
 
@@ -251,8 +273,8 @@ describe("previewNarrate long rest and stable combatants", () => {
 
     const reply = await previewNarrate(context(mock.defaultState()), "We rest by the fire");
 
-    expect(reply.narration).toContain("long rest");
-    expect(reply.narration).toContain("recover");
+    expect(reply.narration).toContain("odpoczywa");
+    expect(reply.narration).toContain("odzyskują");
     expect(mock.pushEvent).toHaveBeenCalledWith(
       "c1",
       "state.updated",
@@ -260,6 +282,26 @@ describe("previewNarrate long rest and stable combatants", () => {
     );
     const saved = mock.states.get("c1")!;
     expect(saved.phase).toBe("exploration");
+  });
+
+  it("triggers a long rest from a Polish rest message", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria });
+    mock.states.set("c1", mock.defaultState());
+
+    const reply = await previewNarrate(
+      context(mock.defaultState()),
+      "Odpoczywamy przy ognisku",
+    );
+
+    expect(reply.narration).toContain("odpoczywa");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "state.updated",
+      expect.objectContaining({ action: "long_rest" }),
+    );
   });
 
   it('generates an encounter for "I attack the sleeping guard" instead of a long rest', async () => {
@@ -276,8 +318,8 @@ describe("previewNarrate long rest and stable combatants", () => {
       "I attack the sleeping guard",
     );
 
-    expect(reply.narration).not.toContain("long rest");
-    expect(reply.narration).toContain("Combat begins");
+    expect(reply.narration).not.toContain("odpoczywa");
+    expect(reply.narration).toContain("Walka zaczyna się");
     expect(mock.pushEvent).toHaveBeenCalledWith(
       "c1",
       "encounter.started",
@@ -285,6 +327,51 @@ describe("previewNarrate long rest and stable combatants", () => {
     );
     const saved = mock.states.get("c1")!;
     expect(saved.combat.active).toBe(true);
+  });
+
+  it("generates an encounter from a Polish combat message matching Polish monster words", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.members = [];
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria });
+    mock.members = [{ characterId: "ch1" }];
+    mock.states.set("c1", mock.defaultState());
+
+    const reply = await previewNarrate(
+      context(mock.defaultState()),
+      "Zaczynam atak na gobliny!",
+    );
+
+    expect(reply.narration).toContain("Walka zaczyna się");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "encounter.started",
+      expect.objectContaining({ generated: true }),
+    );
+    const saved = mock.states.get("c1")!;
+    const names = saved.combat.combatants.map((c) => c.name);
+    expect(names).toContain("Goblin");
+  });
+
+  it("casts a spell from a Polish message with a Polish target", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria, className: "Cleric", spells: ["Guiding Bolt"] });
+    mock.states.set("c1", combatState());
+
+    const reply = await previewNarrate(
+      context(combatState()),
+      "Rzucam Guiding Bolt na goblina",
+    );
+
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "spell", spell: "Guiding Bolt", target: "Goblin" }),
+    );
+    expect(reply.narration).toContain("rzuca");
   });
 
   it("advances the turn when the current combatant is stable", async () => {
@@ -310,7 +397,7 @@ describe("previewNarrate long rest and stable combatants", () => {
       "action.resolved",
       expect.objectContaining({ type: "attack" }),
     );
-    expect(reply.narration).toContain("turn");
+    expect(reply.narration).toContain("tura");
   });
 
   it("targets a downed enemy for a finishing blow", async () => {

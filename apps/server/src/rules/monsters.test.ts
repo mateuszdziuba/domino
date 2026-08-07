@@ -29,6 +29,28 @@ describe("matchMonsters", () => {
     expect(matches).toHaveLength(1);
     expect(MONSTERS.some((m) => m.key === matches[0]?.key)).toBe(true);
   });
+
+  it("matches Polish plural monster words", () => {
+    const goblins = matchMonsters("gobliny");
+    expect(goblins.map((m) => m.key)).toContain("goblin");
+
+    const rats = matchMonsters("szczury w piwnicy");
+    expect(rats.map((m) => m.key)).toContain("giant-rat");
+
+    const wolves = matchMonsters("wilki w lesie");
+    expect(wolves.map((m) => m.key)).toContain("wolf");
+
+    const orcs = matchMonsters("orki");
+    expect(orcs.map((m) => m.key)).toContain("orc");
+  });
+
+  it("matches Polish monster words with diacritics", () => {
+    const spider = matchMonsters("pająk w sieci");
+    expect(spider.map((m) => m.key)).toContain("giant-spider");
+
+    const bandits = matchMonsters("złodziej na drodze");
+    expect(bandits.map((m) => m.key)).toContain("bandit");
+  });
 });
 
 describe("buildEncounter", () => {

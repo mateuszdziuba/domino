@@ -322,7 +322,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
       targetId: "enemy-1",
     });
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("turn");
+    expect(result.message).toContain("tura");
     expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
   });
 
@@ -333,7 +333,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
       targetId: "enemy-1",
     });
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("not known to the rules engine");
+    expect(result.message).toContain("nie jest znane silnikowi zasad");
   });
 
   it("rejects a known spell the character does not know", async () => {
@@ -343,7 +343,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
       targetId: "enemy-1",
     });
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("does not know that spell");
+    expect(result.message).toContain("nie zna tego zaklęcia");
   });
 
   it("rejects a cast when no slots are left for that level", async () => {
@@ -354,7 +354,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
       targetId: "enemy-1",
     });
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("slots");
+    expect(result.message).toContain("slotów");
   });
 
   it("casts a cantrip without consuming a slot", async () => {
@@ -387,7 +387,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
       targetId: "enemy-1",
     });
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("combat");
+    expect(result.message).toContain("walki");
   });
 
   it("rejects a stabilize spell outside combat", async () => {
@@ -398,7 +398,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
       targetId: "ch2",
     });
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("combat");
+    expect(result.message).toContain("walce");
   });
 });
 
@@ -418,7 +418,7 @@ describe("runDmTool take_long_rest (mocked store)", () => {
     const result = await runTool("take_long_rest", {});
 
     expect(result.ok).toBe(true);
-    expect(result.message).toContain("long rest");
+    expect(result.message).toContain("odpoczywa");
     expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 10);
     expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch2", 12);
     expect(mock.updateCharacterSpellSlots).toHaveBeenCalledWith("ch1", []);
@@ -446,7 +446,7 @@ describe("runDmTool take_long_rest (mocked store)", () => {
     const result = await runTool("take_long_rest", {});
 
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("combat");
+    expect(result.message).toContain("walki");
     expect(mock.updateCharacterHp).not.toHaveBeenCalled();
     expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
     expect(mock.pushEvent).not.toHaveBeenCalled();
@@ -479,7 +479,7 @@ describe("runDmTool XP award (mocked store)", () => {
 
     const result = await runTool("end_combat");
     expect(result.ok).toBe(true);
-    expect(result.message).toContain("The party earns 200 XP (100 each)");
+    expect(result.message).toContain("Drużyna zdobywa 200 XP (100 na osobę)");
     expect(mock.characters.get("ch1")!.xp).toBe(100);
     expect(mock.characters.get("ch2")!.xp).toBe(100);
     expect(mock.pushEvent).toHaveBeenCalledWith(
@@ -505,7 +505,7 @@ describe("runDmTool XP award (mocked store)", () => {
     const result = await runTool("award_xp", { amount: 100, reason: "saving the village" });
     expect(result.ok).toBe(true);
     expect(result.message).toBe(
-      "The party earns 100 XP (50 each) for saving the village.",
+      "Drużyna zdobywa 100 XP (50 na osobę) za saving the village.",
     );
     expect(mock.characters.get("ch1")!.xp).toBe(50);
     expect(mock.characters.get("ch2")!.xp).toBe(50);
@@ -529,7 +529,7 @@ describe("runDmTool XP award (mocked store)", () => {
     mock.members.mockReturnValue([]);
     const result = await runTool("award_xp", { amount: 100 });
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("no characters");
+    expect(result.message).toContain("Brak postaci");
   });
 
   it("award_xp narration reports level-ups with the HP gain", async () => {
@@ -540,6 +540,6 @@ describe("runDmTool XP award (mocked store)", () => {
     expect(ariaNow.xp).toBe(340);
     expect(ariaNow.level).toBe(2);
     expect(ariaNow.maxHp).toBe(18);
-    expect(result.message).toContain("Aria reaches level 2!");
+    expect(result.message).toContain("Aria osiąga poziom 2!");
   });
 });

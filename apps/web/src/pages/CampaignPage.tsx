@@ -22,6 +22,25 @@ import { Textarea } from "../components/ui/textarea";
 import { CombatPanel } from "../components/CombatPanel";
 import { subscribeCampaign } from "../lib/stream";
 
+const ACTION_PROMPTS: Record<string, string> = {
+  attack: "Atakuję najbliższego wroga!",
+  dodge: "Wykonuję unik.",
+  dash: "Biegnę sprintem.",
+  disengage: "Wycofuję się ostrożnie.",
+  hide: "Ukrywam się.",
+  ready: "Przygotowuję akcję: ",
+  help: "Pomagam sojusznikowi.",
+  "use-item": "Używam przedmiotu: ",
+  "cast-spell": "Rzucam zaklęcie: ",
+  "dodge-bonus": "Używam akcji dodatkowej.",
+  "opportunity-attack": "Atakuję okazyjnie!",
+  investigate: "Przeszukuję teren w poszukiwaniu wskazówek.",
+  perception: "Rozglądam się i nasłuchuję.",
+  negotiate: "Próbuję wynegocjować pokój.",
+  interact: "Interaguję ze światem: ",
+  rest: "Odpoczywamy przy ognisku.",
+};
+
 export default function CampaignPage() {
   const { id } = useParams({ from: "/app/campaigns/$id" });
   const { user } = useAuth();
@@ -36,6 +55,13 @@ export default function CampaignPage() {
   const [connState, setConnState] = useState<"connecting" | "live" | "offline">("connecting");
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [roll, setRoll] = useState<{
+    id: number;
+    label: string;
+    detail: string;
+    kind: "attack" | "death-save" | "spell";
+  } | null>(null);
+  const rollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -65,6 +91,7 @@ export default function CampaignPage() {
       },
       onChatMessage: (message) =>
         setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message])),
+      onActionResolved: (payload) => showRoll(payload),
       onEvent: (type) => {
         if (type === "character.joined") load();
       },
@@ -114,6 +141,48 @@ export default function CampaignPage() {
   }
 
   const member = detail?.members.find((m) => m.userId === user?.id);
+  const legalActions = (suggestion?.availableActions.filter((a) => a.legal) ?? []).slice(0, 6);
+
+  function showRoll(payload: Record<string, unknown>) {
+    const type = payload.type;
+    if (type !== "attack" && type !== "death-save" && type !== "spell") return;
+    let label = "";
+    let detail = "";
+    if (type === "attack") {
+      const attackRoll = Number(payload.attackRoll ?? 0);
+      const attackTotal = Number(payload.attackTotal ?? 0);
+      const outcome = payload.critical ? "KRYTYK!" : payload.hit ? "Trafienie!" : "Pudło";
+      label = `Rzut ataku: ${attackRoll} (${attackTotal} vs AC) — ${outcome}`;
+      const damage = Number(payload.damageTotal ?? 0);
+      if (payload.hit && damage > 0) label += ` · Obrażenia: ${damage}`;
+    } else if (type === "death-save") {
+      label = `Rzut obronny: ${Number(payload.roll ?? 0)}`;
+      detail = `${Number(payload.successes ?? 0)} sukces / ${Number(payload.failures ?? 0)} porażki`;
+      if (payload.stable) detail += " — Stabilizacja!";
+      if (payload.dead) detail += " — Śmierć!";
+    } else {
+      label = `Zaklęcie: ${String(payload.spell ?? "?")}`;
+      const saved =
+        typeof payload.saveTotal === "number" && typeof payload.saveDc === "number"
+          ? payload.saveTotal >= payload.saveDc
+          : undefined;
+      label +=
+        saved === undefined
+          ? payload.hit
+            ? " — Trafienie!"
+            : " — Pudło!"
+          : saved
+            ? " — Udany rzut obronny"
+            : " — Nieudany rzut obronny";
+      const damage = Number(payload.damageTotal ?? 0);
+      const healed = Number(payload.healed ?? 0);
+      if (healed > 0) label += ` · Leczenie: ${healed}`;
+      else if (damage > 0) label += ` · Obrażenia: ${damage}`;
+    }
+    if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
+    setRoll({ id: Date.now(), label, detail, kind: type });
+    rollTimerRef.current = setTimeout(() => setRoll(null), 4000);
+  }
 
   function onStateChange(newState: NonNullable<CampaignDetail["state"]>) {
     setDetail((prev) => (prev ? { ...prev, state: newState } : prev));
@@ -175,6 +244,30 @@ export default function CampaignPage() {
                 ))}
                 <div ref={bottomRef} />
               </div>
+              {roll && (
+                <div
+                  key={roll.id}
+                  className="animate-dice-roll mt-3 rounded-sm border-l-2 border-l-[#a97e1f] bg-[#efe2c4] px-3 py-2 text-sm"
+                >
+                  🎲 <span className="font-display tracking-[0.06em] text-[#7a4b1d]">{roll.label}</span>
+                  {roll.detail && <> — {roll.detail}</>}
+                </div>
+              )}
+              {legalActions.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {legalActions.map((action) => (
+                    <button
+                      key={action.key}
+                      type="button"
+                      disabled={!member}
+                      onClick={() => setInput(ACTION_PROMPTS[action.key] ?? action.label)}
+                      className="rounded-sm border border-[#c8b184] bg-[#fbf3dd]/60 px-2 py-1 font-display text-xs tracking-[0.06em] text-[#3a2c17] hover:bg-[#f0e2bd] disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <form onSubmit={onSend} className="mt-3 flex gap-2">
                 <Textarea
                   value={input}

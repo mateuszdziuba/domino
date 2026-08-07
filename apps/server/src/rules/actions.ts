@@ -9,69 +9,69 @@ import { currentTurnCombatant } from "./combat.js";
 const COMBAT_ACTIONS: Omit<AvailableAction, "legal" | "reason">[] = [
   {
     key: "attack",
-    label: "Attack",
-    description: "Make an attack with a weapon or an unarmed strike.",
+    label: "Atak",
+    description: "Wykonaj atak bronią lub gołą pięścią.",
     category: "action",
   },
   {
     key: "dodge",
-    label: "Dodge",
-    description: "Until the start of your next turn, attack rolls against you have disadvantage.",
+    label: "Unik",
+    description: "Do początku twojej następnej tury rzuty ataku przeciwko tobie mają utrudnienie.",
     category: "action",
   },
   {
     key: "dash",
-    label: "Dash",
-    description: "Gain extra movement equal to your speed.",
+    label: "Sprint",
+    description: "Zyskaj dodatkowy ruch równy twojej szybkości.",
     category: "action",
   },
   {
     key: "disengage",
-    label: "Disengage",
-    description: "Your movement doesn't provoke opportunity attacks.",
+    label: "Wycofanie",
+    description: "Twój ruch nie prowokuje ataków okazyjnych.",
     category: "action",
   },
   {
     key: "hide",
-    label: "Hide",
-    description: "Make a Dexterity (Stealth) check to hide.",
+    label: "Ukrycie",
+    description: "Wykonaj test Zręczności (Skradanie się), aby się ukryć.",
     category: "action",
   },
   {
     key: "ready",
-    label: "Ready",
-    description: "Prepare an action to take later with a trigger.",
+    label: "Przygotowanie akcji",
+    description: "Przygotuj akcję do wykonania później po spełnieniu wyzwalacza.",
     category: "action",
   },
   {
     key: "help",
-    label: "Help",
-    description: "Give an ally advantage on their next ability check or attack.",
+    label: "Pomoc",
+    description: "Daj sojusznikowi przewagę przy jego następnym teście cechy lub ataku.",
     category: "action",
   },
   {
     key: "use-item",
-    label: "Use an item",
-    description: "Use an object or interact with the environment.",
+    label: "Użycie przedmiotu",
+    description: "Użyj przedmiotu lub oddziałuj na otoczenie.",
     category: "action",
   },
   {
     key: "cast-spell",
-    label: "Cast a spell",
-    description: "Cast a spell you have prepared or known.",
+    label: "Rzucenie zaklęcia",
+    description: "Rzuć zaklęcie, które masz przygotowane lub znasz.",
     category: "action",
     // Only legal when the character has spells and a spell slot available.
   } as AvailableAction,
   {
     key: "dodge-bonus",
-    label: "Take a bonus action",
-    description: "Use a bonus action granted by a feature, spell, or item.",
+    label: "Akcja dodatkowa",
+    description: "Użyj akcji dodatkowej uzyskanej dzięki cechom, zaklęciu lub przedmiotowi.",
     category: "bonus",
   },
   {
     key: "opportunity-attack",
-    label: "Opportunity attack",
-    description: "Make an opportunity attack when a foe leaves your reach.",
+    label: "Atak okazyjny",
+    description: "Wykonaj atak okazyjny, gdy wróg opuści twój zasięg.",
     category: "reaction",
   },
 ];
@@ -79,32 +79,32 @@ const COMBAT_ACTIONS: Omit<AvailableAction, "legal" | "reason">[] = [
 const EXPLORATION_ACTIONS: Omit<AvailableAction, "legal" | "reason">[] = [
   {
     key: "investigate",
-    label: "Investigate",
-    description: "Search the area for clues and hidden details (Intelligence).",
+    label: "Badanie terenu",
+    description: "Przeszukaj okolicę w poszukiwaniu tropów i ukrytych szczegółów (Inteligencja).",
     category: "action",
   },
   {
     key: "perception",
-    label: "Perceive",
-    description: "Watch and listen for threats or movement (Wisdom).",
+    label: "Obserwacja",
+    description: "Patrz i nasłuchuj zagrożeń lub ruchu (Mądrość).",
     category: "action",
   },
   {
     key: "negotiate",
-    label: "Negotiate",
-    description: "Talk, persuade, deceive, or intimidate an NPC (Charisma).",
+    label: "Negocjacje",
+    description: "Rozmawiaj, przekonuj, zwódź lub zastraszaj bohatera niezależnego (Charyzma).",
     category: "action",
   },
   {
     key: "interact",
-    label: "Interact with the world",
-    description: "Open, push, pick up, read, or otherwise manipulate something.",
+    label: "Interakcja ze światem",
+    description: "Otwórz, pchnij, podnieś, przeczytaj lub w inny sposób oddziałaj na coś.",
     category: "action",
   },
   {
     key: "rest",
-    label: "Take a rest",
-    description: "Begin a short or long rest.",
+    label: "Odpoczynek",
+    description: "Rozpocznij krótki lub długi odpoczynek.",
     category: "action",
   },
 ];
@@ -119,7 +119,7 @@ export function getAvailableActions(
       const hasSpells = (character.spells?.length ?? 0) > 0;
       reason = hasSpells
         ? undefined
-        : `${character.className} has no spells prepared.`;
+        : `${character.className} nie ma przygotowanych zaklęć.`;
       return { ...action, legal: hasSpells, reason };
     }
     return { ...action, legal: true };
@@ -133,11 +133,11 @@ export function getAvailableActions(
     if (combatant && combatant.currentHp === 0) {
       incapacitatedReason =
         combatant.status === "dead"
-          ? "Dead — no actions possible."
-          : "Unconscious at 0 HP — no actions possible.";
+          ? "Martwy — żadne akcje nie są możliwe."
+          : "Nieprzytomny (0 HP) — żadne akcje nie są możliwe.";
     }
   } else if (character.currentHp === 0) {
-    incapacitatedReason = "Unconscious at 0 HP — no actions possible.";
+    incapacitatedReason = "Nieprzytomny (0 HP) — żadne akcje nie są możliwe.";
   }
 
   if (incapacitatedReason) {
