@@ -179,6 +179,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     name: row.name,
     race: row.race,
     className: row.className,
+    subclass: row.subclass ?? undefined,
     level: row.level,
     abilityScores: row.abilityScores as Character["abilityScores"],
     maxHp: row.maxHp,

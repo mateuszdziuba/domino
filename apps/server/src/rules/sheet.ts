@@ -9,6 +9,7 @@ import {
   type SheetAttack,
 } from "@domino/shared";
 import { abilityModifier, proficiencyBonus } from "./abilities.js";
+import { buildCharacterFeatures } from "./features.js";
 import { spellSlotsForLevel } from "./spells.js";
 
 export function buildCharacterSheet(character: Character): CharacterSheet {
@@ -86,5 +87,6 @@ export function buildCharacterSheet(character: Character): CharacterSheet {
         max,
       }))
       .filter((s) => s.max > 0),
+    features: buildCharacterFeatures(character),
   };
 }

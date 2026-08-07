@@ -79,4 +79,13 @@ describe("buildCharacterSheet", () => {
     const noSpells = buildCharacterSheet(makeCharacter({ spells: [] }));
     expect(noSpells.spellcasting).toBeNull();
   });
+
+  it("includes racial, class and subclass features", () => {
+    const sheet = buildCharacterSheet(makeCharacter({ subclass: "Domena Życia (Life Domain)" }));
+    expect(sheet.features.length).toBeGreaterThan(0);
+    expect(sheet.features.some((f) => f.category === "race")).toBe(true);
+    expect(sheet.features.some((f) => f.category === "class")).toBe(true);
+    expect(sheet.features.some((f) => f.category === "subclass")).toBe(true);
+    expect(sheet.features.some((f) => f.name.includes("Rzucanie zaklęć"))).toBe(true);
+  });
 });

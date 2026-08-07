@@ -72,6 +72,16 @@ export const spellbookApi = {
   list: () => api<{ spells: SpellMeta[] }>("/spells"),
 };
 
+export type FeaturesCatalog = {
+  subclasses: Record<string, string[]>;
+  races: string[];
+  classes: string[];
+};
+
+export const featuresApi = {
+  get: () => api<FeaturesCatalog>("/features"),
+};
+
 export type AttackResultPayload = {
   hit: boolean;
   critical: boolean;

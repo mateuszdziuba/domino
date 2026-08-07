@@ -28,6 +28,7 @@ db.insert(characters)
     name: "Elara",
     race: "Human",
     className: "Cleric",
+    subclass: "Domena Życia (Life Domain)",
     level: 3,
     abilityScores: {
       strength: 14,

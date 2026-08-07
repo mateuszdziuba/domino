@@ -469,17 +469,39 @@ export default function CampaignPage() {
               )}
               {legalActions.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {legalActions.map((action) => (
-                    <button
-                      key={action.key}
-                      type="button"
-                      disabled={!member}
-                      onClick={() => setInput(ACTION_PROMPTS[action.key] ?? action.label)}
-                      className="rounded-sm border border-[#c8b184] bg-[#fbf3dd]/60 px-2 py-1 font-display text-xs tracking-[0.06em] text-[#3a2c17] hover:bg-[#f0e2bd] disabled:pointer-events-none disabled:opacity-50"
-                    >
-                      {action.label}
-                    </button>
-                  ))}
+                  <TooltipProvider delayDuration={250}>
+                    {legalActions.map((action) => (
+                      <Tooltip key={action.key}>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex">
+                            <button
+                              type="button"
+                              disabled={!member}
+                              onClick={() => setInput(ACTION_PROMPTS[action.key] ?? action.label)}
+                              className="rounded-sm border border-[#c8b184] bg-[#fbf3dd]/60 px-2 py-1 font-display text-xs tracking-[0.06em] text-[#3a2c17] hover:bg-[#f0e2bd] disabled:pointer-events-none disabled:opacity-50"
+                            >
+                              {action.label}
+                            </button>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="flex flex-col gap-1">
+                            <span className="font-display text-xs tracking-[0.08em] text-[#e8c56a]">
+                              {action.label}
+                            </span>
+                            <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                              {action.description}
+                            </span>
+                            {!action.legal && action.reason && (
+                              <span className="text-[10px] italic text-[#e8a08a]">
+                                Powód: {action.reason}
+                              </span>
+                            )}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </TooltipProvider>
                 </div>
               )}
               <form onSubmit={onSend} className="mt-3 flex gap-2">

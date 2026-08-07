@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { Trash2, Eye } from "lucide-react";
-import { characterApi } from "../lib/api-client";
+import { characterApi, featuresApi, type FeaturesCatalog } from "../lib/api-client";
 import { SKILLS, startingSkillCount, type CharacterSummary, type SkillName } from "@domino/shared";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -31,16 +31,23 @@ export default function CharactersPage() {
   const [armorClass, setArmorClass] = useState(12);
   const [scores, setScores] = useState({ strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 });
   const [skills, setSkills] = useState<Set<SkillName>>(new Set());
+  const [catalog, setCatalog] = useState<FeaturesCatalog | null>(null);
+  const [subclass, setSubclass] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const skillLimit = startingSkillCount(className);
   const selectedCount = skills.size;
+  const classSubclasses = catalog?.subclasses[className] ?? [];
 
   function load() {
     characterApi.list().then(({ characters }) => setCharacters(characters)).catch(() => {});
   }
 
   useEffect(load, []);
+
+  useEffect(() => {
+    featuresApi.get().then(setCatalog).catch(() => {});
+  }, []);
 
   function toggleSkill(skill: SkillName) {
     setSkills((prev) => {
@@ -68,10 +75,12 @@ export default function CharactersPage() {
         armorClass,
         speed: 30,
         skills: Object.fromEntries([...skills].map((s) => [s, true])),
+        ...(subclass ? { subclass } : {}),
       });
       setName("");
       setScores({ strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 });
       setSkills(new Set());
+      setSubclass("");
       setMaxHp(10);
       setArmorClass(12);
       load();
@@ -112,12 +121,23 @@ export default function CharactersPage() {
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="char-class">Class</Label>
-                <Select id="char-class" value={className} onChange={(e) => setClassName(e.target.value)}>
+                <Select id="char-class" value={className} onChange={(e) => { setClassName(e.target.value); setSubclass(""); }}>
                   {CLASSES.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </Select>
               </div>
+              {catalog && classSubclasses.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="char-subclass">Subklasa</Label>
+                  <Select id="char-subclass" value={subclass} onChange={(e) => setSubclass(e.target.value)}>
+                    <option value="">—</option>
+                    {classSubclasses.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </Select>
+                </div>
+              )}
               <div className="flex flex-col gap-2">
                 <Label htmlFor="char-race">Race</Label>
                 <Select id="char-race" value={race} onChange={(e) => setRace(e.target.value)}>

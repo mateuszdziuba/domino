@@ -26,6 +26,7 @@ import {
   characterAttackInput,
 } from "../rules/combat.js";
 import { abilityModifier } from "../rules/abilities.js";
+import { buildCharacterFeatures } from "../rules/features.js";
 import {
   SPELLS,
   spellSlotsForLevel,
@@ -91,7 +92,11 @@ export async function runDmTool(
       if (!args.success) return { ok: false, message: "Wymagany jest identyfikator postaci (characterId)." };
       const character = getCharacterById(args.data.characterId);
       if (!character) return { ok: false, message: "Nie znaleziono postaci." };
-      return { ok: true, message: "Karta postaci.", data: character };
+      return {
+        ok: true,
+        message: "Karta postaci.",
+        data: { ...character, features: buildCharacterFeatures(character) },
+      };
     }
     case "get_available_actions": {
       const args = z.object({ characterId: z.string().min(1) }).safeParse(rawArgs);

@@ -143,6 +143,16 @@ beforeEach(() => {
 });
 
 describe("runDmTool adventures (mocked store)", () => {
+  it("get_character returns the character with its features", async () => {
+    const result = await runTool("get_character", { characterId: "ch1" });
+    expect(result.ok).toBe(true);
+    const data = result.data as { features: { category: string }[] };
+    expect(Array.isArray(data.features)).toBe(true);
+    expect(data.features.length).toBeGreaterThan(0);
+    expect(data.features.some((f) => f.category === "race")).toBe(true);
+    expect(data.features.some((f) => f.category === "class")).toBe(true);
+  });
+
   it("start_adventure patches location/scene/worldProgress and pushes state.updated", async () => {
     const result = await runTool("start_adventure", { title: "A Most Potent Brew" });
     expect(result.ok).toBe(true);

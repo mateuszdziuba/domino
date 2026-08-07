@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { ArrowLeft, Shield, Sparkles, Swords, Wand2 } from "lucide-react";
+import { ArrowLeft, ScrollText, Shield, Sparkles, Swords, Wand2 } from "lucide-react";
 import { characterApi, spellbookApi, type SpellMeta } from "../lib/api-client";
 import type { CharacterSheet } from "@domino/shared";
 import { Badge } from "../components/ui/badge";
@@ -11,6 +11,12 @@ import {
   CardHeader,
 } from "../components/ui/card";
 import { cn } from "../lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
 
 const ABILITY_LABELS: Record<string, string> = {
   strength: "STR",
@@ -25,6 +31,27 @@ const XP_BY_LEVEL = [
   300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000,
   140000, 165000, 195000, 225000, 265000, 305000, 355000,
 ];
+
+const SKILL_DESCRIPTIONS: Record<string, string> = {
+  acrobatics: "Skakanie, balansowanie i unikanie upadków.",
+  animalHandling: "Uspokajanie i prowadzenie zwierząt.",
+  arcana: "Wiedza o magii, artefaktach i planach egzystencji.",
+  athletics: "Wspinaczka, pływanie, skoki i zmagania fizyczne.",
+  deception: "Kłamstwo i wprowadzanie innych w błąd.",
+  history: "Wiedza o przeszłości, legendach i dawnych królestwach.",
+  insight: "Odczytywanie intencji i nastroju rozmówcy.",
+  intimidation: "Wymuszanie postawy groźbą i siłą woli.",
+  investigation: "Przeszukiwanie, dedukcja i odnajdywanie ukrytych szczegółów.",
+  medicine: "Stabilizowanie rannych i diagnozowanie chorób.",
+  nature: "Wiedza o zwierzętach, roślinach i dzikich terenach.",
+  perception: "Dostrzeganie ukrytych rzeczy, dźwięków i ruchów.",
+  performance: "Sztuka, muzyka, taniec i widowiska.",
+  persuasion: "Przekonywanie i wpływanie na innych słowem.",
+  religion: "Wiedza o bóstwach, obrzędach i istotach boskich.",
+  sleightOfHand: "Kieszonkowstwo, kuglarstwo i zręczne manipulowanie przedmiotami.",
+  stealth: "Poruszanie się bezszelestnie i ukrywanie.",
+  survival: "Polowanie, orientacja w terenie i tropienie.",
+};
 
 function spellEffectSummary(meta: SpellMeta): string {
   if (meta.effect.kind === "damage") {
@@ -204,29 +231,48 @@ export default function CharacterSheetPage() {
             <SectionTitle icon={Sparkles}>Umiejętności</SectionTitle>
           </CardHeader>
           <CardContent className="scroll-parchment max-h-[420px] overflow-y-auto pr-1">
-            <div className="flex flex-col gap-px">
-              {skills.map((skill) => (
-                <div
-                  key={skill.key}
-                  className={cn(
-                    "flex items-center justify-between rounded-sm px-2 py-[3px] text-sm",
-                    skill.proficient && "bg-[#e8d3a0]/50",
-                  )}
-                >
-                  <span className="flex items-center gap-2">
-                    <span className={cn("w-3 text-center text-[10px]", skill.proficient ? "text-[#a97e1f]" : "text-transparent")}>
-                      ✦
-                    </span>
-                    {skill.label}
-                    <span className="text-xs text-[#7c6a45]">{ABILITY_LABELS[skill.ability]}</span>
-                  </span>
-                  <span className={cn("font-display", skill.proficient ? "text-[#2e2113]" : "text-[#7c6a45]")}>
-                    {skill.mod >= 0 ? "+" : ""}
-                    {skill.mod}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <TooltipProvider delayDuration={250}>
+              <div className="flex flex-col gap-px">
+                {skills.map((skill) => (
+                  <Tooltip key={skill.key}>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={cn(
+                          "flex items-center justify-between rounded-sm px-2 py-[3px] text-sm",
+                          skill.proficient && "bg-[#e8d3a0]/50",
+                        )}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className={cn("w-3 text-center text-[10px]", skill.proficient ? "text-[#a97e1f]" : "text-transparent")}>
+                            ✦
+                          </span>
+                          {skill.label}
+                          <span className="text-xs text-[#7c6a45]">{ABILITY_LABELS[skill.ability]}</span>
+                        </span>
+                        <span className={cn("font-display", skill.proficient ? "text-[#2e2113]" : "text-[#7c6a45]")}>
+                          {skill.mod >= 0 ? "+" : ""}
+                          {skill.mod}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="flex flex-col gap-1">
+                        <span className="font-display text-xs tracking-[0.08em] text-[#e8c56a]">
+                          {skill.label}
+                        </span>
+                        <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                          {SKILL_DESCRIPTIONS[skill.key] ?? ""}
+                        </span>
+                        <span className="text-[10px] text-[#c9b183]">
+                          Cecha: {ABILITY_LABELS[skill.ability]} · Modyfikator: {skill.mod >= 0 ? "+" : ""}
+                          {skill.mod} · {skill.proficient ? "Biegłość" : "Brak biegłości"}
+                        </span>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </TooltipProvider>
           </CardContent>
         </Card>
 
@@ -236,19 +282,42 @@ export default function CharacterSheetPage() {
               <SectionTitle icon={Swords}>Ataki</SectionTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
-              {attacks.map((attack) => (
-                <div key={attack.name} className="rounded-sm border border-[#b99f6b] bg-[#fbf3dd]/70 px-3 py-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-display text-sm tracking-[0.06em] text-[#2e2113]">{attack.name}</span>
-                    <Badge variant="outline">+{attack.hitBonus} do trafienia</Badge>
-                  </div>
-                  <div className="mt-0.5 text-sm text-[#7c6a45]">
-                    Obrażenia {attack.damageNotation}
-                    {attack.damageBonus >= 0 ? " + " + attack.damageBonus : " " + attack.damageBonus} (
-                    {ABILITY_LABELS[attack.ability]})
-                  </div>
-                </div>
-              ))}
+              <TooltipProvider delayDuration={250}>
+                {attacks.map((attack) => (
+                  <Tooltip key={attack.name}>
+                    <TooltipTrigger asChild>
+                      <div className="rounded-sm border border-[#b99f6b] bg-[#fbf3dd]/70 px-3 py-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-display text-sm tracking-[0.06em] text-[#2e2113]">{attack.name}</span>
+                          <Badge variant="outline">+{attack.hitBonus} do trafienia</Badge>
+                        </div>
+                        <div className="mt-0.5 text-sm text-[#7c6a45]">
+                          Obrażenia {attack.damageNotation}
+                          {attack.damageBonus >= 0 ? " + " + attack.damageBonus : " " + attack.damageBonus} (
+                          {ABILITY_LABELS[attack.ability]})
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="flex flex-col gap-1">
+                        <span className="font-display text-xs tracking-[0.08em] text-[#e8c56a]">
+                          {attack.name}
+                        </span>
+                        <span className="text-[10px] text-[#c9b183]">
+                          Trafienie: biegłość + modyfikator ({attack.hitBonus})
+                        </span>
+                        <span className="text-[11px] text-[#f6ead0]">
+                          Obrażenia: {attack.damageNotation}
+                          {attack.damageBonus >= 0 ? " + " + attack.damageBonus : " " + attack.damageBonus}
+                        </span>
+                        <span className="text-[10px] text-[#c9b183]">
+                          Cecha: {ABILITY_LABELS[attack.ability]}
+                        </span>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </TooltipProvider>
             </CardContent>
           </Card>
 
@@ -320,6 +389,44 @@ export default function CharacterSheetPage() {
                       Poziom {s.level}: {s.used}/{s.max}
                     </span>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-[#b99f6b]">
+            <CardHeader className="pb-2">
+              <SectionTitle icon={ScrollText}>Cechy</SectionTitle>
+            </CardHeader>
+            <CardContent>
+              {sheet.features.length === 0 ? (
+                <p className="text-sm text-[#7c6a45]">Brak cech.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {(["race", "class", "subclass"] as const).map((category) => {
+                    const features = sheet.features.filter((f) => f.category === category);
+                    if (features.length === 0) return null;
+                    const label =
+                      category === "race" ? "Rasa" : category === "class" ? "Klasa" : "Subklasa";
+                    return (
+                      <div key={category}>
+                        <div className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                          {label}
+                        </div>
+                        <div className="mt-1 flex flex-col gap-1.5">
+                          {features.map((feature) => (
+                            <div
+                              key={feature.name}
+                              className="rounded-sm border-b border-dotted border-[#c8b184] pb-1"
+                            >
+                              <div className="font-display text-sm text-[#2e2113]">{feature.name}</div>
+                              <div className="text-xs text-[#7c6a45]">{feature.description}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
