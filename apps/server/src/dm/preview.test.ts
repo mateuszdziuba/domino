@@ -22,6 +22,17 @@ describe("shouldAutoGenerateCombat", () => {
     expect(shouldAutoGenerateCombat("I hit it hard")).toBe(true);
   });
 
+  it('treats "hit" only as a whole word', () => {
+    expect(shouldAutoGenerateCombat("hitching a ride")).toBe(false);
+    expect(shouldAutoGenerateCombat("I hit the goblin")).toBe(true);
+  });
+
+  it('treats "kill" only as a whole word', () => {
+    expect(shouldAutoGenerateCombat("I use my skills")).toBe(false);
+    expect(shouldAutoGenerateCombat("I killed the goblin")).toBe(false);
+    expect(shouldAutoGenerateCombat("kill the goblin")).toBe(true);
+  });
+
   it("ignores peaceful messages", () => {
     expect(shouldAutoGenerateCombat("I look around the room")).toBe(false);
     expect(shouldAutoGenerateCombat("I talk to the innkeeper")).toBe(false);
@@ -45,6 +56,7 @@ const mock = vi.hoisted(() => {
   return {
     states: new Map<string, CampaignState>(),
     characters: new Map<string, Character>(),
+    members: [] as { characterId: string }[],
     pushEvent: vi.fn(),
     updateCharacterHp: vi.fn(),
     defaultState,
@@ -61,8 +73,8 @@ vi.mock("../campaign/store.js", () => ({
   updateCharacterHp: mock.updateCharacterHp,
   getCharacterById: (id: string) => mock.characters.get(id),
   getCampaignForUser: () => ({ id: "c1" }),
-  getCampaignMembers: () => [],
-  getCampaignCharacters: () => [],
+  getCampaignMembers: () => mock.members,
+  getCampaignCharacters: () => mock.members.map((m) => mock.characters.get(m.characterId)),
 }));
 
 const aria: Character = {
@@ -226,5 +238,103 @@ describe("previewNarrate combat loop", () => {
       `(DM preview) Combat is underway — describe an attack or say "end turn".`,
     );
     expect(reply.narration).toContain("turn");
+  });
+});
+
+describe("previewNarrate long rest and stable combatants", () => {
+  it("triggers a long rest for a rest message outside combat", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria });
+    mock.states.set("c1", mock.defaultState());
+
+    const reply = await previewNarrate(context(mock.defaultState()), "We rest by the fire");
+
+    expect(reply.narration).toContain("long rest");
+    expect(reply.narration).toContain("recover");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "state.updated",
+      expect.objectContaining({ action: "long_rest" }),
+    );
+    const saved = mock.states.get("c1")!;
+    expect(saved.phase).toBe("exploration");
+  });
+
+  it('generates an encounter for "I attack the sleeping guard" instead of a long rest', async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.members = [];
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria });
+    mock.members = [{ characterId: "ch1" }];
+    mock.states.set("c1", mock.defaultState());
+
+    const reply = await previewNarrate(
+      context(mock.defaultState()),
+      "I attack the sleeping guard",
+    );
+
+    expect(reply.narration).not.toContain("long rest");
+    expect(reply.narration).toContain("Combat begins");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "encounter.started",
+      expect.objectContaining({ generated: true }),
+    );
+    const saved = mock.states.get("c1")!;
+    expect(saved.combat.active).toBe(true);
+  });
+
+  it("advances the turn when the current combatant is stable", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria });
+    const state = combatState();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      currentHp: 0,
+      status: "stable",
+      deathSaveSuccesses: 3,
+      deathSaveFailures: 0,
+    };
+    mock.states.set("c1", state);
+
+    const reply = await previewNarrate(context(state), "I attack the goblin");
+
+    expect(mock.pushEvent).toHaveBeenCalledWith("c1", "turn.advanced", expect.anything());
+    expect(mock.pushEvent).not.toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "attack" }),
+    );
+    expect(reply.narration).toContain("turn");
+  });
+
+  it("targets a downed enemy for a finishing blow", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.characters.set("ch1", { ...aria });
+    const state = combatState();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      currentHp: 0,
+      status: "downed",
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+    };
+    mock.states.set("c1", state);
+
+    const reply = await previewNarrate(context(state), "I hit the goblin");
+
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "attack", target: "Goblin" }),
+    );
+    expect(reply.narration).toContain("Goblin");
   });
 });

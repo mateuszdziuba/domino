@@ -127,6 +127,7 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                       </Badge>
                     )}
                     {c.status === "downed" && <Badge variant="outline">downed</Badge>}
+                    {c.status === "stable" && <Badge variant="outline">stable</Badge>}
                   </span>
                   <span className="flex items-center gap-2">
                     <span className="h-1.5 w-14 overflow-hidden rounded-full bg-[#dcc89a]">

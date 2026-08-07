@@ -84,7 +84,9 @@ HP changes — the tools return authoritative results and you narrate those resu
 dramatically. When a player declares an attack or combat action on their turn,
 resolve it with the tools instead of describing a vague outcome. When a player
 declares an attack, call attack_combatant with the player's combatant id (which
-starts with "char-") as the attacker.`;
+starts with "char-") as the attacker. When the party is safe and wants to
+recover, call take_long_rest so every character regains full HP per the
+long-rest rules.`;
 
 export async function llmNarrate(
   context: DmContext,

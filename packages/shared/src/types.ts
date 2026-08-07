@@ -64,7 +64,7 @@ export type CharacterSummary = Pick<
 
 export type CampaignPhase = "exploration" | "combat" | "rest" | "dialogue";
 
-export type CombatantStatus = "active" | "downed" | "dead";
+export type CombatantStatus = "active" | "downed" | "stable" | "dead";
 
 export type Combatant = {
   id: string;

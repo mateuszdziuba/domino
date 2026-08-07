@@ -114,6 +114,105 @@ describe("getAvailableActions", () => {
   });
 });
 
+describe("getAvailableActions incapacitation gating", () => {
+  function inCombat(
+    currentHp: number,
+    status: Combatant["status"] = "active",
+  ): CampaignState {
+    return {
+      ...defaultCampaignState(),
+      phase: "combat",
+      combat: {
+        active: true,
+        round: 1,
+        turnIndex: 0,
+        combatants: [
+          {
+            id: "cb1",
+            name: "Aelar",
+            characterId: "c1",
+            isPlayer: true,
+            initiative: 18,
+            currentHp,
+            maxHp: 12,
+            armorClass: 16,
+            status,
+            deathSaveSuccesses: 0,
+            deathSaveFailures: 0,
+          },
+        ],
+      },
+    };
+  }
+
+  it("marks every combat action illegal for a 0-HP combatant", () => {
+    const actions = getAvailableActions(baseCharacter, inCombat(0, "downed"));
+    expect(actions.length).toBeGreaterThan(0);
+    for (const action of actions) {
+      expect(action.legal).toBe(false);
+      expect(action.reason).toBe("Unconscious at 0 HP — no actions possible.");
+    }
+  });
+
+  it("uses the dead reason for a dead combatant", () => {
+    const actions = getAvailableActions(baseCharacter, inCombat(0, "dead"));
+    expect(actions.length).toBeGreaterThan(0);
+    for (const action of actions) {
+      expect(action.legal).toBe(false);
+      expect(action.reason).toBe("Dead — no actions possible.");
+    }
+  });
+
+  it("gates cast-spell by HP before spell availability", () => {
+    const caster: Character = { ...baseCharacter, spells: ["Cure Wounds"] };
+    const actions = getAvailableActions(caster, inCombat(0));
+    const cast = actions.find((a) => a.key === "cast-spell");
+    expect(cast?.legal).toBe(false);
+    expect(cast?.reason).toBe("Unconscious at 0 HP — no actions possible.");
+  });
+
+  it("keeps a healthy combatant's attack legal", () => {
+    const actions = getAvailableActions(baseCharacter, inCombat(12));
+    expect(actions.find((a) => a.key === "attack")?.legal).toBe(true);
+  });
+
+  it("keeps current behavior when the character is not in the combat", () => {
+    const state: CampaignState = {
+      ...defaultCampaignState(),
+      phase: "combat",
+      combat: {
+        active: true,
+        round: 1,
+        turnIndex: 0,
+        combatants: [
+          {
+            id: "g1",
+            name: "Goblin",
+            isPlayer: false,
+            initiative: 5,
+            currentHp: 7,
+            maxHp: 7,
+            armorClass: 15,
+            status: "active",
+          },
+        ],
+      },
+    };
+    const actions = getAvailableActions(baseCharacter, state);
+    expect(actions.find((a) => a.key === "attack")?.legal).toBe(true);
+  });
+
+  it("marks exploration actions illegal for a character at 0 HP outside combat", () => {
+    const downed: Character = { ...baseCharacter, currentHp: 0 };
+    const actions = getAvailableActions(downed, defaultCampaignState());
+    expect(actions.length).toBeGreaterThan(0);
+    for (const action of actions) {
+      expect(action.legal).toBe(false);
+      expect(action.reason).toBe("Unconscious at 0 HP — no actions possible.");
+    }
+  });
+});
+
 describe("turn handling", () => {
   it("returns the combatant whose turn it is", () => {
     const state: CampaignState = {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   performAttack,
   performDeathSave,
+  applyDeathSave,
   characterAttackInput,
   findCombatant,
   nextTurn,
@@ -105,6 +106,21 @@ describe("performAttack", () => {
     expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
   });
 
+  it("rejects an attacker at 0 HP even when status is active", () => {
+    const state = combatState(0);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      currentHp: 0,
+      status: "active",
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
+  });
+
   it("rejects attacking yourself", () => {
     const state = combatState(0);
     const outcome = performAttack(state, "char-1", "char-1", {
@@ -113,6 +129,23 @@ describe("performAttack", () => {
       damageBonus: 5,
     });
     expect(outcome).toEqual({ ok: false, error: "Cannot attack yourself" });
+  });
+
+  it("rejects a stable attacker", () => {
+    const state = combatState(0);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      currentHp: 0,
+      status: "stable",
+      deathSaveSuccesses: 3,
+      deathSaveFailures: 0,
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
   });
 
   it("rejects attacking a dead target", () => {
@@ -191,6 +224,143 @@ describe("performAttack", () => {
       damageBonus: 5,
     });
     expect(enemy(state).currentHp).toBe(8);
+  });
+});
+
+describe("lethal damage at 0 HP and stable status", () => {
+  function downedTarget(overrides: Partial<Combatant> = {}): Combatant {
+    return {
+      ...enemy(combatState(0)),
+      currentHp: 0,
+      status: "downed",
+      maxHp: 999,
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+      ...overrides,
+    };
+  }
+
+  it("a hit on a downed target adds one death-save failure and keeps it downed", () => {
+    const original = Math.random;
+    Math.random = () => 0.0; // d20 = 1 (attack 100 still hits), 1d1 = 1 damage
+    const state = combatState(0);
+    state.combat.combatants[1] = downedTarget({
+      deathSaveSuccesses: 1,
+      deathSaveFailures: 1,
+    });
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.hit).toBe(true);
+    expect(outcome.result.critical).toBe(false);
+    expect(enemy(outcome.state).currentHp).toBe(0);
+    expect(enemy(outcome.state).status).toBe("downed");
+    expect(enemy(outcome.state).deathSaveFailures).toBe(2);
+    expect(enemy(outcome.state).deathSaveSuccesses).toBe(1);
+  });
+
+  it("a hit on a downed target always increases failures by 1 or 2 and only a crit reaches 2", () => {
+    for (let i = 0; i < 200; i++) {
+      const state = combatState(0);
+      state.combat.combatants[1] = downedTarget();
+      const outcome = performAttack(state, "char-1", "enemy-1", {
+        attackBonus: 99,
+        damageNotation: "1d1",
+        damageBonus: 0,
+      });
+      expect(outcome.ok).toBe(true);
+      if (!outcome.ok) continue;
+      expect(outcome.result.hit).toBe(true);
+      const target = enemy(outcome.state);
+      const delta = target.deathSaveFailures!;
+      expect([1, 2]).toContain(delta);
+      if (delta === 2) {
+        expect(outcome.result.critical).toBe(true);
+        expect(target.status).toBe("downed");
+      }
+    }
+  });
+
+  it("instantly kills a 0-HP target when damage equals or exceeds its max HP", () => {
+    const state = combatState(0);
+    state.combat.combatants[1] = downedTarget({ maxHp: 10 });
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "10d6",
+      damageBonus: 0,
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.hit).toBe(true);
+    expect(enemy(outcome.state).status).toBe("dead");
+    expect(enemy(outcome.state).deathSaveFailures).toBe(3);
+    expect(enemy(outcome.state).currentHp).toBe(0);
+  });
+
+  it("kills a downed target when the hit brings failures to 3", () => {
+    const original = Math.random;
+    Math.random = () => 0.0; // d20 = 1 (attack 100 still hits), 1d1 = 1 damage
+    const state = combatState(0);
+    state.combat.combatants[1] = downedTarget({ deathSaveFailures: 2 });
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(enemy(outcome.state).status).toBe("dead");
+    expect(enemy(outcome.state).deathSaveFailures).toBe(3);
+  });
+
+  it("applyDeathSave marks a combatant stable at three successes", () => {
+    const state = combatState(0);
+    state.combat.combatants[1] = downedTarget({ deathSaveSuccesses: 2 });
+    const outcome = applyDeathSave(state.combat, "enemy-1", 15);
+    expect(outcome).toBeDefined();
+    if (!outcome) return;
+    expect(outcome.result.stable).toBe(true);
+    expect(outcome.combatant.status).toBe("stable");
+    expect(outcome.combatant.deathSaveSuccesses).toBe(3);
+    expect(outcome.combatant.currentHp).toBe(0);
+  });
+
+  it("applyDeathSave counts a natural 1 as two failures", () => {
+    const state = combatState(0);
+    state.combat.combatants[1] = downedTarget();
+    const outcome = applyDeathSave(state.combat, "enemy-1", 1);
+    expect(outcome?.combatant.deathSaveFailures).toBe(2);
+    expect(outcome?.combatant.status).toBe("downed");
+  });
+
+  it("performDeathSave rejects a stable combatant", () => {
+    const state = combatState(0);
+    state.combat.combatants[1] = downedTarget({
+      status: "stable",
+      deathSaveSuccesses: 3,
+    });
+    expect(performDeathSave(state, "enemy-1")).toEqual({
+      ok: false,
+      error: "Combatant is not downed",
+    });
+  });
+
+  it("performDeathSave rejects a dead combatant", () => {
+    const state = combatState(0);
+    state.combat.combatants[1] = downedTarget({
+      status: "dead",
+      deathSaveFailures: 3,
+    });
+    expect(performDeathSave(state, "enemy-1")).toEqual({
+      ok: false,
+      error: "Combatant is not downed",
+    });
   });
 });
 
@@ -297,14 +467,16 @@ describe("performDeathSave", () => {
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     const result = outcome.result;
-    expect(["active", "downed", "dead"]).toContain(outcome.combatant.status);
-    if (result.dead) expect(outcome.combatant.status).toBe("dead");
     if (result.roll === 20) {
       expect(outcome.combatant.currentHp).toBe(1);
       expect(outcome.combatant.status).toBe("active");
       expect(outcome.combatant.deathSaveSuccesses).toBe(0);
       expect(outcome.combatant.deathSaveFailures).toBe(0);
+    } else if (result.dead) {
+      expect(outcome.combatant.status).toBe("dead");
+      expect(outcome.combatant.currentHp).toBe(0);
     } else {
+      expect(outcome.combatant.status).toBe("downed");
       expect(outcome.combatant.currentHp).toBe(0);
       if (result.roll === 1) expect(outcome.combatant.deathSaveFailures).toBe(2);
       if (result.roll >= 2 && result.roll <= 9) expect(outcome.combatant.deathSaveFailures).toBe(1);

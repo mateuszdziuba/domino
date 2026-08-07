@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { rmSync } from "node:fs";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import type { Database as DatabaseType } from "better-sqlite3";
 import type { CampaignState, Character } from "@domino/shared";
@@ -100,6 +100,9 @@ beforeAll(async () => {
   db.insert(users).values({ id: "u1", username: "tester", passwordHash: "x" }).run();
   db.insert(characters).values({ ...aria, userId: "u1" }).run();
   db.insert(campaigns).values({ id: "c1", name: "T", ownerId: "u1" }).run();
+});
+
+beforeEach(() => {
   store.saveState("c1", stateWithCombat());
 });
 
@@ -133,6 +136,19 @@ describe("runDmTool combat tools (real store)", () => {
     expect(events.some((e) => e.type === "action.resolved")).toBe(true);
   });
 
+  it("attack_combatant refuses an off-turn attack", async () => {
+    const state = store.loadState("c1");
+    state.combat.turnIndex = 1;
+    store.saveState("c1", state);
+
+    const result = await runDmTool("c1", "dm", "attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("turn");
+  });
+
   it("end_combat deactivates combat and writes HP back to the character sheet", async () => {
     const before = store.loadState("c1");
     const ariaCombatant = before.combat.combatants.find((c) => c.id === "char-ch1")!;
@@ -149,17 +165,5 @@ describe("runDmTool combat tools (real store)", () => {
       .where(eq(characters.id, "ch1"))
       .get()!;
     expect(row.currentHp).toBe(ariaCombatant.currentHp);
-  });
-
-  it("attack_combatant refuses an off-turn attack", async () => {
-    const state = store.loadState("c1");
-    state.combat.turnIndex = 1;
-    store.saveState("c1", state);
-
-    const result = await runDmTool("c1", "dm", "attack_combatant", {
-      attackerId: "char-ch1",
-      targetId: "enemy-1",
-    });
-    expect(result.ok).toBe(false);
   });
 });

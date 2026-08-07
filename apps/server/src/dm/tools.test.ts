@@ -18,6 +18,7 @@ const mock = vi.hoisted(() => {
     characters: new Map<string, Character>(),
     pushEvent: vi.fn(),
     updateCharacterHp: vi.fn(),
+    members: vi.fn(() => [] as { characterId: string }[]),
     defaultState,
   };
 });
@@ -32,7 +33,7 @@ vi.mock("../campaign/store.js", () => ({
   updateCharacterHp: mock.updateCharacterHp,
   getCharacterById: (id: string) => mock.characters.get(id),
   getCampaignForUser: () => ({ id: "c1" }),
-  getCampaignMembers: () => [],
+  getCampaignMembers: mock.members,
   getCampaignCharacters: () => [],
 }));
 
@@ -186,5 +187,51 @@ describe("runDmTool combat tools (mocked store)", () => {
     mock.states.set("c1", mock.defaultState());
     const result = await runTool("end_combat");
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("runDmTool take_long_rest (mocked store)", () => {
+  it("heals every campaign member to full and returns to exploration", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.updateCharacterHp.mockReset();
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }, { characterId: "ch2" }]);
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch1", { ...aria, currentHp: 3, maxHp: 10 });
+    mock.characters.set("ch2", { ...aria, id: "ch2", name: "Bran", currentHp: 5, maxHp: 12 });
+
+    const result = await runTool("take_long_rest", {});
+
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("long rest");
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 10);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch2", 12);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "state.updated",
+      expect.objectContaining({ action: "long_rest", healed: ["Aria", "Bran"] }),
+    );
+    const saved = mock.states.get("c1")!;
+    expect(saved.phase).toBe("exploration");
+    expect(saved.combat.active).toBe(false);
+  });
+
+  it("rejects resting during active combat", async () => {
+    mock.states.clear();
+    mock.characters.clear();
+    mock.pushEvent.mockReset();
+    mock.updateCharacterHp.mockReset();
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    mock.states.set("c1", stateWithCombat());
+
+    const result = await runTool("take_long_rest", {});
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("combat");
+    expect(mock.updateCharacterHp).not.toHaveBeenCalled();
+    expect(mock.pushEvent).not.toHaveBeenCalled();
   });
 });

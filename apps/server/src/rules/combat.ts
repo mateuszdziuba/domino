@@ -208,7 +208,7 @@ export function applyDeathSave(
     ...combatant,
     deathSaveSuccesses: result.successes,
     deathSaveFailures: result.failures,
-    status: result.dead ? "dead" : result.stable ? "downed" : "active",
+    status: result.dead ? "dead" : result.stable ? "stable" : "downed",
   };
   combat.combatants[combat.combatants.indexOf(combatant)] = updated;
   return { combatant: updated, result };
@@ -243,7 +243,12 @@ export function performAttack(
   const target = findCombatant(state, targetId);
   if (!attacker || !target) return { ok: false, error: "Combatant not found" };
   if (attacker.id === target.id) return { ok: false, error: "Cannot attack yourself" };
-  if (attacker.status === "downed" || attacker.status === "dead") {
+  if (
+    attacker.currentHp === 0 ||
+    attacker.status === "downed" ||
+    attacker.status === "stable" ||
+    attacker.status === "dead"
+  ) {
     return { ok: false, error: "Attacker is incapacitated" };
   }
   if (target.status === "dead") return { ok: false, error: "Target is dead" };
@@ -252,7 +257,25 @@ export function performAttack(
     return { ok: false, error: "Not this combatant's turn" };
   }
   const result = resolveAttack(target, input);
-  const newTarget = { ...target, currentHp: result.targetCurrentHp, status: result.targetStatus };
+  let newTarget: Combatant;
+  if (result.hit && target.currentHp === 0) {
+    const failures = (target.deathSaveFailures ?? 0) + (result.critical ? 2 : 1);
+    const dead = result.damageTotal >= target.maxHp || failures >= 3;
+    const status: Combatant["status"] = dead
+      ? "dead"
+      : target.status === "stable"
+        ? "stable"
+        : "downed";
+    newTarget = {
+      ...target,
+      currentHp: 0,
+      status,
+      deathSaveFailures: dead ? 3 : failures,
+    };
+    result.targetStatus = status;
+  } else {
+    newTarget = { ...target, currentHp: result.targetCurrentHp, status: result.targetStatus };
+  }
   const combatants = state.combat.combatants.map((c) => (c.id === target.id ? newTarget : c));
   return {
     ok: true,
@@ -275,7 +298,13 @@ export function performDeathSave(state: CampaignState, combatantId: string): Dea
   if (!state.combat.active) return { ok: false, error: "No combat in progress" };
   const combatant = findCombatant(state, combatantId);
   if (!combatant) return { ok: false, error: "Combatant not found" };
-  if (combatant.currentHp > 0) return { ok: false, error: "Combatant is not downed" };
+  if (
+    combatant.currentHp > 0 ||
+    combatant.status === "stable" ||
+    combatant.status === "dead"
+  ) {
+    return { ok: false, error: "Combatant is not downed" };
+  }
   const outcome = applyDeathSave(state.combat, combatantId);
   if (!outcome) return { ok: false, error: "Combatant not found" };
   const updated =

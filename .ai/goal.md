@@ -1,16 +1,21 @@
 # Cel
 
-AI DM prowadzi walkę przez silnik zasad. Dziś DM nie może przeprowadzić walki: `resolve_action` jest narracyjny ("authoritative resolution happens through the combat/game endpoints"), a ataki/śmierć/koniec walki są tylko w UI. DM musi móc adiudykować walkę narzędziami, z pełną walidacją silnika zasad.
+SRD death & recovery — domknięcie luk critic rundy 2 i pętla zdrowienia:
+
+1. **Lethal damage**: trafienie w combatanta na 0 HP = 1 nieudany death save (kryt = 2); obrażenia >= max HP przy 0 HP = natychmiastowa śmierć (SRD 5.2.1 "Instant Death" / "Damage at 0 Hit Points").
+2. **Status "stable"**: 3 sukcesy death save = stabilizacja (0 HP, ale nieumierający) — odrębny status od "downed"; stabilny nie rzuca więcej death saves.
+3. **Long rest**: nowe narzędzie DM `take_long_rest` (SRD: min. 8h → pełne HP) + trigger w preview ("we rest"/"sleep"/"camp"); tylko poza walką. Zamyka pętlę: HP trwa → potrzebne leczenie.
+4. Preview: finishing blows (celowanie w downed, nie w dead), stabilny combatant pomija turę bez akcji, trigger "hit" z granicą słowa (false-positive "hitching").
 
 ## Kryteria ukończenia
 
-1. `DM_TOOLS` zawiera `attack_combatant`, `resolve_death_save`, `end_combat`, działające przez `rules/combat.ts` + `saveState`/`pushEvent` (SSE propaguje live).
-2. Walidacja identyczna z REST: atak tylko dla aktywnego combatanta, death save tylko dla downed, end_combat zapisuje HP do postaci. Wspólna logika wyciągnięta do `rules/combat.ts` (REST i DM używają tej samej implementacji — AI nie omija silnika).
-3. System prompt (`llm.ts`) instruuje DM, aby rozstrzygał walkę narzędziami i nigdy nie wymyślał wyników rzutów/HP.
-4. Preview mode (bez klucza LLM): walka grywalna w czacie — atak/koniec tury/death saves/koniec walki rozstrzygane rutyną.
-5. Testy nowych narzędzi (mocked store + integracyjny z temp DB); bramki (typecheck/test/lint/build) zielone.
+1. `performAttack` nakłada failed death saves / instant death na downed/stable targets; `performDeathSave` odrzuca stable; `applyDeathSave` ustawia status "stable".
+2. `take_long_rest` w DM_TOOLS: leczy wszystkich członków do max HP, działa tylko poza walką, emituje przez saveState/pushEvent.
+3. UI: badge "stable" w CombatPanel; typ `CombatantStatus` rozszerzony (sync shared).
+4. Preview działa z nowymi regułami (finishing blows, stabilizacja, rest).
+5. Testy + bramki (typecheck/test/lint/build) zielone.
 
 ## Poza zakresem
 
-- Zaklęcia, stany (conditions), inventory w walce — inna iteracja.
-- UI poza istniejącym CombatPanel — wyniki idą przez czat DM + live state.
+- Short rest / Hit Dice — osobna iteracja.
+- Zaklęcia, conditions — osobna iteracja.

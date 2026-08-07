@@ -18,8 +18,6 @@ const COMBAT_TRIGGERS = [
   "cleave",
   "punch",
   "lunge",
-  "hit",
-  "kill",
   "draw my",
   "unsheathe",
   "ready my weapon",
@@ -32,8 +30,13 @@ const COMBAT_TRIGGERS = [
   "bandit",
 ];
 
+const REST_TRIGGER =
+  /^(i|we|the party) (need to |want to |should )?(take a |long )?(rest|sleep)|^let'?s (take a |long )?(rest|sleep)|^(we )?(make )?camp|^camp$/i;
+
 export function shouldAutoGenerateCombat(message: string): boolean {
   const text = message.toLowerCase();
+  if (/\bhit\b/.test(text)) return true;
+  if (/\bkill\b/.test(text)) return true;
   return COMBAT_TRIGGERS.some((trigger) => text.includes(trigger));
 }
 
@@ -47,6 +50,13 @@ export async function previewNarrate(
   context: DmContext,
   userMessage: string,
 ): Promise<DmReply> {
+  if (!context.state.combat.active && REST_TRIGGER.test(userMessage.trim())) {
+    const result = await runDmTool(context.campaignId, "dm", "take_long_rest", {});
+    return {
+      narration: result.ok ? result.message : `(DM preview) ${result.message}`,
+    };
+  }
+
   if (!context.state.combat.active && shouldAutoGenerateCombat(userMessage)) {
     const result = await runDmTool(context.campaignId, "dm", "generate_encounter", {
       description: userMessage.slice(0, 300),
@@ -81,6 +91,12 @@ export async function previewNarrate(
     if (shouldAutoGenerateCombat(userMessage)) {
       const current = currentTurnCombatant(context.state);
       if (current) {
+        if (current.status === "stable") {
+          const result = await runDmTool(context.campaignId, "dm", "advance_turn", {});
+          return {
+            narration: result.ok ? result.message : `(DM preview) ${result.message}`,
+          };
+        }
         let toolName: DmToolName = "attack_combatant";
         let args: Record<string, unknown>;
         if (current.isPlayer) {
@@ -89,7 +105,7 @@ export async function previewNarrate(
             args = { combatantId: current.id };
           } else {
             const target = context.state.combat.combatants.find(
-              (c) => !c.isPlayer && c.currentHp > 0,
+              (c) => !c.isPlayer && c.status !== "dead",
             );
             if (!target) {
               const ended = await runDmTool(context.campaignId, "dm", "end_combat", {});
@@ -105,7 +121,7 @@ export async function previewNarrate(
             args = { combatantId: current.id };
           } else {
             const target = context.state.combat.combatants.find(
-              (c) => c.isPlayer && c.currentHp > 0,
+              (c) => c.isPlayer && c.status !== "dead",
             );
             if (!target) {
               const ended = await runDmTool(context.campaignId, "dm", "end_combat", {});

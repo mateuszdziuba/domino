@@ -125,6 +125,31 @@ export function getAvailableActions(
     return { ...action, legal: true };
   };
 
+  let incapacitatedReason: string | undefined;
+  if (state.phase === "combat") {
+    const combatant = state.combat.combatants.find(
+      (c) => c.characterId === character.id,
+    );
+    if (combatant && combatant.currentHp === 0) {
+      incapacitatedReason =
+        combatant.status === "dead"
+          ? "Dead — no actions possible."
+          : "Unconscious at 0 HP — no actions possible.";
+    }
+  } else if (character.currentHp === 0) {
+    incapacitatedReason = "Unconscious at 0 HP — no actions possible.";
+  }
+
+  if (incapacitatedReason) {
+    const actions =
+      state.phase === "combat" ? COMBAT_ACTIONS : EXPLORATION_ACTIONS;
+    return actions.map((action) => ({
+      ...action,
+      legal: false,
+      reason: incapacitatedReason,
+    }));
+  }
+
   if (state.phase === "combat") {
     return COMBAT_ACTIONS.map(legal);
   }

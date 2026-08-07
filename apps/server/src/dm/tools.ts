@@ -269,6 +269,32 @@ export async function runDmTool(
         data: outcome.result,
       };
     }
+    case "take_long_rest": {
+      z.object({ hours: z.number().optional() }).safeParse(rawArgs);
+      const state0 = loadState(campaignId);
+      if (state0.combat.active) {
+        return { ok: false, message: "Cannot rest during combat." };
+      }
+      const healed: string[] = [];
+      for (const member of getCampaignMembers(campaignId)) {
+        const character = getCharacterById(member.characterId);
+        if (!character) continue;
+        updateCharacterHp(character.id, character.maxHp);
+        healed.push(character.name);
+      }
+      const state = {
+        ...state0,
+        phase: "exploration" as const,
+        updatedAt: new Date().toISOString(),
+      };
+      saveState(campaignId, state);
+      pushEvent(campaignId, "state.updated", { by: "dm", action: "long_rest", healed });
+      return {
+        ok: true,
+        message: "The party takes a long rest and recovers fully.",
+        data: summarizeState(state),
+      };
+    }
     case "end_combat": {
       let state = loadState(campaignId);
       if (!state.combat.active) return { ok: false, message: "No combat in progress." };
