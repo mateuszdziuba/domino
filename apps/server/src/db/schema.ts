@@ -45,6 +45,7 @@ export const characters = sqliteTable(
     name: text("name").notNull(),
     race: text("race").notNull(),
     className: text("class_name").notNull(),
+    subclass: text("subclass"),
     level: integer("level").notNull().default(1),
     abilityScores: text("ability_scores", { mode: "json" }).notNull(),
     maxHp: integer("max_hp").notNull(),

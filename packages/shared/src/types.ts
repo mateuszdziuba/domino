@@ -41,6 +41,7 @@ export type Character = {
   name: string;
   race: string;
   className: string;
+  subclass?: string;
   level: number;
   abilityScores: AbilityScore;
   maxHp: number;
@@ -286,6 +287,13 @@ export type SheetSpellcasting = {
   attackBonus: number;
 };
 
+export type SheetFeature = {
+  name: string;
+  description: string;
+  level: number;
+  category: "race" | "class" | "subclass";
+};
+
 export type CharacterSheet = {
   character: Character;
   abilityModifiers: Record<keyof AbilityScore, number>;
@@ -294,4 +302,5 @@ export type CharacterSheet = {
   attacks: SheetAttack[];
   spellcasting: SheetSpellcasting | null;
   spellSlots: { level: number; used: number; max: number }[];
+  features: SheetFeature[];
 };
