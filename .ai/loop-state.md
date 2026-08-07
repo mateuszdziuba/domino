@@ -1,46 +1,51 @@
 # Loop state
 
 ## Runde
-5 — MVP GOTOWE (5 celów, każdy z critic PASS)
+12 — PEŁNY PRODUKT (wszystkie cele spełnione, critic PASS)
 
-## Cel (ost.)
-SRD advancement — XP, leveling, nagrody (ukończone).
+## Cel
+Pełny produkt D&D multiplayer z AI DM (SRD 5.2.1, Baymard UX, PL).
 
-## Wykonane zadania
-- R1 cel #1 SSE real-time: hub, stream, chat.message, join fix — PASS
-- R2 cel #2 DM combat: performAttack/DeathSave, attack_combatant/
-  resolve_death_save/end_combat, prompt, preview combat, fixy SRD — PASS
-- R3 cel #3 death & recovery: lethal damage, stable, take_long_rest,
-  gating actions, trigger fixes — PASS
-- R4 cel #4 spellcasting v1: spells.ts (6 SRD zaklęć), sloty (migracja
-  0001), cast_spell, preview 'I cast X', sloty w arkuszu, nazwy postaci — PASS
-- R5 cel #5 advancement: XP_BY_CR/progi/hit die, Combatant.cr,
-  XP za pokonanych (REST+DM identycznie), award_xp, auto level-up,
-  pasek XP w arkuszu (migracja 0002) — PASS
+## Wykonane zadania (12 rund)
+1. SSE real-time (hub, stream, chat.message, join fix)
+2. DM combat przez silnik zasad (performAttack/DeathSave, attack_combatant/
+   resolve_death_save/end_combat, prompt, preview, fixy SRD)
+3. Death & recovery (lethal damage, stable, long rest)
+4. Spellcasting v1 (6 zaklęć, sloty, cast_spell)
+5. Advancement (XP za CR, auto level-up, award_xp)
+6. Polski DM + ukryte HP wrogów + animacje rzutów + sugerowane akcje
+7. Zaproszenia (invite codes, /join), biblioteka przygód 5e, typografia
+8. Cechy rasowe/klasowe/subklasy (SRD) + tooltips + DM XP
+9. Tooltips w czacie, dialog wyboru subklasy, modyfikacja czarów
+10. Dymek DM myśli, rzuty utrwalane w czacie, bogate opisy czarów/skilli
+11. Przewaga/utrudnienie, stany (10 SRD), krótki odpoczynek (HD)
+12. Zaklęcia 2-3 (stany, party heal, Revivify), grant_loot, widok drużyny,
+    świat kampanii, multiattack, onboarding, fixy critic (canAct,
+    rytuał PoH, HD przy pełnym HP)
 
 ## Testy
-PASS — 156 testów (11 plików), typecheck 3/3, lint, build.
-Live E2E: SSE 2 graczy, pełna walka w czacie, death saves, rest, cast,
-sloty, XP (integracja temp DB), nazwy postaci w czacie/Party.
+PASS — 291 testów (14 plików), typecheck 3/3, lint, build.
+E2E capstone: rejestracja → postać → kampania → zaproszenie → join po
+kodzie → wspólny czat z LLM DM (po polsku, przygoda z biblioteki).
 
 ## Critic
-PASS we wszystkich rundach (po korektach: duplikat wiadomości, downed-loop,
-shadowing triggerów).
+PASS (po korektach: join security, cast_spell incapacitated, PoH rytuał,
+HD full-HP, Revivify death saves, heal_all slot order)
 
 ## Największa luka
-brak — MVP spójny: auth → postacie → kampanie → czat → walka (REST+DM+preview)
-→ śmierć/leczenie → rest → zaklęcia → XP/poziomy; bez klucza LLM działa
-preview mode.
+brak — pełny produkt: auth+invites, real-time, polski DM (LLM+preview),
+SRD combat (adv/disadv, stany, death saves), rest (short/long), 12 zaklęć
+(0-3 lvl), XP/leveling+subklasy, przygody (biblioteka+custom), łupy/złoto,
+drużyna (HP party), świat kampanii, onboarding, tooltips, czytelność.
 
-## Kandydaci na kolejne iteracje (wymagają decyzji użytkownika)
-- Short rest / Hit Dice (SRD)
-- Więcej zaklęć (poziom 2+), buffy (Bless/Bane), concentration
-- Conditions (poisoned, frightened...), advantage/disadvantage w dice
-- Loot/przedmioty w walce, multiattack potworów
-- Invites/role graczy, podgląd HP party
+## Przyszłe kierunki (poza obecnym zakresem)
+- Zaklęcia 4-9 poziomu, exhaustion (6 poziomów), monster spellcasters
+- Sounds/audio, głębszy mobile polish, więcej przygód w bibliotece
+- Metodyczne: auto-crit w zwarciu (paralyzed/unconscious), modyfikatory
+  rzutów obronnych celów (obecnie +0)
 
 ## Odrzucone podejścia
-- Spells jako prompt — odrzucone (inwariant: rules engine)
-- Buffy w v1 — odrzucone (brak mechaniki, na później)
-- Replay SSE z id: — odrzucone (resync przez load() na connected)
-- XP jako czysty prompt — odrzucone (tabele SRD w silniku)
+- better-auth jako zamiennik auth — odrzucone (istniejący auth + invite
+  codes spełniają potrzebę; wymiana systemu = ryzyko regresji)
+- Wyliczanie przewagi w UI z samych rzutów — brak rozróżnienia adv/disadv
+  w payload (pozostawione flagom narzędzi)
