@@ -21,6 +21,12 @@ import {
 } from "../components/ui/card";
 import { Select } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
 import { CombatPanel } from "../components/CombatPanel";
 import { subscribeCampaign } from "../lib/stream";
 
@@ -57,6 +63,22 @@ function spellEffectSummary(meta: SpellMeta): string {
     return `${meta.effect.dice ?? ""}${meta.effect.mod ? "+mod" : ""} leczenia`;
   }
   return "stabilizacja";
+}
+
+function spellEffectDescription(meta: SpellMeta): string {
+  if (meta.effect.kind === "damage") {
+    const dice = [meta.effect.dice, meta.effect.damageType].filter(Boolean).join(" ");
+    const extra = meta.effect.attack
+      ? "rzut ataku"
+      : meta.effect.save
+        ? `rzut obronny (${meta.effect.save})`
+        : "";
+    return `Obrażenia: ${dice}${extra ? ` — ${extra}` : ""}`;
+  }
+  if (meta.effect.kind === "heal") {
+    return `Leczenie: ${meta.effect.dice ?? ""}${meta.effect.mod ? " + modyfikator" : ""} punktów życia`;
+  }
+  return "Stabilizuje istotę na 0 punktach życia.";
 }
 
 export default function CampaignPage() {
@@ -309,43 +331,140 @@ export default function CampaignPage() {
                 </div>
               )}
               {member && spellbook && spellbook.spells.length > 0 && (
-                <div className="mt-3">
-                  <div className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
-                    Księga zaklęć
-                  </div>
-                  {spellbook.slots.filter((s) => s.max > 0).length > 0 && (
-                    <div className="text-xs italic text-[#7c6a45]">
-                      Sloty:{" "}
-                      {spellbook.slots
-                        .filter((s) => s.max > 0)
-                        .map((s) => `Poziom ${s.level}: ${s.used}/${s.max}`)
-                        .join(" · ")}
+                <div className="mt-3 rounded-sm border border-[#c8b184]/70 bg-[#fbf3dd]/40 p-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                      Księga zaklęć
                     </div>
-                  )}
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    {spellbook.spells.map((spell) => {
-                      const meta = spellRegistry?.find((s) => s.name === spell);
-                      const level = meta?.level ?? 1;
-                      const isCantrip = level === 0;
-                      const slot = isCantrip ? undefined : spellbook.slots[level - 1];
-                      const unavailable = !isCantrip && (!slot || slot.used >= slot.max);
+                    {spellbook.slots.filter((s) => s.max > 0).length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {spellbook.slots
+                          .filter((s) => s.max > 0)
+                          .map((s) => (
+                            <span
+                              key={s.level}
+                              className={`rounded-sm border px-1.5 py-0.5 font-display text-[9px] uppercase tracking-[0.1em] ${
+                                s.used >= s.max
+                                  ? "border-[#8f1d1d]/50 bg-[#8f1d1d]/10 text-[#8f1d1d]"
+                                  : s.used === s.max - 1
+                                    ? "border-[#a97e1f]/60 bg-[#dcc89a]/50 text-[#5c4018]"
+                                    : "border-[#2e4d3a]/40 bg-[#2e4d3a]/10 text-[#2e4d3a]"
+                              }`}
+                            >
+                              P{s.level}: {s.used}/{s.max}
+                            </span>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <TooltipProvider delayDuration={250}>
+                    {[0, 1].map((groupLevel) => {
+                      const group =
+                        groupLevel === 0
+                          ? spellbook.spells.filter(
+                              (s) => (spellRegistry?.find((m) => m.name === s)?.level ?? 1) === 0,
+                            )
+                          : spellbook.spells.filter(
+                              (s) => (spellRegistry?.find((m) => m.name === s)?.level ?? 1) === groupLevel,
+                            );
+                      if (group.length === 0) return null;
                       return (
-                        <button
-                          key={spell}
-                          type="button"
-                          disabled={unavailable}
-                          title={meta ? spellEffectSummary(meta) : undefined}
-                          onClick={() => setInput(`Rzucam ${spell} na `)}
-                          className="rounded-sm border border-[#c8b184] bg-[#fbf3dd]/60 px-2 py-1 font-display text-xs tracking-[0.06em] text-[#3a2c17] hover:bg-[#f0e2bd] disabled:pointer-events-none disabled:opacity-40"
-                        >
-                          {spell}
-                          <span className="ml-1 text-[9px] uppercase text-[#a97e1f]">
-                            {isCantrip ? "∞" : `L${level}`}
-                          </span>
-                        </button>
+                        <div key={groupLevel} className="mt-2 first:mt-2">
+                          <div className="mb-1 flex items-center gap-1.5">
+                            <span className="font-display text-[9px] uppercase tracking-[0.14em] text-[#a97e1f]">
+                              {groupLevel === 0 ? "Cantripy" : `Poziom ${groupLevel}`}
+                            </span>
+                            <span className="h-px flex-1 bg-[#c8b184]/50" />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            {group.map((spell) => {
+                              const meta = spellRegistry?.find((s) => s.name === spell);
+                              const level = meta?.level ?? 1;
+                              const isCantrip = level === 0;
+                              const slot = isCantrip ? undefined : spellbook.slots[level - 1];
+                              const unavailable = !isCantrip && (!slot || slot.used >= slot.max);
+                              const remaining = slot ? slot.max - slot.used : 0;
+                              return (
+                                <Tooltip key={spell}>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex">
+                                      <button
+                                        type="button"
+                                        disabled={unavailable}
+                                        onClick={() => setInput(`Rzucam ${spell} na `)}
+                                        className={`group flex w-full items-center justify-between gap-2 rounded-sm border px-2.5 py-1.5 text-left transition-colors ${
+                                          unavailable
+                                            ? "cursor-not-allowed border-[#c8b184]/40 bg-[#fbf3dd]/20 opacity-50"
+                                            : "border-[#c8b184] bg-[#fbf3dd]/70 hover:border-[#a97e1f] hover:bg-[#f0e2bd]"
+                                        } focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#a97e1f]`}
+                                      >
+                                        <span className="flex min-w-0 items-baseline gap-1.5">
+                                          <span className="truncate font-display text-xs tracking-[0.06em] text-[#2e2113]">
+                                            {spell}
+                                          </span>
+                                          {meta && (
+                                            <span className="truncate text-[10px] italic text-[#7c6a45]">
+                                              {spellEffectSummary(meta)}
+                                            </span>
+                                          )}
+                                        </span>
+                                        {isCantrip ? (
+                                          <span className="rounded-sm bg-[#dcc89a]/60 px-1.5 py-0.5 font-display text-[9px] uppercase tracking-[0.1em] text-[#5c4018]">
+                                            ∞
+                                          </span>
+                                        ) : (
+                                          <span
+                                            className={`rounded-sm px-1.5 py-0.5 font-display text-[9px] uppercase tracking-[0.1em] ${
+                                              remaining === 0
+                                                ? "bg-[#8f1d1d]/15 text-[#8f1d1d]"
+                                                : remaining === 1
+                                                  ? "bg-[#dcc89a]/60 text-[#5c4018]"
+                                                  : "bg-[#2e4d3a]/15 text-[#2e4d3a]"
+                                            }`}
+                                          >
+                                            {slot ? `${slot.used}/${slot.max}` : "0/0"}
+                                          </span>
+                                        )}
+                                      </button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  {meta && (
+                                    <TooltipContent>
+                                      <div className="flex flex-col gap-1">
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                          <span className="font-display text-xs tracking-[0.08em] text-[#e8c56a]">
+                                            {meta.name}
+                                          </span>
+                                          <span className="text-[9px] uppercase tracking-[0.12em] text-[#c9b183]">
+                                            {meta.school}
+                                            {meta.level === 0 ? " · cantrip" : ` · poziom ${meta.level}`}
+                                          </span>
+                                        </div>
+                                        <div className="text-[10px] text-[#c9b183]">
+                                          {meta.castingTime} · {meta.range} · {meta.duration} ·{" "}
+                                          {meta.components}
+                                        </div>
+                                        <div className="text-[11px] text-[#f6ead0]">
+                                          {spellEffectDescription(meta)}
+                                        </div>
+                                        {unavailable && (
+                                          <div className="text-[10px] italic text-[#e8a08a]">
+                                            Brak wolnych slotów poziomu {level} — długi odpoczynek je
+                                            odzyskuje.
+                                          </div>
+                                        )}
+                                      </div>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                              );
+                            })}
+                          </div>
+                        </div>
                       );
                     })}
-                  </div>
+                  </TooltipProvider>
                 </div>
               )}
               {legalActions.length > 0 && (
