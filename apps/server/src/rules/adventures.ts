@@ -112,3 +112,15 @@ export function buildAdventureState(
     notes,
   };
 }
+
+export function adventureSummaries(): Pick<
+  Adventure,
+  "title" | "source" | "hook" | "locations"
+>[] {
+  return ADVENTURES.map(({ title, source, hook, locations }) => ({
+    title,
+    source,
+    hook,
+    locations,
+  }));
+}

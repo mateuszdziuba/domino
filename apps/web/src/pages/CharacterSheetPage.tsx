@@ -32,6 +32,7 @@ import { SubclassPicker } from "../components/SubclassPicker";
 import { LevelUpDialog } from "../components/LevelUpDialog";
 import { SKILL_ALIASES, SKILL_DESCRIPTIONS } from "../lib/chat-tooltips";
 import { spellDisplayName } from "../lib/spell-lang";
+import { ItemIcon } from "../lib/item-icons";
 
 const ASI_LEVELS = [4, 8, 12, 16, 19];
 
@@ -880,11 +881,14 @@ export default function CharacterSheetPage() {
                         {equipped ? (
                           <>
                             <div className="flex items-center justify-between gap-1">
-                              <span className="truncate font-display text-xs text-[#2e2113]">
-                                {equipped.name}
-                                {equipped.attuned && (
-                                  <span className="ml-0.5 text-[#a97e1f]">✦</span>
-                                )}
+                              <span className="flex min-w-0 items-center gap-1">
+                                <ItemIcon icon={equipped.icon} className="size-3.5 shrink-0 text-[#a97e1f]" />
+                                <span className="truncate font-display text-xs text-[#2e2113]">
+                                  {equipped.name}
+                                  {equipped.attuned && (
+                                    <span className="ml-0.5 text-[#a97e1f]">✦</span>
+                                  )}
+                                </span>
                               </span>
                               <button
                                 type="button"
@@ -928,8 +932,11 @@ export default function CharacterSheetPage() {
                             {item.description ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="truncate text-sm text-[#2e2113]">
-                                    {item.name}
+                                  <span className="flex min-w-0 items-center gap-1.5">
+                                    <ItemIcon icon={item.icon} className="size-3.5 shrink-0 text-[#a97e1f]" />
+                                    <span className="truncate text-sm text-[#2e2113]">
+                                      {item.name}
+                                    </span>
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -939,8 +946,11 @@ export default function CharacterSheetPage() {
                                 </TooltipContent>
                               </Tooltip>
                             ) : (
-                              <span className="truncate text-sm text-[#2e2113]">
-                                {item.name}
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <ItemIcon icon={item.icon} className="size-3.5 shrink-0 text-[#a97e1f]" />
+                                <span className="truncate text-sm text-[#2e2113]">
+                                  {item.name}
+                                </span>
                               </span>
                             )}
                             {item.quantity > 1 && (
@@ -1097,7 +1107,10 @@ export default function CharacterSheetPage() {
                           <span className="flex min-w-0 items-center gap-2">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="truncate text-sm text-[#2e2113]">{gear.name}</span>
+                                <span className="flex min-w-0 items-center gap-1.5">
+                                  <ItemIcon icon={gear.icon} className="size-3.5 shrink-0 text-[#a97e1f]" />
+                                  <span className="truncate text-sm text-[#2e2113]">{gear.name}</span>
+                                </span>
                               </TooltipTrigger>
                               {gear.description && (
                                 <TooltipContent>
@@ -1148,7 +1161,10 @@ export default function CharacterSheetPage() {
                               <span className="flex min-w-0 items-center gap-2">
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <span className="truncate text-sm text-[#2e2113]">{item.name}</span>
+                                    <span className="flex min-w-0 items-center gap-1.5">
+                                      <ItemIcon icon={item.icon} className="size-3.5 shrink-0 text-[#a97e1f]" />
+                                      <span className="truncate text-sm text-[#2e2113]">{item.name}</span>
+                                    </span>
                                   </TooltipTrigger>
                                   {item.description && (
                                     <TooltipContent>

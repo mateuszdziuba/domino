@@ -15,6 +15,7 @@ import {
 import { newId, isoNow } from "../lib/ids.js";
 import { requireAuth } from "../middleware/auth.js";
 import { defaultCampaignState } from "../rules/state.js";
+import { ADVENTURES, buildAdventureState, findAdventure } from "../rules/adventures.js";
 import { buildDmSuggestion } from "../rules/actions.js";
 import { dmNarrate } from "../dm/index.js";
 import { dmProvider, isDmConfigured } from "../dm/llm.js";
@@ -26,11 +27,13 @@ import {
   getRecentMessages,
   loadState,
   pushEvent,
+  saveState,
 } from "../campaign/store.js";
 import { subscribe } from "../campaign/hub.js";
 import { combatRoutes } from "./combat.js";
 import type {
   Campaign,
+  CampaignState,
   ChatMessage,
   DmSuggestion,
   GameEvent,
@@ -39,7 +42,10 @@ import type {
 const campaignSchema = z.object({
   name: z.string().min(1).max(64),
   description: z.string().max(500).optional(),
+  adventure: z.string().max(64).optional(),
 });
+
+type StoredState = CampaignState & { started: boolean };
 
 const joinSchema = z.object({
   characterId: z.string().min(1),
@@ -110,6 +116,23 @@ campaignRoutes.post("/", requireAuth, async (c) => {
   if (!parsed.success) {
     return c.json({ error: "Nieprawidłowa kampania.", details: parsed.error.flatten() }, 400);
   }
+  let initial: StoredState = { ...defaultCampaignState(), started: false };
+  if (parsed.data.adventure) {
+    const adventure = findAdventure(parsed.data.adventure);
+    if (!adventure) {
+      const available = ADVENTURES.map((a) => a.title).join(", ");
+      return c.json(
+        { error: `Nieznana przygoda: ${parsed.data.adventure}. Dostępne: ${available}.` },
+        400,
+      );
+    }
+    initial = {
+      ...defaultCampaignState(),
+      ...buildAdventureState(adventure),
+      started: false,
+      phase: "exploration",
+    };
+  }
   const id = newId();
   db.transaction((tx) => {
     tx.insert(campaigns)
@@ -120,12 +143,25 @@ campaignRoutes.post("/", requireAuth, async (c) => {
         ownerId: user.id,
       })
       .run();
-    tx.insert(campaignStates)
-      .values({ campaignId: id, state: defaultCampaignState() })
-      .run();
+    tx.insert(campaignStates).values({ campaignId: id, state: initial }).run();
   });
   pushEvent(id, "campaign.created", { by: user.id });
-  return c.json({ campaign: db.select().from(campaigns).where(eq(campaigns.id, id)).get() }, 201);
+  const row = db.select().from(campaigns).where(eq(campaigns.id, id)).get();
+  return c.json({ campaign: { ...row, state: initial } }, 201);
+});
+
+campaignRoutes.post("/:id/start", requireAuth, (c) => {
+  const user = c.get("user");
+  const campaign = getCampaignForUser(c.req.param("id"), user.id);
+  if (!campaign || campaign.ownerId !== user.id) {
+    return c.json({ error: "Nie znaleziono kampanii." }, 404);
+  }
+  const state = loadState(campaign.id) as StoredState;
+  if (state.started) return c.json({ error: "Kampania już trwa." }, 400);
+  const updated: StoredState = { ...state, started: true };
+  saveState(campaign.id, updated);
+  pushEvent(campaign.id, "state.updated", { by: "owner", action: "start" });
+  return c.json({ state: updated });
 });
 
 campaignRoutes.post("/:id/invite", requireAuth, (c) => {

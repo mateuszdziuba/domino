@@ -54,6 +54,7 @@ export function slotLabel(key: string): string | undefined {
 export const SRD_GEAR: SrdGearItem[] = [
   {
     name: "Leather",
+    icon: "ShieldCheck",
     category: "armor",
     slot: "armor",
     weight: 10,
@@ -63,6 +64,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Studded Leather",
+    icon: "ShieldCheck",
     category: "armor",
     slot: "armor",
     weight: 13,
@@ -72,6 +74,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Chain Shirt",
+    icon: "Shield",
     category: "armor",
     slot: "armor",
     weight: 20,
@@ -81,6 +84,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Scale Mail",
+    icon: "Shield",
     category: "armor",
     slot: "armor",
     weight: 45,
@@ -90,6 +94,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Breastplate",
+    icon: "Shield",
     category: "armor",
     slot: "armor",
     weight: 20,
@@ -99,6 +104,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Half Plate",
+    icon: "Shield",
     category: "armor",
     slot: "armor",
     weight: 40,
@@ -108,6 +114,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Ring Mail",
+    icon: "Shield",
     category: "armor",
     slot: "armor",
     weight: 40,
@@ -117,6 +124,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Chain Mail",
+    icon: "Shield",
     category: "armor",
     slot: "armor",
     weight: 55,
@@ -126,6 +134,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Splint",
+    icon: "Shield",
     category: "armor",
     slot: "armor",
     weight: 60,
@@ -135,6 +144,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Plate",
+    icon: "Shield",
     category: "armor",
     slot: "armor",
     weight: 65,
@@ -144,6 +154,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Shield",
+    icon: "Shield",
     category: "armor",
     slot: "shield",
     weight: 6,
@@ -153,6 +164,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Club",
+    icon: "Swords",
     category: "weapon",
     slot: "weapon",
     weight: 2,
@@ -162,6 +174,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Dagger",
+    icon: "Slice",
     category: "weapon",
     slot: "weapon",
     weight: 1,
@@ -171,6 +184,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Handaxe",
+    icon: "Axe",
     category: "weapon",
     slot: "weapon",
     weight: 2,
@@ -180,6 +194,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Javelin",
+    icon: "Crosshair",
     category: "weapon",
     slot: "weapon",
     weight: 2,
@@ -189,6 +204,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Mace",
+    icon: "Hammer",
     category: "weapon",
     slot: "weapon",
     weight: 4,
@@ -198,6 +214,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Quarterstaff",
+    icon: "Swords",
     category: "weapon",
     slot: "weapon",
     weight: 4,
@@ -207,6 +224,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Spear",
+    icon: "Swords",
     category: "weapon",
     slot: "weapon",
     weight: 3,
@@ -216,6 +234,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Light Crossbow",
+    icon: "Crosshair",
     category: "weapon",
     slot: "weapon",
     weight: 5,
@@ -225,6 +244,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Shortbow",
+    icon: "Crosshair",
     category: "weapon",
     slot: "weapon",
     weight: 2,
@@ -234,6 +254,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Battleaxe",
+    icon: "Axe",
     category: "weapon",
     slot: "weapon",
     weight: 4,
@@ -243,6 +264,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Flail",
+    icon: "Hammer",
     category: "weapon",
     slot: "weapon",
     weight: 2,
@@ -252,6 +274,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Glaive",
+    icon: "Swords",
     category: "weapon",
     slot: "weapon",
     weight: 6,
@@ -261,6 +284,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Greataxe",
+    icon: "Axe",
     category: "weapon",
     slot: "weapon",
     weight: 7,
@@ -270,6 +294,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Greatsword",
+    icon: "Sword",
     category: "weapon",
     slot: "weapon",
     weight: 6,
@@ -279,6 +304,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Halberd",
+    icon: "Swords",
     category: "weapon",
     slot: "weapon",
     weight: 6,
@@ -288,6 +314,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Longsword",
+    icon: "Sword",
     category: "weapon",
     slot: "weapon",
     weight: 3,
@@ -297,6 +324,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Maul",
+    icon: "Hammer",
     category: "weapon",
     slot: "weapon",
     weight: 10,
@@ -306,6 +334,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Warhammer",
+    icon: "Hammer",
     category: "weapon",
     slot: "weapon",
     weight: 2,
@@ -315,6 +344,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Rapier",
+    icon: "Sword",
     category: "weapon",
     slot: "weapon",
     weight: 2,
@@ -324,6 +354,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Scimitar",
+    icon: "Sword",
     category: "weapon",
     slot: "weapon",
     weight: 3,
@@ -333,6 +364,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Shortsword",
+    icon: "Sword",
     category: "weapon",
     slot: "weapon",
     weight: 2,
@@ -342,6 +374,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Longbow",
+    icon: "Crosshair",
     category: "weapon",
     slot: "weapon",
     weight: 2,
@@ -351,6 +384,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Heavy Crossbow",
+    icon: "Crosshair",
     category: "weapon",
     slot: "weapon",
     weight: 18,
@@ -360,6 +394,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Backpack",
+    icon: "Backpack",
     category: "gear",
     weight: 5,
     price: "2 gp",
@@ -368,6 +403,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Bedroll",
+    icon: "Bed",
     category: "gear",
     weight: 7,
     price: "1 gp",
@@ -376,6 +412,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Candle",
+    icon: "Flame",
     category: "gear",
     price: "1 cp",
     priceGp: priceInGp("1 cp"),
@@ -383,6 +420,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Crowbar",
+    icon: "Wrench",
     category: "gear",
     weight: 5,
     price: "2 gp",
@@ -391,6 +429,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Flint and Steel",
+    icon: "Flame",
     category: "gear",
     price: "1 gp",
     priceGp: priceInGp("1 gp"),
@@ -398,6 +437,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Hempen Rope",
+    icon: "Link2",
     category: "gear",
     weight: 10,
     price: "1 gp",
@@ -406,6 +446,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Hooded Lantern",
+    icon: "Lamp",
     category: "gear",
     weight: 2,
     price: "5 gp",
@@ -414,6 +455,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Rations",
+    icon: "CookingPot",
     category: "gear",
     weight: 2,
     price: "5 sp",
@@ -422,6 +464,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Torch",
+    icon: "Flame",
     category: "gear",
     weight: 1,
     price: "1 cp",
@@ -430,6 +473,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Waterskin",
+    icon: "GlassWater",
     category: "gear",
     weight: 5,
     price: "2 sp",
@@ -438,6 +482,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Component Pouch",
+    icon: "Pocket",
     category: "gear",
     weight: 2,
     price: "25 gp",
@@ -446,6 +491,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Spellbook",
+    icon: "Book",
     category: "gear",
     weight: 3,
     price: "50 gp",
@@ -454,6 +500,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Amulet of Health",
+    icon: "Gem",
     category: "magic",
     slot: "neck",
     weight: 3,
@@ -464,6 +511,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Boots of Elvenkind",
+    icon: "Footprints",
     category: "magic",
     slot: "boots",
     weight: 1,
@@ -474,6 +522,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Bracers of Defense",
+    icon: "Hand",
     category: "magic",
     slot: "gloves",
     weight: 1,
@@ -484,6 +533,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Cloak of Protection",
+    icon: "Shirt",
     category: "magic",
     slot: "cloak",
     weight: 1,
@@ -494,6 +544,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Gauntlets of Ogre Power",
+    icon: "Hand",
     category: "magic",
     slot: "gloves",
     weight: 2,
@@ -504,6 +555,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Headband of Intellect",
+    icon: "Crown",
     category: "magic",
     slot: "head",
     weight: 1,
@@ -514,6 +566,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Ring of Protection",
+    icon: "CircleDot",
     category: "magic",
     slot: "ring",
     weight: 1,
@@ -524,6 +577,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Wand of Magic Missiles",
+    icon: "Wand2",
     category: "magic",
     slot: "weapon",
     weight: 1,
@@ -534,6 +588,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Potion of Healing",
+    icon: "FlaskConical",
     category: "magic",
     weight: 0.5,
     price: "50 gp",
@@ -542,6 +597,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Greater Potion of Healing",
+    icon: "FlaskConical",
     category: "magic",
     weight: 0.5,
     price: "150 gp",
@@ -550,6 +606,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Superior Potion of Healing",
+    icon: "FlaskConical",
     category: "magic",
     weight: 0.5,
     price: "450 gp",
@@ -558,6 +615,7 @@ export const SRD_GEAR: SrdGearItem[] = [
   },
   {
     name: "Supreme Potion of Healing",
+    icon: "FlaskConical",
     category: "magic",
     weight: 0.5,
     price: "1350 gp",

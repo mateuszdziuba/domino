@@ -169,14 +169,27 @@ export const combatApi = {
     ),
 };
 
+export type Adventure = {
+  title: string;
+  source: string;
+  hook: string;
+  locations: string[];
+};
+
+export const adventuresApi = {
+  get: () => api<{ adventures: Adventure[] }>("/adventures"),
+};
+
 export const campaignApi = {
   list: () => api<{ campaigns: Campaign[] }>("/campaigns"),
   get: (id: string) => api<CampaignDetail>(`/campaigns/${id}`),
-  create: (name: string, description?: string) =>
+  create: (name: string, description?: string, adventure?: string) =>
     api<{ campaign: Campaign }>("/campaigns", {
       method: "POST",
-      body: JSON.stringify({ name, description }),
+      body: JSON.stringify({ name, description, adventure }),
     }),
+  start: (id: string) =>
+    api<{ state: CampaignState }>(`/campaigns/${id}/start`, { method: "POST" }),
   join: (id: string, characterId: string) =>
     api<{ ok: boolean; members: CampaignMember[] }>(`/campaigns/${id}/join`, {
       method: "POST",

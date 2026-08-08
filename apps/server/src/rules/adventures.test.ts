@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ADVENTURES,
+  adventureSummaries,
   buildAdventureState,
   findAdventure,
 } from "./adventures.js";
@@ -42,6 +43,28 @@ describe("findAdventure", () => {
   it("returns undefined for an unknown title", () => {
     expect(findAdventure("Przygoda o kotach")).toBeUndefined();
     expect(findAdventure("")).toBeUndefined();
+  });
+});
+
+describe("adventureSummaries", () => {
+  it("returns title, source, hook and locations for every adventure", () => {
+    const summaries = adventureSummaries();
+    expect(summaries).toHaveLength(ADVENTURES.length);
+    for (let i = 0; i < ADVENTURES.length; i++) {
+      const adventure = ADVENTURES[i]!;
+      const summary = summaries[i]!;
+      expect(summary.title).toBe(adventure.title);
+      expect(summary.source).toBe(adventure.source);
+      expect(summary.hook).toBe(adventure.hook);
+      expect(summary.locations).toEqual(adventure.locations);
+    }
+  });
+
+  it("does not leak plot beats or monsters into summaries", () => {
+    for (const summary of adventureSummaries()) {
+      expect(summary).not.toHaveProperty("plotBeats");
+      expect(summary).not.toHaveProperty("monsters");
+    }
   });
 });
 

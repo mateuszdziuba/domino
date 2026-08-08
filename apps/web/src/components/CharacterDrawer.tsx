@@ -12,6 +12,7 @@ import {
 } from "./ui/tooltip";
 import { SKILL_ALIASES } from "../lib/chat-tooltips";
 import { spellDisplayName } from "../lib/spell-lang";
+import { ItemIcon } from "../lib/item-icons";
 
 const ABILITY_LABELS_PL: Record<string, string> = {
   strength: "Siła",
@@ -148,6 +149,7 @@ function DrawerContent({
 }) {
   const { character, abilityModifiers, savingThrows, attacks, spellcasting, spellSlots } = sheet;
   const inventory = character.inventory ?? [];
+  const backpackItems = inventory.filter((item) => !item.slot);
   const totalWeight = inventory.reduce(
     (sum, item) => sum + (item.weight ?? 0) * (item.quantity ?? 1),
     0,
@@ -422,9 +424,12 @@ function DrawerContent({
                   {slot.label}
                 </div>
                 {equipped ? (
-                  <div className="truncate font-display text-[10px] text-[#2e2113]">
-                    {equipped.name}
-                    {equipped.attuned && <span className="text-[#a97e1f]"> ✦</span>}
+                  <div className="flex min-w-0 items-center gap-1">
+                    <ItemIcon icon={equipped.icon} className="size-3 shrink-0 text-[#a97e1f]" />
+                    <span className="truncate font-display text-[10px] text-[#2e2113]">
+                      {equipped.name}
+                      {equipped.attuned && <span className="text-[#a97e1f]"> ✦</span>}
+                    </span>
                   </div>
                 ) : (
                   <div className="text-[10px] text-[#a08b5c]">—</div>
@@ -434,8 +439,27 @@ function DrawerContent({
           })}
         </div>
         <p className="mt-2 text-[11px] text-[#7c6a45]">
-          Przedmioty w plecaku: {inventory.length}
+          Przedmioty w plecaku: {backpackItems.length}
         </p>
+        <div className="mt-1 flex flex-col gap-1">
+          <div className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+            Plecak
+          </div>
+          {backpackItems.length === 0 ? (
+            <p className="text-xs italic text-[#7c6a45]">Plecak pusty.</p>
+          ) : (
+            <ul className="flex flex-col gap-0.5">
+              {backpackItems.map((item) => (
+                <li key={item.id} className="flex items-center gap-1.5 text-xs text-[#7c6a45]">
+                  <ItemIcon icon={item.icon} className="size-3 shrink-0 text-[#a97e1f]" />
+                  <span className="min-w-0 truncate">{item.name}</span>
+                  <span className="shrink-0">×{item.quantity}</span>
+                  {item.weight != null && <span className="shrink-0">({item.weight} lb)</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </section>
 
       <section className="border-t border-dotted border-[#c8b184] px-5 pb-6 pt-4">

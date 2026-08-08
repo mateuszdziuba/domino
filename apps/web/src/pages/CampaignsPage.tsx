@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { Link2, Plus, Swords } from "lucide-react";
-import { campaignApi, inviteApi } from "../lib/api-client";
+import { adventuresApi, campaignApi, inviteApi, type Adventure } from "../lib/api-client";
 import type { Campaign } from "@domino/shared";
 import { useAuth } from "../lib/auth";
 import { Button } from "../components/ui/button";
@@ -16,12 +16,15 @@ import {
 } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { Select } from "../components/ui/select";
 
 export default function CampaignsPage() {
   const { user } = useAuth();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [adventure, setAdventure] = useState("");
+  const [adventures, setAdventures] = useState<Adventure[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inviteCampaignId, setInviteCampaignId] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
@@ -33,6 +36,10 @@ export default function CampaignsPage() {
   }
 
   useEffect(load, []);
+
+  useEffect(() => {
+    adventuresApi.get().then(({ adventures }) => setAdventures(adventures)).catch(() => {});
+  }, []);
 
   async function onInvite(campaign: Campaign) {
     setInviteCampaignId(campaign.id);
@@ -58,9 +65,10 @@ export default function CampaignsPage() {
     e.preventDefault();
     setError(null);
     try {
-      await campaignApi.create(name, description || undefined);
+      await campaignApi.create(name, description || undefined, adventure || undefined);
       setName("");
       setDescription("");
+      setAdventure("");
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nie udało się utworzyć kampanii");
@@ -104,6 +112,23 @@ export default function CampaignsPage() {
                 placeholder="Kampania o napadzie w zalanym krasnoludzkim mieście"
               />
             </div>
+            {adventures && adventures.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="campaign-adventure">Przygoda (opcjonalnie)</Label>
+                <Select
+                  id="campaign-adventure"
+                  value={adventure}
+                  onChange={(e) => setAdventure(e.target.value)}
+                >
+                  <option value="">— bez gotowej przygody —</option>
+                  {adventures.map((a) => (
+                    <option key={a.title} value={a.title}>
+                      {a.title} ({a.source})
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
             {error && <p className="text-sm text-[#8f1d1d]">{error}</p>}
             <Button type="submit" className="self-start">
               <Plus className="size-4" />

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { Map, Send, Users, Dices, Volume2, VolumeX, ScrollText } from "lucide-react";
+import { Map, Play, Send, Users, Dices, Volume2, VolumeX, ScrollText } from "lucide-react";
 import {
   campaignApi,
   characterApi,
@@ -51,6 +51,15 @@ type LevelUpInfo = {
   name: string;
   level: number;
   className: string;
+};
+
+type PartyChar = {
+  characterId: string;
+  name: string;
+  currentHp: number;
+  maxHp: number;
+  level: number;
+  gold?: number;
 };
 
 const ACTION_PROMPTS: Record<string, string> = {
@@ -185,9 +194,7 @@ export default function CampaignPage() {
     spellcastingAbility: string;
   } | null>(null);
   const [spellRegistry, setSpellRegistry] = useState<SpellMeta[] | null>(null);
-  const [partyChars, setPartyChars] = useState<
-    { characterId: string; name: string; currentHp: number; maxHp: number; level: number; gold?: number }[]
-  >([]);
+  const [partyChars, setPartyChars] = useState<PartyChar[]>([]);
   const [showGuide, setShowGuide] = useState(() => localStorage.getItem("domino-guide") !== "1");
   const [featuresCatalog, setFeaturesCatalog] = useState<FeaturesCatalog | null>(null);
   const [pendingLevelUp, setPendingLevelUp] = useState<LevelUpInfo | null>(null);
@@ -195,8 +202,13 @@ export default function CampaignPage() {
   const [drawerCharacterId, setDrawerCharacterId] = useState<string | null>(null);
   const [subclassDialogOpen, setSubclassDialogOpen] = useState(false);
   const subclassCheckDoneRef = useRef(false);
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
 
   const member = detail?.members.find((m) => m.userId === user?.id);
+
+  const showLobby = (detail?.state as { started?: boolean } | undefined)?.started === false;
+  const isOwner = detail?.campaign.ownerId === user?.id;
 
   const refreshSpellbook = useCallback(() => {
     if (!member?.characterId) {
@@ -356,6 +368,20 @@ export default function CampaignPage() {
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nie udało się dołączyć");
+    }
+  }
+
+  async function onStart() {
+    if (!id || starting) return;
+    setStarting(true);
+    setStartError(null);
+    try {
+      const { state } = await campaignApi.start(id);
+      setDetail((prev) => (prev ? { ...prev, state } : prev));
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : "Nie udało się rozpocząć przygody");
+    } finally {
+      setStarting(false);
     }
   }
 
@@ -570,7 +596,55 @@ export default function CampaignPage() {
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
+      {showLobby ? (
+        <div className="mx-auto max-w-2xl">
+          <Card className="border-[#b99f6b]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-2xl">
+                <span className="mr-2 text-[#a97e1f]">✦</span>Lobby — {detail?.campaign.name}
+              </CardTitle>
+              <CardDescription className="not-italic">
+                Gracze dołączają przed startem — przygoda zacznie się dla wszystkich jednocześnie.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <Users className="size-4 text-[#a97e1f]" />
+                  <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                    Drużyna
+                  </span>
+                </div>
+                {detail && <PartyRows detail={detail} partyChars={partyChars} />}
+              </div>
+              {isOwner ? (
+                <div className="flex flex-col gap-2">
+                  <Button type="button" onClick={onStart} disabled={starting} className="self-start">
+                    <Play className="size-4" />
+                    Rozpocznij przygodę
+                  </Button>
+                  {startError && <p className="text-sm text-[#8f1d1d]">{startError}</p>}
+                </div>
+              ) : (
+                <p className="text-sm italic text-[#7c6a45]">
+                  Czekamy, aż prowadzący rozpocznie przygodę…
+                </p>
+              )}
+            </CardContent>
+          </Card>
+          {!member && (
+            <div className="mt-4">
+              <JoinCard
+                myCharacters={myCharacters}
+                joinCharacterId={joinCharacterId}
+                onCharacterChange={setJoinCharacterId}
+                onJoin={onJoin}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
         <div className="flex flex-col gap-4">
           {showGuide && (
             <div className="rounded-sm border border-[#c8b184] bg-[#fbf3dd]/60 px-3 py-2 text-xs text-[#3a2c17]">
@@ -912,40 +986,12 @@ export default function CampaignPage() {
           </Card>
 
           {!member && (
-            <Card className="border-[#b99f6b]">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Dołącz do kampanii</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={onJoin} className="flex flex-wrap items-center gap-2">
-                  <Select value={joinCharacterId} onChange={(e) => setJoinCharacterId(e.target.value)}>
-                    <option value="">Wybierz postać…</option>
-                    {myCharacters.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </Select>
-                  <Button
-                    type="submit"
-                    disabled={!joinCharacterId}
-                    aria-label="Dołącz do kampanii"
-                    className="shrink-0"
-                  >
-                    Dołącz
-                  </Button>
-                </form>
-                {myCharacters.length === 0 && (
-                  <p className="mt-2 text-sm text-[#7c6a45]">
-                    Najpierw potrzebujesz postaci —{" "}
-                    <Link to="/app/characters" className="font-display text-[11px] uppercase tracking-[0.1em] text-[#7a4b1d] underline-offset-4 hover:underline">
-                      utwórz ją
-                    </Link>
-                    .
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+            <JoinCard
+              myCharacters={myCharacters}
+              joinCharacterId={joinCharacterId}
+              onCharacterChange={setJoinCharacterId}
+              onJoin={onJoin}
+            />
           )}
         </div>
 
@@ -967,50 +1013,7 @@ export default function CampaignPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2 text-sm">
-              {detail?.members.length === 0 && (
-                <p className="text-[#7c6a45]">Brak awanturników.</p>
-              )}
-              {detail?.members.map((m) => {
-                const partyChar = partyChars.find((p) => p.characterId === m.characterId);
-                const combatant = detail?.state.combat.active
-                  ? detail.state.combat.combatants.find((c) => c.characterId === m.characterId)
-                  : undefined;
-                const hp = combatant ? combatant.currentHp : partyChar?.currentHp;
-                const maxHp = combatant ? combatant.maxHp : partyChar?.maxHp;
-                return (
-                  <div
-                    key={m.characterId}
-                    className="flex items-center justify-between gap-2 border-b border-dotted border-[#c8b184] pb-1"
-                  >
-                    <span className="min-w-0 truncate">
-                      <span className="mr-1 text-[10px] text-[#a97e1f]">✦</span>
-                      {m.characterName ?? m.characterId}
-                    </span>
-                    {partyChar ? (
-                      <span className="flex shrink-0 items-center gap-2">
-                        <span className="h-1.5 w-14 overflow-hidden rounded-full bg-[#dcc89a]">
-                          <span
-                            className={`block h-full rounded-full ${hp === 0 ? "bg-[#8f1d1d]" : "bg-[#7a4b1d]"}`}
-                            style={{
-                              width: `${Math.max(0, Math.min(100, ((hp ?? 0) / Math.max(maxHp ?? 1, 1)) * 100))}%`,
-                            }}
-                          />
-                        </span>
-                        <span
-                          className={`font-display text-[10px] tracking-wide ${
-                            hp === 0 ? "text-[#8f1d1d]" : "text-[#7c6a45]"
-                          }`}
-                        >
-                          {hp}/{maxHp}
-                        </span>
-                        <Badge variant="outline">poz. {partyChar.level}</Badge>
-                      </span>
-                    ) : (
-                      <Badge variant="outline">dołączył</Badge>
-                    )}
-                  </div>
-                );
-              })}
+              {detail && <PartyRows detail={detail} partyChars={partyChars} />}
             </CardContent>
           </Card>
 
@@ -1119,6 +1122,7 @@ export default function CampaignPage() {
           </Card>
         </div>
       </div>
+      )}
 
       {pendingLevelUp && (
         <LevelUpDialog
@@ -1141,5 +1145,108 @@ export default function CampaignPage() {
         characterId={drawerCharacterId}
       />
     </div>
+  );
+}
+
+function JoinCard({
+  myCharacters,
+  joinCharacterId,
+  onCharacterChange,
+  onJoin,
+}: {
+  myCharacters: { id: string; name: string }[];
+  joinCharacterId: string;
+  onCharacterChange: (id: string) => void;
+  onJoin: (e: FormEvent) => void;
+}) {
+  return (
+    <Card className="border-[#b99f6b]">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Dołącz do kampanii</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onJoin} className="flex flex-wrap items-center gap-2">
+          <Select value={joinCharacterId} onChange={(e) => onCharacterChange(e.target.value)}>
+            <option value="">Wybierz postać…</option>
+            {myCharacters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+          <Button
+            type="submit"
+            disabled={!joinCharacterId}
+            aria-label="Dołącz do kampanii"
+            className="shrink-0"
+          >
+            Dołącz
+          </Button>
+        </form>
+        {myCharacters.length === 0 && (
+          <p className="mt-2 text-sm text-[#7c6a45]">
+            Najpierw potrzebujesz postaci —{" "}
+            <Link
+              to="/app/characters"
+              className="font-display text-[11px] uppercase tracking-[0.1em] text-[#7a4b1d] underline-offset-4 hover:underline"
+            >
+              utwórz ją
+            </Link>
+            .
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PartyRows({ detail, partyChars }: { detail: CampaignDetail; partyChars: PartyChar[] }) {
+  if (detail.members.length === 0) {
+    return <p className="text-[#7c6a45]">Brak awanturników.</p>;
+  }
+  return (
+    <>
+      {detail.members.map((m) => {
+        const partyChar = partyChars.find((p) => p.characterId === m.characterId);
+        const combatant = detail.state.combat.active
+          ? detail.state.combat.combatants.find((c) => c.characterId === m.characterId)
+          : undefined;
+        const hp = combatant ? combatant.currentHp : partyChar?.currentHp;
+        const maxHp = combatant ? combatant.maxHp : partyChar?.maxHp;
+        return (
+          <div
+            key={m.characterId}
+            className="flex items-center justify-between gap-2 border-b border-dotted border-[#c8b184] pb-1"
+          >
+            <span className="min-w-0 truncate">
+              <span className="mr-1 text-[10px] text-[#a97e1f]">✦</span>
+              {m.characterName ?? m.characterId}
+            </span>
+            {partyChar ? (
+              <span className="flex shrink-0 items-center gap-2">
+                <span className="h-1.5 w-14 overflow-hidden rounded-full bg-[#dcc89a]">
+                  <span
+                    className={`block h-full rounded-full ${hp === 0 ? "bg-[#8f1d1d]" : "bg-[#7a4b1d]"}`}
+                    style={{
+                      width: `${Math.max(0, Math.min(100, ((hp ?? 0) / Math.max(maxHp ?? 1, 1)) * 100))}%`,
+                    }}
+                  />
+                </span>
+                <span
+                  className={`font-display text-[10px] tracking-wide ${
+                    hp === 0 ? "text-[#8f1d1d]" : "text-[#7c6a45]"
+                  }`}
+                >
+                  {hp}/{maxHp}
+                </span>
+                <Badge variant="outline">poz. {partyChar.level}</Badge>
+              </span>
+            ) : (
+              <Badge variant="outline">dołączył</Badge>
+            )}
+          </div>
+        );
+      })}
+    </>
   );
 }
