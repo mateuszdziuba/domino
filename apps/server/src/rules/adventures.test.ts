@@ -6,8 +6,8 @@ import {
 } from "./adventures.js";
 
 describe("ADVENTURES library", () => {
-  it("has exactly 3 adventures", () => {
-    expect(ADVENTURES).toHaveLength(3);
+  it("has exactly 6 adventures", () => {
+    expect(ADVENTURES).toHaveLength(6);
   });
 
   it("each adventure has non-empty content within the required bounds", () => {
@@ -34,6 +34,9 @@ describe("findAdventure", () => {
     expect(findAdventure("POTENT")?.title).toBe("A Most Potent Brew");
     expect(findAdventure("wolves")?.title).toBe("The Wolves of Welton");
     expect(findAdventure("delian")?.title).toBe("The Delian Tomb");
+    expect(findAdventure("wild sheep")?.title).toBe("A Wild Sheep Chase");
+    expect(findAdventure("mad manor")?.title).toBe("The Mad Manor of Astabar");
+    expect(findAdventure("winter")?.title).toBe("Winter's Splinter");
   });
 
   it("returns undefined for an unknown title", () => {

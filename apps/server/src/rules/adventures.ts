@@ -50,6 +50,48 @@ export const ADVENTURES: Adventure[] = [
     ],
     monsters: ["Goblin", "Bugbear", "Skeleton"],
   },
+  {
+    title: "A Wild Sheep Chase",
+    source: "Winghorn Press (darmowa przygoda 5e)",
+    hook: "W środku nocy do karczmy wpada spanikowana owca, która mówi ludzkim głosem — to przemieniony czarodziej; błaga o pomoc w powrocie do swojej wieży, zanim groźny „Owczarz” zniszczy jego pracownię.",
+    locations: ["Karczma", "Droga do wieży", "Wieża czarodzieja", "Laboratorium"],
+    plotBeats: [
+      "Rozmowa z przemienioną owcą i przyjęcie prośby o pomoc",
+      "Wędrówka drogą do wieży i zasadzka na podróżnych",
+      "Infiltracja wieży pełnej zaczarowanych przedmiotów",
+      "Konfrontacja z Owczarzem i jego zmutowanym stworem zrodzonym z niedźwiedzia i owcy",
+      "Odwrócenie zaklęcia i nagroda — magiczne drobiazgi z laboratorium",
+    ],
+    monsters: ["Bandit", "Bugbear", "Cultist"],
+  },
+  {
+    title: "The Mad Manor of Astabar",
+    source: "DMDave (darmowa przygoda 5e)",
+    hook: "Zamożny kupiec wynajmuje drużynę do odzyskania spadku po ekscentrycznym czarodzieju Astabarze; jego dwór okazuje się labiryntem iluzji i dziwacznych pułapek, a „służba” to zaklęte manekiny.",
+    locations: ["Brama dworu", "Hall z iluzjami", "Gabinet Astabara", "Krypta skarbca"],
+    plotBeats: [
+      "Wejście do dworu i pierwsze starcie z iluzjami czarodzieja",
+      "Przedzieranie się przez pułapki i mechaniczne straże",
+      "Odkrycie dziennika Astabara rzucającego światło na jego szaleństwo",
+      "Rozwiązanie zagadki gabinetu i zdobycie klucza do skarbca",
+      "Finałowy zwód w skarbcu — nagroda i opcjonalny duplikat",
+    ],
+    monsters: ["Skeleton", "Specter", "Ghoul"],
+  },
+  {
+    title: "Winter's Splinter",
+    source: "Społeczność 5e (darmowa przygoda)",
+    hook: "Wioska w górach więdnie: czarna zima nie odpuszcza, a dzieci śnią o „Cierniu” — okazuje się, że przeklęty splinter lodu z dawnej bitwy z fey przebija serce zimy.",
+    locations: ["Wioska", "Przełęcz", "Lodowa jaskinia", "Serce zimy"],
+    plotBeats: [
+      "Badanie niekończącej się zimy i szyfrowanych snów dzieci",
+      "Wyprawa na mroźną przełęcz w głąb gór",
+      "Przemierzanie lodowej jaskini pełnej pułapek i śliskich szczelin",
+      "Walka ze strażnikiem serca zimy i wyjęcie splintera",
+      "Koniec zimy, odwilż i wdzięczność mieszkańców wioski",
+    ],
+    monsters: ["Wolf", "Dire Wolf", "Troll"],
+  },
 ];
 
 export function findAdventure(title: string): Adventure | undefined {

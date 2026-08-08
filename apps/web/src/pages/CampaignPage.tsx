@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { Map, Send, Users, Dices } from "lucide-react";
+import { Map, Send, Users, Dices, Volume2, VolumeX } from "lucide-react";
 import {
   campaignApi,
   characterApi,
@@ -33,6 +33,7 @@ import { CombatPanel } from "../components/CombatPanel";
 import { SubclassPicker } from "../components/SubclassPicker";
 import { subscribeCampaign } from "../lib/stream";
 import { RichMessageText } from "../lib/chat-tooltips";
+import { playDice, playMessage, setSoundEnabled, soundEnabled } from "../lib/sound";
 
 type RollEntry = {
   id: string;
@@ -146,6 +147,7 @@ export default function CampaignPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [dmMode, setDmMode] = useState<string>("preview");
+  const [soundOn, setSoundOn] = useState(() => soundEnabled());
   const [connState, setConnState] = useState<"connecting" | "live" | "offline">("connecting");
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -283,14 +285,17 @@ export default function CampaignPage() {
           .then(({ suggestion }) => setSuggestion(suggestion))
           .catch(() => {});
       },
-      onChatMessage: (message) =>
-        setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message])),
+      onChatMessage: (message) => {
+        if (message.role === "dm" && !document.hasFocus()) playMessage();
+        setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
+      },
       onActionResolved: (payload, event) => {
         const mapped = mapRollPayload(payload);
         if (mapped) {
           const eventId = event?.id ?? hashPayload(payload);
           if (eventId && !seenRollIdsRef.current.has(eventId)) {
             seenRollIdsRef.current.add(eventId);
+            playDice();
             setRolls((prev) => [
               ...prev,
               {
@@ -491,6 +496,31 @@ export default function CampaignPage() {
         <Badge variant={dmMode === "preview" ? "secondary" : "default"}>
           DM: {dmMode}
         </Badge>
+        <TooltipProvider delayDuration={250}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={soundOn ? "Wyłącz dźwięk" : "Włącz dźwięk"}
+                  className="h-6 w-6 p-0 text-[#7c6a45] hover:text-[#3a2c17]"
+                  onClick={() => {
+                    const next = !soundOn;
+                    setSoundEnabled(next);
+                    setSoundOn(next);
+                  }}
+                >
+                  {soundOn ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              Dźwięk: {soundOn ? "włączony" : "wyłączony"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <Badge
           variant={connState === "live" ? "default" : connState === "offline" ? "destructive" : "secondary"}
           className={connState === "live" ? "text-[#2e7d32]" : undefined}
