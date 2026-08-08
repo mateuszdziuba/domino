@@ -20,6 +20,7 @@ import {
   currentTurnCombatant,
   findCombatant,
   characterAttackInput,
+  extraAttacksForClass,
 } from "../rules/combat.js";
 import { buildEncounter } from "../rules/monsters.js";
 import { equippedWeaponAttackInput } from "../rules/weapons.js";
@@ -80,6 +81,7 @@ combatRoutes.post("/start", requireAuth, async (c) => {
       armorClass: ch.armorClass,
       dexterity: ch.abilityScores.dexterity,
       exhaustionLevel: ch.exhaustion ?? 0,
+      attacksPerTurn: extraAttacksForClass(ch.className, ch.level),
     }));
   const enemies = parsed.data.enemies.map((e) => ({
     id: e.id ?? `enemy-${crypto.randomUUID()}`,
@@ -136,6 +138,7 @@ combatRoutes.post("/generate", requireAuth, async (c) => {
     armorClass: ch.armorClass,
     dexterity: ch.abilityScores.dexterity,
     exhaustionLevel: ch.exhaustion ?? 0,
+    attacksPerTurn: extraAttacksForClass(ch.className, ch.level),
   }));
 
   let state = startCombat(state0, [...combatants, ...monsters]);

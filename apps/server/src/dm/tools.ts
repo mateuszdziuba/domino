@@ -36,6 +36,7 @@ import {
   performAttack,
   performDeathSave,
   characterAttackInput,
+  extraAttacksForClass,
 } from "../rules/combat.js";
 import { abilityModifier, proficiencyBonus } from "../rules/abilities.js";
 import { buildCharacterFeatures } from "../rules/features.js";
@@ -48,7 +49,7 @@ import {
   type SpellDef,
   type SpellCastResult,
 } from "../rules/spells.js";
-import { buildEncounter, MONSTERS, randomEncounter } from "../rules/monsters.js";
+import { buildEncounter, randomEncounter } from "../rules/monsters.js";
 import { EQUIPMENT_SLOTS, isSlotKey } from "../rules/equipment.js";
 import { equippedWeaponAttackInput } from "../rules/weapons.js";
 import {
@@ -226,6 +227,8 @@ export async function runDmTool(
         turnIndex: state.combat.turnIndex,
         round: state.combat.round,
         turnOf: current ? { id: current.id, name: current.name } : null,
+        attacksLeft: current ? current.attacksLeft ?? 1 : 1,
+        attacksPerTurn: current ? current.attacksPerTurn ?? 1 : 1,
         ...(regenerated > 0 ? { regenerated } : {}),
       });
       return {
@@ -337,6 +340,7 @@ export async function runDmTool(
         armorClass: ch.armorClass,
         dexterity: ch.abilityScores.dexterity,
         exhaustionLevel: ch.exhaustion ?? 0,
+        attacksPerTurn: extraAttacksForClass(ch.className, ch.level),
       }));
       let state = startCombat(state0, [...combatants, ...monsters]);
       state = saveState(campaignId, state);
@@ -383,6 +387,7 @@ export async function runDmTool(
         armorClass: ch.armorClass,
         dexterity: ch.abilityScores.dexterity,
         exhaustionLevel: ch.exhaustion ?? 0,
+        attacksPerTurn: extraAttacksForClass(ch.className, ch.level),
       }));
       let state = startCombat(state0, [...combatants, ...monsters]);
       state = saveState(campaignId, state);
@@ -417,6 +422,9 @@ export async function runDmTool(
       const state = loadState(campaignId);
       const attacker = findCombatant(state, parsed.data.attackerId);
       if (!attacker) return { ok: false, message: "Nie znaleziono kombatanta." };
+      if ((attacker.attacksLeft ?? 1) <= 0) {
+        return { ok: false, message: "Ten kombatant nie ma już akcji ataku w tej turze." };
+      }
       const attackerCharacter = attacker.characterId
         ? getCharacterById(attacker.characterId)
         : undefined;
@@ -448,11 +456,24 @@ export async function runDmTool(
       if (inspirationUsed && attacker.characterId) {
         updateCharacterInspiration(attacker.characterId, false);
       }
-      saveState(campaignId, outcome.state);
+      const updatedAttacker = {
+        ...attacker,
+        attacksLeft: (attacker.attacksLeft ?? 1) - 1,
+      };
+      saveState(campaignId, {
+        ...outcome.state,
+        combat: {
+          ...outcome.state.combat,
+          combatants: outcome.state.combat.combatants.map((c) =>
+            c.id === attacker.id ? updatedAttacker : c,
+          ),
+        },
+      });
       pushEvent(campaignId, "action.resolved", {
         type: "attack",
         attacker: outcome.attacker.name,
         target: outcome.target.name,
+        attacksLeft: updatedAttacker.attacksLeft,
         ...outcome.result,
         ...(inspirationUsed ? { inspirationUsed: true } : {}),
       });
@@ -512,6 +533,12 @@ export async function runDmTool(
         }
         if (!canAct(casterCombatant)) {
           return { ok: false, message: "Rzucający jest obezwładniony i nie może działać." };
+        }
+        if (
+          def.effect.castingTime !== "bonus" &&
+          (casterCombatant.attacksLeft ?? 1) <= 0
+        ) {
+          return { ok: false, message: "Brak akcji — ta tura została już wykorzystana." };
         }
         if (def.effect.kind === "heal_all" && def.effect.castingTimeMinutes) {
           return {
@@ -584,6 +611,11 @@ export async function runDmTool(
         if (state.combat.active && casterCombatant) {
           const healed: { name: string; healed: number }[] = [];
           const combatants = state.combat.combatants.map((combatant) => {
+            if (combatant.id === casterCombatant.id) {
+              return def.effect.castingTime === "bonus"
+                ? combatant
+                : { ...combatant, attacksLeft: (combatant.attacksLeft ?? 1) - 1 };
+            }
             if (!combatant.isPlayer) return combatant;
             const perTarget = resolveSpellCast(def, stats, combatant);
             healed.push({ name: combatant.name, healed: perTarget.healed });
@@ -662,13 +694,18 @@ export async function runDmTool(
         const previousSpell = concentrationApplied
           ? casterCombatant.concentratingOn
           : undefined;
-        const casterUpdated: Combatant | undefined = concentrationApplied
-          ? {
-              ...casterCombatant,
-              concentratingOn: def.name,
-              conSaveMod: abilityModifier(character.abilityScores.constitution),
-            }
-          : undefined;
+        const casterUpdated: Combatant = {
+          ...casterCombatant,
+          ...(concentrationApplied
+            ? {
+                concentratingOn: def.name,
+                conSaveMod: abilityModifier(character.abilityScores.constitution),
+              }
+            : {}),
+          ...(def.effect.castingTime === "bonus"
+            ? {}
+            : { attacksLeft: (casterCombatant.attacksLeft ?? 1) - 1 }),
+        };
         let updated: Combatant = {
           ...targetCombatant,
           currentHp: result.targetCurrentHp,
@@ -718,13 +755,14 @@ export async function runDmTool(
             };
           }
         }
-        const combatants = state.combat.combatants.map((c) =>
-          c.id === targetCombatant.id
-            ? updated
-            : c.id === casterCombatant.id && casterUpdated
-              ? casterUpdated
-              : c,
-        );
+        const combatants = state.combat.combatants.map((c) => {
+          if (c.id === casterCombatant.id) {
+            return c.id === targetCombatant.id
+              ? { ...updated, attacksLeft: casterUpdated.attacksLeft }
+              : casterUpdated;
+          }
+          return c.id === targetCombatant.id ? updated : c;
+        });
         saveState(campaignId, {
           ...state,
           combat: { ...state.combat, combatants },
@@ -1515,13 +1553,13 @@ function summarizeState(state: CampaignState) {
           round: state.combat.round,
           turnIndex: state.combat.turnIndex,
           combatants: state.combat.combatants.map((c) => {
-            const monster = MONSTERS.find((m) => c.id.startsWith(`${m.key}-`));
             return {
               id: c.id,
               name: c.name,
               hp: `${c.currentHp}/${c.maxHp}`,
               status: c.status ?? "active",
-              attacks: monster?.attacks ?? 1,
+              attacksPerTurn: c.attacksPerTurn ?? 1,
+              attacksLeft: c.attacksLeft ?? 1,
               traits: c.traits ?? [],
               turn: c.id === currentTurnCombatant(state)?.id,
             };

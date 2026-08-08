@@ -271,7 +271,7 @@ describe("runDmTool adventures (mocked store)", () => {
 });
 
 describe("runDmTool combat tools (mocked store)", () => {
-  it("get_campaign_state reports per-monster attack counts", async () => {
+  it("get_campaign_state reports per-combatant attack budgets", async () => {
     const state = stateWithCombat();
     state.combat.combatants = [
       {
@@ -285,6 +285,8 @@ describe("runDmTool combat tools (mocked store)", () => {
         status: "active",
         deathSaveSuccesses: 0,
         deathSaveFailures: 0,
+        attacksPerTurn: 2,
+        attacksLeft: 2,
       },
       {
         id: "goblin-0",
@@ -297,6 +299,8 @@ describe("runDmTool combat tools (mocked store)", () => {
         status: "active",
         deathSaveSuccesses: 0,
         deathSaveFailures: 0,
+        attacksPerTurn: 1,
+        attacksLeft: 1,
       },
       {
         id: "enemy-xyz",
@@ -315,14 +319,19 @@ describe("runDmTool combat tools (mocked store)", () => {
     const result = await runTool("get_campaign_state");
     expect(result.ok).toBe(true);
     const data = result.data as {
-      combat: { combatants: { id: string; attacks: number }[] };
+      combat: {
+        combatants: { id: string; attacksPerTurn: number; attacksLeft: number }[];
+      };
     };
     const attacksById = new Map(
-      data.combat.combatants.map((c) => [c.id, c.attacks]),
+      data.combat.combatants.map((c) => [c.id, c]),
     );
-    expect(attacksById.get("troll-0")).toBe(2);
-    expect(attacksById.get("goblin-0")).toBe(1);
-    expect(attacksById.get("enemy-xyz")).toBe(1);
+    expect(attacksById.get("troll-0")!.attacksPerTurn).toBe(2);
+    expect(attacksById.get("troll-0")!.attacksLeft).toBe(2);
+    expect(attacksById.get("goblin-0")!.attacksPerTurn).toBe(1);
+    expect(attacksById.get("goblin-0")!.attacksLeft).toBe(1);
+    expect(attacksById.get("enemy-xyz")!.attacksPerTurn).toBe(1);
+    expect(attacksById.get("enemy-xyz")!.attacksLeft).toBe(1);
   });
 
   it("attack_combatant resolves on the current combatant's turn", async () => {
@@ -356,6 +365,123 @@ describe("runDmTool combat tools (mocked store)", () => {
   it("attack_combatant rejects a missing target", async () => {
     const result = await runTool("attack_combatant", { attackerId: "char-ch1" });
     expect(result.ok).toBe(false);
+  });
+
+  it("attack_combatant refuses a second attack in the same turn", async () => {
+    const original = Math.random;
+    Math.random = () => 0.5;
+    const first = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(first.ok).toBe(true);
+    const second = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(second.ok).toBe(false);
+    expect(second.message).toContain("nie ma już akcji ataku");
+  });
+
+  it("attack_combatant spends the action on a miss and reports attacksLeft in the event", async () => {
+    const original = Math.random;
+    Math.random = () => 0.01; // d20 = 1 -> miss, but the action is still spent
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const aria = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(aria.attacksLeft).toBe(0);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "attack", attacksLeft: 0 }),
+    );
+  });
+
+  it("advance_turn refreshes only the new current combatant's attacksLeft", async () => {
+    const original = Math.random;
+    Math.random = () => 0.01; // miss keeps the goblin alive
+    await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    let saved = mock.states.get("c1")!;
+    const aria = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(aria.attacksLeft).toBe(0);
+    const result = await runTool("advance_turn");
+    expect(result.ok).toBe(true);
+    saved = mock.states.get("c1")!;
+    const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.attacksLeft).toBe(1);
+    expect(saved.combat.combatants.find((c) => c.id === "char-ch1")!.attacksLeft).toBe(0);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "turn.advanced",
+      expect.objectContaining({
+        turnOf: { id: "enemy-1", name: "Goblin" },
+        attacksLeft: 1,
+        attacksPerTurn: 1,
+      }),
+    );
+  });
+
+  it("a troll with Multiattack attacks twice, then the third attack is refused", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants = [
+      {
+        id: "troll-0",
+        name: "Troll",
+        isPlayer: false,
+        initiative: 18,
+        currentHp: 84,
+        maxHp: 84,
+        armorClass: 15,
+        status: "active",
+        attacksPerTurn: 2,
+        attacksLeft: 2,
+      },
+      {
+        id: "char-ch1",
+        name: "Aria",
+        characterId: "ch1",
+        isPlayer: true,
+        initiative: 5,
+        currentHp: 10,
+        maxHp: 10,
+        armorClass: 15,
+        status: "active",
+      },
+    ];
+    mock.states.set("c1", state);
+    const original = Math.random;
+    Math.random = () => 0.01; // both attacks miss
+    const first = await runTool("attack_combatant", {
+      attackerId: "troll-0",
+      targetId: "char-ch1",
+    });
+    expect(first.ok).toBe(true);
+    const second = await runTool("attack_combatant", {
+      attackerId: "troll-0",
+      targetId: "char-ch1",
+    });
+    expect(second.ok).toBe(true);
+    const third = await runTool("attack_combatant", {
+      attackerId: "troll-0",
+      targetId: "char-ch1",
+    });
+    Math.random = original;
+    expect(third.ok).toBe(false);
+    expect(third.message).toContain("nie ma już akcji ataku");
+    const troll = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "troll-0")!;
+    expect(troll.attacksLeft).toBe(0);
   });
 
   it("resolve_death_save works on a downed combatant", async () => {
@@ -413,6 +539,21 @@ describe("runDmTool encounter generation (mocked store)", () => {
     const troll = saved.combat.combatants.find((c) => c.id === "troll-0");
     expect(troll).toBeDefined();
     expect(troll!.traits).toContain("regeneration");
+  });
+
+  it("generate_encounter sets attack budgets (troll 2, goblin 1, Fighter 5 → 2)", async () => {
+    mock.characters.set("ch1", { ...aria, level: 5 });
+    const result = await runTool("generate_encounter", {
+      description: "a troll tribe",
+    });
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const byId = new Map(saved.combat.combatants.map((c) => [c.id, c]));
+    expect(byId.get("troll-0")!.attacksPerTurn).toBe(2);
+    expect(byId.get("troll-0")!.attacksLeft).toBe(2);
+    expect(byId.get("goblin-0")!.attacksPerTurn).toBe(1);
+    expect(byId.get("char-ch1")!.attacksPerTurn).toBe(2);
+    expect(byId.get("char-ch1")!.attacksLeft).toBe(2);
   });
 
   it("random_encounter starts combat with monsters and pushes an encounter.started event", async () => {
@@ -736,6 +877,79 @@ describe("runDmTool cast_spell (mocked store)", () => {
     });
     expect(result.ok).toBe(true);
     expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
+  });
+
+  it("an action spell consumes the caster's attack action", async () => {
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const cast = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    expect(cast.ok).toBe(true);
+    let caster = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch2")!;
+    expect(caster.attacksLeft).toBe(0);
+    const attack = await runTool("attack_combatant", {
+      attackerId: "char-ch2",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(attack.ok).toBe(false);
+    expect(attack.message).toContain("nie ma już akcji ataku");
+  });
+
+  it("a second action spell in the same turn is refused", async () => {
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const first = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    expect(first.ok).toBe(true);
+    const second = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(second.ok).toBe(false);
+    expect(second.message).toContain("Brak akcji");
+  });
+
+  it("a bonus-action spell (Healing Word) does not consume the attack action", async () => {
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Healing Word"] }));
+    const state = clericCombatState();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      attacksLeft: 1,
+    };
+    mock.states.set("c1", state);
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const cast = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Healing Word",
+      targetId: "enemy-1",
+    });
+    expect(cast.ok).toBe(true);
+    let caster = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch2")!;
+    expect(caster.attacksLeft).toBe(1);
+    const attack = await runTool("attack_combatant", {
+      attackerId: "char-ch2",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(attack.ok).toBe(true);
+    caster = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch2")!;
+    expect(caster.attacksLeft).toBe(0);
   });
 
   it("heals a character outside combat", async () => {
@@ -1260,6 +1474,13 @@ describe("runDmTool cast_spell (mocked store)", () => {
       "ch2",
       cleric({ level: 5, spells: [...baseSpells, "Spirit Guardians", "Hold Person"] }),
     );
+    const state = clericCombatState();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      attacksPerTurn: 2,
+      attacksLeft: 2,
+    };
+    mock.states.set("c1", state);
     const original = Math.random;
     Math.random = () => 0.9; // successful saves — the spell still starts concentration
     const first = await runTool("cast_spell", {

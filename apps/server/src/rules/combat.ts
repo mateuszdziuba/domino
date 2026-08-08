@@ -20,6 +20,7 @@ export type NewCombatant = {
   cr?: number;
   exhaustionLevel?: number;
   traits?: string[];
+  attacksPerTurn?: number;
 };
 
 export function rollInitiative(dexterityScore: number): { roll: number; total: number } {
@@ -51,6 +52,8 @@ export function startCombat(
       deathSaveFailures: 0,
       exhaustionLevel: entry.exhaustionLevel ?? 0,
       traits: entry.traits ?? [],
+      attacksPerTurn: entry.attacksPerTurn ?? 1,
+      attacksLeft: entry.attacksPerTurn ?? 1,
     };
   });
   combatants.sort((a, b) => {
@@ -101,19 +104,37 @@ export function nextTurn(state: CampaignState): CampaignState {
     ...state,
     combat: {
       ...combat,
-      combatants:
-        regenerated > 0
-          ? combat.combatants.map((c) =>
-              c.id === nextCombatant.id
-                ? { ...c, currentHp: c.currentHp + regenerated }
-                : c,
-            )
-          : combat.combatants,
+      combatants: combat.combatants.map((c) =>
+        c.id === nextCombatant.id
+          ? {
+              ...c,
+              currentHp:
+                regenerated > 0 ? c.currentHp + regenerated : c.currentHp,
+              attacksLeft: c.attacksPerTurn ?? 1,
+            }
+          : c,
+      ),
       turnIndex: nextIndex,
       round: crossedZero ? combat.round + 1 : combat.round,
     },
     updatedAt: new Date().toISOString(),
   };
+}
+
+export function extraAttacksForClass(className: string, level: number): number {
+  if (className === "Fighter") {
+    if (level >= 20) return 4;
+    if (level >= 11) return 3;
+    if (level >= 5) return 2;
+    return 1;
+  }
+  if (
+    level >= 5 &&
+    ["Barbarian", "Monk", "Paladin", "Ranger"].includes(className)
+  ) {
+    return 2;
+  }
+  return 1;
 }
 
 export function endCombat(state: CampaignState): CampaignState {

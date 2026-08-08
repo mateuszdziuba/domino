@@ -4,6 +4,7 @@ import {
   performDeathSave,
   applyDeathSave,
   characterAttackInput,
+  extraAttacksForClass,
   findCombatant,
   nextTurn,
   startCombat,
@@ -1209,6 +1210,30 @@ describe("nextTurn", () => {
     const next = nextTurn(state);
     expect(next.combat.combatants[1]!.currentHp).toBe(10);
   });
+
+  it("resets only the new current combatant's attacksLeft to its attacksPerTurn", () => {
+    const state = turnState(
+      [
+        {
+          ...fighter("a"),
+          attacksPerTurn: 1,
+          attacksLeft: 0,
+        },
+        {
+          ...fighter("b"),
+          attacksPerTurn: 2,
+          attacksLeft: 1,
+        },
+      ],
+      0,
+    );
+    const next = nextTurn(state);
+    const a = next.combat.combatants.find((c) => c.id === "a")!;
+    const b = next.combat.combatants.find((c) => c.id === "b")!;
+    expect(b.attacksLeft).toBe(2);
+    expect(b.attacksPerTurn).toBe(2);
+    expect(a.attacksLeft).toBe(0);
+  });
 });
 
 describe("startCombat", () => {
@@ -1235,6 +1260,38 @@ describe("startCombat", () => {
     const byId = Object.fromEntries(state.combat.combatants.map((c) => [c.id, c]));
     expect(byId.c1!.exhaustionLevel).toBe(2);
     expect(byId.c2!.exhaustionLevel).toBe(0);
+  });
+
+  it("initializes attacksPerTurn and attacksLeft to 1 by default", () => {
+    const state = startCombat(defaultCampaignState(), [
+      { id: "c1", name: "Aelar", isPlayer: true, maxHp: 10, armorClass: 14 },
+    ]);
+    expect(state.combat.combatants[0]!.attacksPerTurn).toBe(1);
+    expect(state.combat.combatants[0]!.attacksLeft).toBe(1);
+  });
+
+  it("initializes attacksPerTurn and attacksLeft from entry.attacksPerTurn", () => {
+    const state = startCombat(defaultCampaignState(), [
+      { id: "troll-0", name: "Troll", isPlayer: false, maxHp: 84, armorClass: 15, attacksPerTurn: 2 },
+    ]);
+    expect(state.combat.combatants[0]!.attacksPerTurn).toBe(2);
+    expect(state.combat.combatants[0]!.attacksLeft).toBe(2);
+  });
+});
+
+describe("extraAttacksForClass", () => {
+  it("follows the SRD Extra Attack progression", () => {
+    expect(extraAttacksForClass("Fighter", 4)).toBe(1);
+    expect(extraAttacksForClass("Fighter", 5)).toBe(2);
+    expect(extraAttacksForClass("Fighter", 11)).toBe(3);
+    expect(extraAttacksForClass("Fighter", 20)).toBe(4);
+    expect(extraAttacksForClass("Barbarian", 5)).toBe(2);
+    expect(extraAttacksForClass("Monk", 6)).toBe(2);
+    expect(extraAttacksForClass("Paladin", 5)).toBe(2);
+    expect(extraAttacksForClass("Ranger", 5)).toBe(2);
+    expect(extraAttacksForClass("Rogue", 5)).toBe(1);
+    expect(extraAttacksForClass("Barbarian", 4)).toBe(1);
+    expect(extraAttacksForClass("Wizard", 20)).toBe(1);
   });
 });
 

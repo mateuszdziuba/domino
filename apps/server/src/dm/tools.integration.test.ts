@@ -274,7 +274,13 @@ describe("runDmTool cast_spell (real store)", () => {
   });
 
   it("consumes spell slots and refuses further casts once exhausted", async () => {
-    store.saveState("c1", spellCombatState());
+    const state = spellCombatState();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      attacksPerTurn: 3,
+      attacksLeft: 3,
+    };
+    store.saveState("c1", state);
     const first = await runDmTool("c1", "dm", "cast_spell", {
       characterId: "ch2",
       spellName: "Guiding Bolt",

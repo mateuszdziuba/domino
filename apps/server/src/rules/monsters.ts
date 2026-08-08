@@ -95,6 +95,7 @@ export function buildEncounter(
         armorClass: kind.armorClass,
         cr: kind.cr,
         traits: kind.traits,
+        attacksPerTurn: kind.attacks,
       });
     }
   }
@@ -140,6 +141,7 @@ export function randomEncounter(
         armorClass: kind.armorClass,
         cr: kind.cr,
         traits: kind.traits,
+        attacksPerTurn: kind.attacks,
       });
     }
     spent += count * kind.cr;
