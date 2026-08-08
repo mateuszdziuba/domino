@@ -726,6 +726,72 @@ describe("runDmTool cast_spell (mocked store)", () => {
     expect(result.message).toContain("wraca do życia");
   });
 
+  it("Heal restores exactly 70 HP outside combat without dice", async () => {
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set(
+      "ch2",
+      cleric({
+        level: 11,
+        maxHp: 100,
+        currentHp: 30,
+        spells: [...baseSpells, "Heal"],
+      }),
+    );
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Heal",
+      targetId: "ch2",
+    });
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch2", 100);
+    expect(result.message).toContain("leczy o 70");
+    const data = result.data as { healed: number; healRolls: number[] };
+    expect(data.healed).toBe(70);
+    expect(data.healRolls).toEqual([]);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "spell", spell: "Heal", healed: 70 }),
+    );
+  });
+
+  it("Resurrection revives a dead combatant to full HP in combat", async () => {
+    const state = clericCombatState();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      currentHp: 0,
+      status: "dead",
+      deathSaveSuccesses: 2,
+      deathSaveFailures: 3,
+    };
+    mock.states.set("c1", state);
+    mock.characters.set(
+      "ch2",
+      cleric({ level: 13, spells: [...baseSpells, "Resurrection"] }),
+    );
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Resurrection",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(true);
+    const goblin = mock.states.get("c1")!.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.currentHp).toBe(goblin.maxHp);
+    expect(goblin.status).toBe("active");
+    expect(goblin.deathSaveFailures).toBe(0);
+    expect(goblin.deathSaveSuccesses).toBe(0);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "spell",
+        spell: "Resurrection",
+        revived: true,
+        targetCurrentHp: 7,
+      }),
+    );
+  });
+
   it("rejects Prayer of Healing during combat (10-minute ritual)", async () => {
     const state = clericCombatState();
     state.combat.combatants.push({

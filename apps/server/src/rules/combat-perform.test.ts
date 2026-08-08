@@ -451,6 +451,93 @@ describe("performAttack", () => {
     expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
   });
 
+  it("auto-crits an attack against a paralyzed target even on a low roll", () => {
+    const original = Math.random;
+    Math.random = () => 0.1; // d20 = 3 (attack total 3 < AC 12) -> paralyzed forces a critical
+    const state = combatState(0);
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["paralyzed"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackTotal).toBe(3);
+    expect(outcome.result.critical).toBe(true);
+    expect(outcome.result.hit).toBe(true);
+    expect(outcome.result.damageRolls).toHaveLength(2);
+    expect(enemy(outcome.state).currentHp).toBe(6);
+  });
+
+  it("auto-crits an attack against an unconscious target", () => {
+    const original = Math.random;
+    Math.random = () => 0.1; // d20 = 3 -> unconscious forces a critical
+    const state = combatState(0);
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["unconscious"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.critical).toBe(true);
+    expect(outcome.result.hit).toBe(true);
+    expect(outcome.result.damageRolls).toHaveLength(2);
+  });
+
+  it("does not auto-crit against a normal target", () => {
+    const original = Math.random;
+    Math.random = () => 0.1; // d20 = 3 -> miss (attack total 3 < AC 12), no critical
+    const state = combatState(0);
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.critical).toBe(false);
+    expect(outcome.result.hit).toBe(false);
+  });
+
+  it("adds two death-save failures on a critical hit against an unconscious downed target", () => {
+    const original = Math.random;
+    Math.random = () => 0.1; // d20 = 3 -> auto-crit, 1d1 twice = 2 damage
+    const state = combatState(0);
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      currentHp: 0,
+      status: "downed",
+      conditions: ["unconscious"],
+      deathSaveSuccesses: 1,
+      deathSaveFailures: 0,
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.critical).toBe(true);
+    expect(enemy(outcome.state).currentHp).toBe(0);
+    expect(enemy(outcome.state).status).toBe("downed");
+    expect(enemy(outcome.state).deathSaveFailures).toBe(2);
+    expect(enemy(outcome.state).deathSaveSuccesses).toBe(1);
+  });
+
   it("allows a blinded attacker to act (disadvantage only)", () => {
     const state = combatState(0);
     state.combat.combatants[0] = {

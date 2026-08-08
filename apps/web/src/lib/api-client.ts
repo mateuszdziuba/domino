@@ -62,6 +62,8 @@ export type SpellMeta = {
     attack?: boolean;
     save?: string;
     mod?: boolean;
+    flat?: number;
+    fullHp?: boolean;
   };
 };
 

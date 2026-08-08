@@ -145,7 +145,9 @@ export function resolveAttack(
     attackRoll = d(20, 1)[0]!;
     attackRolls = [attackRoll];
   }
-  const critical = attackRoll === 20;
+  const critical =
+    attackRoll === 20 ||
+    (target.conditions ?? []).some((c) => c === "paralyzed" || c === "unconscious");
   const fumble = attackRoll === 1;
   const attackTotal = attackRoll + input.attackBonus;
   const hit = critical || attackTotal >= target.armorClass;

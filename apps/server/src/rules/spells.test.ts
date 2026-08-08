@@ -44,19 +44,23 @@ function target(overrides: Partial<Combatant> = {}): Combatant {
 }
 
 describe("SPELLS catalog", () => {
-  it("defines the sixteen mechanically supported SRD spells", () => {
+  it("defines the twenty mechanically supported SRD spells", () => {
     expect(Object.keys(SPELLS).sort()).toEqual([
       "Banishment",
+      "Blade Barrier",
       "Blindness/Deafness",
       "Cure Wounds",
       "Greater Restoration",
       "Guardian of Faith",
       "Guiding Bolt",
+      "Heal",
       "Healing Word",
       "Hold Person",
       "Inflict Wounds",
       "Lesser Restoration",
+      "Mass Heal",
       "Prayer of Healing",
+      "Resurrection",
       "Revivify",
       "Sacred Flame",
       "Spare the Dying",
@@ -323,22 +327,104 @@ describe("SPELLS — 3rd to 5th level spells", () => {
   });
 });
 
-describe("spellSlotsForLevel", () => {
-  it("follows the SRD Cleric slot table for 1st-5th level spells", () => {
-    expect(spellSlotsForLevel(1)).toEqual([2, 0, 0, 0, 0]);
-    expect(spellSlotsForLevel(2)).toEqual([3, 0, 0, 0, 0]);
-    expect(spellSlotsForLevel(3)).toEqual([4, 2, 0, 0, 0]);
-    expect(spellSlotsForLevel(4)).toEqual([4, 3, 0, 0, 0]);
-    expect(spellSlotsForLevel(5)).toEqual([4, 3, 2, 0, 0]);
-    expect(spellSlotsForLevel(6)).toEqual([4, 3, 3, 0, 0]);
-    expect(spellSlotsForLevel(7)).toEqual([4, 3, 3, 1, 0]);
-    expect(spellSlotsForLevel(8)).toEqual([4, 3, 3, 2, 0]);
-    expect(spellSlotsForLevel(9)).toEqual([4, 3, 3, 3, 1]);
+describe("SPELLS — 6th to 9th level spells", () => {
+  it("defines Heal as a 6th-level flat 70 heal", () => {
+    expect(SPELLS["Heal"]).toMatchObject({
+      name: "Heal",
+      level: 6,
+      school: "Evocation",
+      components: "V, S",
+      effect: {
+        kind: "heal",
+        dice: "1d1",
+        mod: false,
+        range: "60 ft",
+        duration: "Instantaneous",
+        castingTime: "action",
+        flat: 70,
+      },
+    });
   });
 
-  it("caps at the level-9 row for casters of level 10 and up", () => {
-    expect(spellSlotsForLevel(10)).toEqual([4, 3, 3, 3, 1]);
-    expect(spellSlotsForLevel(20)).toEqual([4, 3, 3, 3, 1]);
+  it("defines Blade Barrier as a 6th-level radiant wall", () => {
+    expect(SPELLS["Blade Barrier"]).toMatchObject({
+      name: "Blade Barrier",
+      level: 6,
+      school: "Evocation",
+      components: "V, S",
+      effect: {
+        kind: "damage",
+        dice: "5d10",
+        damageType: "radiant",
+        attack: false,
+        save: "dexterity",
+        range: "90 ft",
+        duration: "10 min",
+        castingTime: "action",
+      },
+    });
+  });
+
+  it("defines Resurrection as a 7th-level full-HP revive", () => {
+    expect(SPELLS["Resurrection"]).toMatchObject({
+      name: "Resurrection",
+      level: 7,
+      school: "Necromancy",
+      components: "V, S, M",
+      effect: {
+        kind: "revive",
+        range: "Touch",
+        duration: "Instantaneous",
+        castingTime: "action",
+        fullHp: true,
+      },
+    });
+  });
+
+  it("defines Mass Heal as a 9th-level flat party heal", () => {
+    expect(SPELLS["Mass Heal"]).toMatchObject({
+      name: "Mass Heal",
+      level: 9,
+      school: "Evocation",
+      components: "V, S",
+      effect: {
+        kind: "heal_all",
+        dice: "1d1",
+        mod: false,
+        range: "60 ft",
+        duration: "Instantaneous",
+        castingTime: "action",
+        flat: 700,
+      },
+    });
+  });
+
+  it("gives every new top-level spell a Polish description", () => {
+    for (const name of ["Heal", "Blade Barrier", "Resurrection", "Mass Heal"]) {
+      expect(SPELLS[name]!.description.length).toBeGreaterThan(30);
+    }
+  });
+});
+
+describe("spellSlotsForLevel", () => {
+  it("follows the SRD Cleric slot table for 1st-9th level spells", () => {
+    expect(spellSlotsForLevel(1)).toEqual([2, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(spellSlotsForLevel(2)).toEqual([3, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(spellSlotsForLevel(3)).toEqual([4, 2, 0, 0, 0, 0, 0, 0, 0]);
+    expect(spellSlotsForLevel(4)).toEqual([4, 3, 0, 0, 0, 0, 0, 0, 0]);
+    expect(spellSlotsForLevel(5)).toEqual([4, 3, 2, 0, 0, 0, 0, 0, 0]);
+    expect(spellSlotsForLevel(6)).toEqual([4, 3, 3, 0, 0, 0, 0, 0, 0]);
+    expect(spellSlotsForLevel(7)).toEqual([4, 3, 3, 1, 0, 0, 0, 0, 0]);
+    expect(spellSlotsForLevel(8)).toEqual([4, 3, 3, 2, 0, 0, 0, 0, 0]);
+    expect(spellSlotsForLevel(9)).toEqual([4, 3, 3, 3, 1, 0, 0, 0, 0]);
+    expect(spellSlotsForLevel(11)).toEqual([4, 3, 3, 3, 2, 1, 0, 0, 0]);
+    expect(spellSlotsForLevel(13)).toEqual([4, 3, 3, 3, 2, 1, 1, 0, 0]);
+    expect(spellSlotsForLevel(17)).toEqual([4, 3, 3, 3, 2, 1, 1, 1, 1]);
+  });
+
+  it("caps at the level-17 row for casters of level 18 and up", () => {
+    expect(spellSlotsForLevel(18)).toEqual([4, 3, 3, 3, 2, 1, 1, 1, 1]);
+    expect(spellSlotsForLevel(20)).toEqual([4, 3, 3, 3, 2, 1, 1, 1, 1]);
   });
 });
 
@@ -530,6 +616,70 @@ describe("resolveSpellCast — healing spells", () => {
   });
 });
 
+describe("resolveSpellCast — flat healing (Heal / Mass Heal)", () => {
+  it("Heal restores exactly 70 HP without rolling dice", () => {
+    const result = resolveSpellCast(
+      SPELLS["Heal"]!,
+      casterStats,
+      target({ currentHp: 10, maxHp: 100 }),
+    );
+    expect(result.healed).toBe(70);
+    expect(result.healRolls).toEqual([]);
+    expect(result.targetCurrentHp).toBe(80);
+    expect(result.targetStatus).toBe("active");
+    expect(result.damageTotal).toBe(0);
+  });
+
+  it("Heal clamps to max HP", () => {
+    const result = resolveSpellCast(
+      SPELLS["Heal"]!,
+      casterStats,
+      target({ currentHp: 50, maxHp: 100 }),
+    );
+    expect(result.healed).toBe(50);
+    expect(result.targetCurrentHp).toBe(100);
+  });
+
+  it("Heal heals nothing on a full-HP target", () => {
+    const result = resolveSpellCast(SPELLS["Heal"]!, casterStats, target());
+    expect(result.healed).toBe(0);
+    expect(result.targetCurrentHp).toBe(20);
+  });
+
+  it("Mass Heal applies its flat amount per target", () => {
+    const result = resolveSpellCast(
+      SPELLS["Mass Heal"]!,
+      casterStats,
+      target({ currentHp: 30, maxHp: 900 }),
+    );
+    expect(result.healed).toBe(700);
+    expect(result.healRolls).toEqual([]);
+    expect(result.targetCurrentHp).toBe(730);
+  });
+
+  it("Mass Heal clamps to max HP", () => {
+    const result = resolveSpellCast(
+      SPELLS["Mass Heal"]!,
+      casterStats,
+      target({ currentHp: 30, maxHp: 100 }),
+    );
+    expect(result.healed).toBe(70);
+    expect(result.targetCurrentHp).toBe(100);
+  });
+
+  it("flat heal ignores supplied dice rolls", () => {
+    const result = resolveSpellCast(
+      SPELLS["Heal"]!,
+      casterStats,
+      target({ currentHp: 10, maxHp: 100 }),
+      { dice: [6] },
+    );
+    expect(result.healed).toBe(70);
+    expect(result.healRolls).toEqual([]);
+    expect(result.targetCurrentHp).toBe(80);
+  });
+});
+
 describe("resolveSpellCast — lethal damage at 0 HP", () => {
   it("adds a death-save failure when a downed target takes damage", () => {
     const downed = target({ currentHp: 0, status: "downed", maxHp: 999 });
@@ -714,10 +864,35 @@ describe("resolveSpellCast — revive", () => {
   });
 });
 
+describe("resolveSpellCast — full-HP revive (Resurrection)", () => {
+  it("revives a dead target at its max HP", () => {
+    const result = resolveSpellCast(
+      SPELLS["Resurrection"]!,
+      casterStats,
+      target({ currentHp: 0, status: "dead", maxHp: 60 }),
+    );
+    expect(result.revived).toBe(true);
+    expect(result.targetCurrentHp).toBe(60);
+    expect(result.targetCurrentHp).toBe(target({ maxHp: 60 }).maxHp);
+    expect(result.targetStatus).toBe("active");
+    expect(result.damageTotal).toBe(0);
+  });
+
+  it("keeps Revivify at 1 HP (no fullHp flag)", () => {
+    const result = resolveSpellCast(
+      SPELLS["Revivify"]!,
+      casterStats,
+      target({ currentHp: 0, status: "dead", maxHp: 60 }),
+    );
+    expect(result.revived).toBe(true);
+    expect(result.targetCurrentHp).toBe(1);
+  });
+});
+
 describe("summarizeSpells", () => {
-  it("returns all sixteen known spells with the correct levels and details", () => {
+  it("returns all twenty known spells with the correct levels and details", () => {
     const metas = summarizeSpells();
-    expect(metas).toHaveLength(16);
+    expect(metas).toHaveLength(20);
     const byName = Object.fromEntries(metas.map((m) => [m.name, m]));
     expect(byName["Sacred Flame"]).toMatchObject({
       level: 0,
@@ -775,6 +950,22 @@ describe("summarizeSpells", () => {
       level: 5,
       effect: { kind: "restore" },
     });
+    expect(byName["Heal"]).toMatchObject({
+      level: 6,
+      effect: { kind: "heal", mod: false, dice: "1d1", flat: 70 },
+    });
+    expect(byName["Blade Barrier"]).toMatchObject({
+      level: 6,
+      effect: { kind: "damage", save: "dexterity", dice: "5d10", damageType: "radiant" },
+    });
+    expect(byName["Resurrection"]).toMatchObject({
+      level: 7,
+      effect: { kind: "revive" },
+    });
+    expect(byName["Mass Heal"]).toMatchObject({
+      level: 9,
+      effect: { kind: "heal_all", mod: false, dice: "1d1", flat: 700 },
+    });
   });
 
   it("sorts by level then name", () => {
@@ -795,6 +986,10 @@ describe("summarizeSpells", () => {
       "Banishment",
       "Guardian of Faith",
       "Greater Restoration",
+      "Blade Barrier",
+      "Heal",
+      "Resurrection",
+      "Mass Heal",
     ]);
   });
 

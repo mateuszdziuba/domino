@@ -85,6 +85,7 @@ function spellEffectSummary(meta: SpellMeta): string {
     return `${dice}${extra}`;
   }
   if (effect.kind === "heal" || effect.kind === "heal_all") {
+    if (effect.flat != null) return `${effect.flat} punktów życia`;
     return `${effect.dice ?? ""}${effect.mod ? "+mod" : ""} leczenia`;
   }
   switch (effect.kind) {
@@ -95,7 +96,7 @@ function spellEffectSummary(meta: SpellMeta): string {
     case "restore":
       return "leczenie stanów/wyczerpania";
     case "revive":
-      return "wskrzeszenie";
+      return effect.fullHp ? "wskrzeszenie z pełnym HP" : "wskrzeszenie";
     case "stabilize":
       return "stabilizacja";
     default:
@@ -118,6 +119,7 @@ function spellEffectDescription(meta: SpellMeta): string {
     return `Obrażenia: ${dice}${extra ? ` — ${extra}` : ""}`;
   }
   if (effect.kind === "heal" || effect.kind === "heal_all") {
+    if (effect.flat != null) return `Leczenie: ${effect.flat} punktów życia`;
     return `Leczenie: ${effect.dice ?? ""}${effect.mod ? " + modyfikator" : ""} punktów życia`;
   }
   switch (effect.kind) {
@@ -128,7 +130,7 @@ function spellEffectDescription(meta: SpellMeta): string {
     case "restore":
       return "Leczy stany i wyczerpanie.";
     case "revive":
-      return "Wskrzeszenie.";
+      return effect.fullHp ? "Wskrzeszenie z pełnym HP." : "Wskrzeszenie.";
     case "stabilize":
       return "Stabilizuje istotę na 0 punktach życia.";
     default:

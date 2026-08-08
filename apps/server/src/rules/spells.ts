@@ -22,6 +22,7 @@ export type SpellEffect =
       range: string;
       duration: string;
       castingTime: "action" | "bonus";
+      flat?: number;
     }
   | {
       kind: "heal_all";
@@ -31,6 +32,7 @@ export type SpellEffect =
       duration: string;
       castingTime: "action";
       castingTimeMinutes?: number;
+      flat?: number;
     }
   | {
       kind: "condition_apply";
@@ -51,6 +53,7 @@ export type SpellEffect =
       range: string;
       duration: string;
       castingTime: "action";
+      fullHp?: boolean;
     }
   | {
       kind: "stabilize";
@@ -67,7 +70,7 @@ export type SpellEffect =
 
 export type SpellDef = {
   name: string;
-  level: 0 | 1 | 2 | 3 | 4 | 5;
+  level: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
   school: string;
   components: string;
   description: string;
@@ -334,11 +337,78 @@ export const SPELLS: Record<string, SpellDef> = {
       castingTime: "action",
     },
   },
+  "Heal": {
+    name: "Heal",
+    level: 6,
+    school: "Evocation",
+    components: "V, S",
+    description:
+      "Fala złocistej energii leczy cel o 70 punktów życia. Zaklęcie usuwa także ślepotę, głuchotę i wszelkie choroby (flavor: stany — mechanika: czyste leczenie).",
+    effect: {
+      kind: "heal",
+      dice: "1d1",
+      mod: false,
+      range: "60 ft",
+      duration: "Instantaneous",
+      castingTime: "action",
+      flat: 70,
+    },
+  },
+  "Blade Barrier": {
+    name: "Blade Barrier",
+    level: 6,
+    school: "Evocation",
+    components: "V, S",
+    description:
+      "Wirująca ściana ostrzy wyrasta w wybranym miejscu; każdy wróg przechodzący przez nią (uproszczenie: cel przy rzuceniu) wykonuje rzut obronny na Zręczność — nieudany oznacza 5k10 obrażeń promienistych.",
+    effect: {
+      kind: "damage",
+      dice: "5d10",
+      damageType: "radiant",
+      attack: false,
+      save: "dexterity",
+      range: "90 ft",
+      duration: "10 min",
+      castingTime: "action",
+    },
+  },
+  "Resurrection": {
+    name: "Resurrection",
+    level: 7,
+    school: "Necromancy",
+    components: "V, S, M",
+    description:
+      "Dotykasz istoty zmarłej nie dłużej niż sto lat temu i przywracasz ją do życia z pełnym poziomem życia (koszt: diamenty o wartości 1000 sztuk złota — flavor).",
+    effect: {
+      kind: "revive",
+      range: "Touch",
+      duration: "Instantaneous",
+      castingTime: "action",
+      fullHp: true,
+    },
+  },
+  "Mass Heal": {
+    name: "Mass Heal",
+    level: 9,
+    school: "Evocation",
+    components: "V, S",
+    description:
+      "Potężna fala uzdrawiającej energii dociera do wszystkich sojuszników w promieniu 60 stóp: każdy odzyskuje 700 punktów życia.",
+    effect: {
+      kind: "heal_all",
+      dice: "1d1",
+      mod: false,
+      range: "60 ft",
+      duration: "Instantaneous",
+      castingTime: "action",
+      flat: 700,
+    },
+  },
 };
 
 export type SpellMeta = {
   name: string;
-  level: 0 | 1 | 2 | 3 | 4 | 5;
+  level: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
   school: string;
   components: string;
   description: string;
@@ -380,21 +450,29 @@ export function summarizeSpells(): SpellMeta[] {
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
 }
 
-// Cleric spell slots per caster level (SRD 5.2.1 full-caster table), columns are 1st-5th level spell slots.
-// v1 cap: caster levels above 9 use the level-9 row.
+// Cleric spell slots per caster level (SRD 5.2.1 full-caster table), columns are 1st-9th level spell slots.
+// v1 cap: caster levels above 17 use the level-17 row.
 export function spellSlotsForLevel(casterLevel: number): number[] {
   const table: Record<number, number[]> = {
-    1: [2, 0, 0, 0, 0],
-    2: [3, 0, 0, 0, 0],
-    3: [4, 2, 0, 0, 0],
-    4: [4, 3, 0, 0, 0],
-    5: [4, 3, 2, 0, 0],
-    6: [4, 3, 3, 0, 0],
-    7: [4, 3, 3, 1, 0],
-    8: [4, 3, 3, 2, 0],
-    9: [4, 3, 3, 3, 1],
+    1: [2, 0, 0, 0, 0, 0, 0, 0, 0],
+    2: [3, 0, 0, 0, 0, 0, 0, 0, 0],
+    3: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+    4: [4, 3, 0, 0, 0, 0, 0, 0, 0],
+    5: [4, 3, 2, 0, 0, 0, 0, 0, 0],
+    6: [4, 3, 3, 0, 0, 0, 0, 0, 0],
+    7: [4, 3, 3, 1, 0, 0, 0, 0, 0],
+    8: [4, 3, 3, 2, 0, 0, 0, 0, 0],
+    9: [4, 3, 3, 3, 1, 0, 0, 0, 0],
+    10: [4, 3, 3, 3, 2, 0, 0, 0, 0],
+    11: [4, 3, 3, 3, 2, 1, 0, 0, 0],
+    12: [4, 3, 3, 3, 2, 1, 0, 0, 0],
+    13: [4, 3, 3, 3, 2, 1, 1, 0, 0],
+    14: [4, 3, 3, 3, 2, 1, 1, 0, 0],
+    15: [4, 3, 3, 3, 2, 1, 1, 1, 0],
+    16: [4, 3, 3, 3, 2, 1, 1, 1, 0],
+    17: [4, 3, 3, 3, 2, 1, 1, 1, 1],
   };
-  return table[Math.min(Math.max(1, casterLevel), 9)] ?? table[9]!;
+  return table[Math.min(Math.max(1, casterLevel), 17)] ?? table[17]!;
 }
 
 export type SpellCasterStats = {
@@ -452,9 +530,13 @@ export function resolveSpellCast(
   const effect = def.effect;
 
   if (effect.kind === "heal" || effect.kind === "heal_all") {
-    const healRolls = rolls?.dice ?? rollDiceNotation(effect.dice).rolls;
+    const healRolls =
+      effect.flat !== undefined ? [] : (rolls?.dice ?? rollDiceNotation(effect.dice).rolls);
     const total = healRolls.reduce((sum, r) => sum + r, 0);
-    const healed = Math.max(1, total + (effect.mod ? caster.spellAbilityMod : 0));
+    const healed =
+      effect.flat !== undefined
+        ? Math.min(effect.flat, target.maxHp - target.currentHp)
+        : Math.max(1, total + (effect.mod ? caster.spellAbilityMod : 0));
     const targetCurrentHp = Math.min(target.maxHp, target.currentHp + healed);
     const targetStatus: Combatant["status"] =
       targetCurrentHp > 0 ? "active" : target.status ?? "downed";
@@ -501,12 +583,13 @@ export function resolveSpellCast(
   }
 
   if (effect.kind === "revive") {
+    const targetCurrentHp = effect.fullHp ? target.maxHp : Math.max(1, target.currentHp);
     return {
       damageTotal: 0,
       damageRolls: [],
       healed: 0,
       healRolls: [],
-      targetCurrentHp: Math.max(1, target.currentHp),
+      targetCurrentHp,
       targetStatus: "active",
       revived: true,
     };
