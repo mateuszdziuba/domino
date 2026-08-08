@@ -30,7 +30,7 @@ import {
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import { CombatPanel } from "../components/CombatPanel";
-import { SubclassPicker } from "../components/SubclassPicker";
+import { LevelUpDialog } from "../components/LevelUpDialog";
 import CharacterDrawer from "../components/CharacterDrawer";
 import { subscribeCampaign } from "../lib/stream";
 import { RichMessageText } from "../lib/chat-tooltips";
@@ -171,13 +171,7 @@ export default function CampaignPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerCharacterId, setDrawerCharacterId] = useState<string | null>(null);
   const [subclassDialogOpen, setSubclassDialogOpen] = useState(false);
-  const [subclassSaving, setSubclassSaving] = useState(false);
-  const [levelUpError, setLevelUpError] = useState<string | null>(null);
-  const [subclassSaved, setSubclassSaved] = useState<{ name: string; subclass: string } | null>(
-    null,
-  );
   const subclassCheckDoneRef = useRef(false);
-  const subclassSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const member = detail?.members.find((m) => m.userId === user?.id);
 
@@ -248,15 +242,6 @@ export default function CampaignPage() {
   }, [refreshParty, id, detail?.members.length]);
 
   useEffect(() => {
-    if (!subclassDialogOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSubclassDialogOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [subclassDialogOpen]);
-
-  useEffect(() => {
     refreshSpellbook();
   }, [refreshSpellbook, id]);
 
@@ -319,7 +304,6 @@ export default function CampaignPage() {
           );
           if (levelUp) {
             setPendingLevelUp(levelUp);
-            setLevelUpError(null);
             setSubclassDialogOpen(true);
           }
         }
@@ -333,7 +317,6 @@ export default function CampaignPage() {
 
   useEffect(() => {
     subclassCheckDoneRef.current = false;
-    setSubclassSaved(null);
   }, [member?.characterId]);
 
   useEffect(() => {
@@ -341,25 +324,6 @@ export default function CampaignPage() {
   }, [messages, rolls, sending]);
 
   if (!id) return null;
-
-  async function onSubclassSelect(subclass: string) {
-    if (!pendingLevelUp || subclassSaving) return;
-    setSubclassSaving(true);
-    setLevelUpError(null);
-    try {
-      await characterApi.update(pendingLevelUp.characterId, { subclass });
-      setSubclassDialogOpen(false);
-      setSubclassSaved({ name: pendingLevelUp.name, subclass });
-      if (subclassSavedTimerRef.current) clearTimeout(subclassSavedTimerRef.current);
-      subclassSavedTimerRef.current = setTimeout(() => setSubclassSaved(null), 3500);
-      refreshSpellbook();
-      load();
-    } catch (err) {
-      setLevelUpError(err instanceof Error ? err.message : "Nie udało się zapisać subklasy");
-    } finally {
-      setSubclassSaving(false);
-    }
-  }
 
   async function onJoin(e: FormEvent) {
     e.preventDefault();
@@ -658,12 +622,6 @@ export default function CampaignPage() {
                   <div ref={bottomRef} />
                 </div>
               </TooltipProvider>
-              {subclassSaved && (
-                <p className="mt-2 text-sm text-[#2e7d32]">
-                  {subclassSaved.name} przyjął subklasę {subclassSaved.subclass} — arkusz został
-                  zaktualizowany.
-                </p>
-              )}
               {member && spellbook && spellbook.spells.length > 0 && (
                 <div className="mt-3 rounded-sm border border-[#c8b184]/70 bg-[#fbf3dd]/40 p-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1066,52 +1024,19 @@ export default function CampaignPage() {
         </div>
       </div>
 
-      {pendingLevelUp && subclassDialogOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2e2113]/60 p-4"
-          onClick={() => setSubclassDialogOpen(false)}
-        >
-          <Card
-            className="max-h-[80vh] w-full max-w-lg animate-fade-up overflow-y-auto border-[#b99f6b] shadow-[0_10px_30px_-12px_rgba(60,40,10,0.55)]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle>
-                <span className="mr-2 text-[#a97e1f]">✦</span>
-                Awans! {pendingLevelUp.name} osiąga poziom {pendingLevelUp.level}
-              </CardTitle>
-              <CardDescription>Wybierz subklasę ({pendingLevelUp.className}):</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {levelUpError && <p className="text-sm text-[#8f1d1d]">{levelUpError}</p>}
-              <SubclassPicker
-                catalog={featuresCatalog}
-                className={pendingLevelUp.className}
-                busy={subclassSaving}
-                onSelect={onSubclassSelect}
-              />
-              <p className="text-xs text-[#7c6a45]">
-                Przy awansie możesz też dodać lub zamienić zaklęcia — zrób to w{" "}
-                <Link
-                  to="/app/characters/$id"
-                  params={{ id: pendingLevelUp.characterId }}
-                  className="font-display text-[11px] uppercase tracking-[0.1em] text-[#7a4b1d] underline-offset-4 hover:underline"
-                >
-                  arkuszu postaci
-                </Link>
-                .
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                className="self-end"
-                onClick={() => setSubclassDialogOpen(false)}
-              >
-                Później
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+      {pendingLevelUp && (
+        <LevelUpDialog
+          open={subclassDialogOpen}
+          onClose={() => setSubclassDialogOpen(false)}
+          characterId={pendingLevelUp.characterId}
+          level={pendingLevelUp.level}
+          className={pendingLevelUp.className}
+          catalog={featuresCatalog}
+          onDone={() => {
+            refreshSpellbook();
+            load();
+          }}
+        />
       )}
 
       <CharacterDrawer

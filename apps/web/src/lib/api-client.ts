@@ -82,11 +82,19 @@ export type SubclassInfo = {
   features: { name: string; description: string }[];
 };
 
+export type FeatInfo = {
+  name: string;
+  label: string;
+  description: string;
+  abilityBonus?: string[];
+};
+
 export type FeaturesCatalog = {
   subclasses: Record<string, string[]>;
   subclassDetails?: Record<string, SubclassInfo[]>;
   races: string[];
   classes: string[];
+  feats?: FeatInfo[];
 };
 
 export const featuresApi = {

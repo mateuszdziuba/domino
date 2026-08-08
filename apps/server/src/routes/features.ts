@@ -1,6 +1,12 @@
 import { Hono } from "hono";
 import { requireAuth } from "../middleware/auth.js";
-import { CLASSES, RACES, subclassDetails, subclassNames } from "../rules/features.js";
+import {
+  CLASSES,
+  FEATS,
+  RACES,
+  subclassDetails,
+  subclassNames,
+} from "../rules/features.js";
 
 export const featureRoutes = new Hono();
 
@@ -10,5 +16,11 @@ featureRoutes.get("/", requireAuth, (c) =>
     subclassDetails: subclassDetails(),
     races: RACES.map((r) => r.name),
     classes: CLASSES.map((c) => c.name),
+    feats: FEATS.map((f) => ({
+      name: f.name,
+      label: f.label,
+      description: f.description,
+      abilityBonus: f.abilityBonus,
+    })),
   }),
 );

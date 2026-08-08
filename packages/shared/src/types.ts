@@ -77,6 +77,8 @@ export type Character = {
   gold?: number;
   exhaustion?: number;
   inspiration?: boolean;
+  feats?: string[];
+  asiLevels?: number[];
   createdAt: string;
   updatedAt: string;
 };
@@ -318,7 +320,7 @@ export type SheetFeature = {
   name: string;
   description: string;
   level: number;
-  category: "race" | "class" | "subclass";
+  category: "race" | "class" | "subclass" | "feat";
 };
 
 export type CharacterSheet = {

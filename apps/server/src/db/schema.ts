@@ -64,6 +64,8 @@ export const characters = sqliteTable(
     gold: integer("gold").notNull().default(0),
     exhaustion: integer("exhaustion").notNull().default(0),
     inspiration: integer("inspiration").notNull().default(0),
+    feats: text("feats", { mode: "json" }).notNull().default([]),
+    asiLevels: text("asi_levels", { mode: "json" }).notNull().default([]),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(datetime('now'))`),

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft, ScrollText, Shield, Sparkles, Swords, Wand2 } from "lucide-react";
 import {
@@ -29,7 +29,10 @@ import {
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import { SubclassPicker } from "../components/SubclassPicker";
+import { LevelUpDialog } from "../components/LevelUpDialog";
 import { SKILL_DESCRIPTIONS } from "../lib/chat-tooltips";
+
+const ASI_LEVELS = [4, 8, 12, 16, 19];
 
 const ABILITY_LABELS: Record<string, string> = {
   strength: "STR",
@@ -126,6 +129,7 @@ export default function CharacterSheetPage() {
   const [attuneError, setAttuneError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [devDialogOpen, setDevDialogOpen] = useState(false);
 
   useEffect(() => {
     spellbookApi.list().then((r) => setRegistry(r.spells)).catch(() => {});
@@ -133,13 +137,17 @@ export default function CharacterSheetPage() {
     equipmentApi.get().then(setEquipment).catch(() => {});
   }, []);
 
-  useEffect(() => {
+  const loadSheet = useCallback(() => {
     if (!id) return;
     characterApi
       .sheet(id)
       .then(({ sheet }) => setSheet(sheet))
       .catch((err) => setError(err instanceof Error ? err.message : "Nie udało się wczytać karty postaci"));
   }, [id]);
+
+  useEffect(() => {
+    loadSheet();
+  }, [loadSheet]);
 
   if (error) {
     return (
@@ -301,9 +309,30 @@ export default function CharacterSheetPage() {
     : Math.max(0, Math.min(100, ((xp - prevThreshold) / Math.max(nextThreshold - prevThreshold, 1)) * 100));
   const hitDiceAvailable = Math.max(0, character.level - (character.hitDiceUsed ?? 0));
   const exhaustion = character.exhaustion ?? 0;
+  const developmentAvailable =
+    ASI_LEVELS.includes(character.level) &&
+    !(character.asiLevels ?? []).includes(character.level);
 
   return (
     <div className="mx-auto max-w-4xl">
+      {developmentAvailable && (
+        <Card className="mb-4 border-[#a97e1f]/70 bg-[#f3e6c4]/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Sparkles className="size-4 text-[#a97e1f]" />
+              Rozwój dostępny (poziom {character.level})
+            </CardTitle>
+            <CardDescription className="not-italic">
+              Wybierz poprawę cech (ASI) lub feat z katalogu SRD.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button type="button" onClick={() => setDevDialogOpen(true)}>
+              Wybierz rozwój
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {character.level >= 3 &&
         !character.subclass &&
         (featuresCatalog?.subclassDetails?.[character.className] ?? []).length > 0 && (
@@ -661,11 +690,17 @@ export default function CharacterSheetPage() {
                 <p className="text-sm text-[#7c6a45]">Brak cech.</p>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {(["race", "class", "subclass"] as const).map((category) => {
+                  {(["race", "class", "subclass", "feat"] as const).map((category) => {
                     const features = sheet.features.filter((f) => f.category === category);
                     if (features.length === 0) return null;
                     const label =
-                      category === "race" ? "Rasa" : category === "class" ? "Klasa" : "Subklasa";
+                      category === "race"
+                        ? "Rasa"
+                        : category === "class"
+                          ? "Klasa"
+                          : category === "subclass"
+                            ? "Subklasa"
+                            : "Featy";
                     return (
                       <div key={category}>
                         <div className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
@@ -933,6 +968,15 @@ export default function CharacterSheetPage() {
           </Card>
         </div>
       </div>
+
+      <LevelUpDialog
+        open={devDialogOpen}
+        onClose={() => setDevDialogOpen(false)}
+        characterId={character.id}
+        level={character.level}
+        className={character.className}
+        onDone={loadSheet}
+      />
     </div>
   );
 }

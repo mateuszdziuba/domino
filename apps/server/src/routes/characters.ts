@@ -205,6 +205,8 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     gold: row.gold ?? 0,
     exhaustion: row.exhaustion ?? 0,
     inspiration: Boolean(row.inspiration),
+    feats: (row.feats as string[] | undefined) ?? [],
+    asiLevels: (row.asiLevels as number[] | undefined) ?? [],
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

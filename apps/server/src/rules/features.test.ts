@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   RACES,
   CLASSES,
+  FEATS,
+  findFeat,
   buildCharacterFeatures,
   subclassesForClass,
   subclassNames,
@@ -39,16 +41,80 @@ describe("SRD 5.2.1 classes", () => {
     }
   });
 
-  it("keeps class features within levels 1-3 and subclasses within 1-2 features", () => {
+  it("keeps class features within levels 1-20 and subclasses within 1-2 features", () => {
     for (const klass of CLASSES) {
       for (const feature of klass.features) {
         expect(feature.level).toBeGreaterThanOrEqual(1);
-        expect(feature.level).toBeLessThanOrEqual(3);
+        expect(feature.level).toBeLessThanOrEqual(20);
       }
       for (const subclass of klass.subclasses) {
         expect(subclass.features.length).toBeLessThanOrEqual(2);
       }
     }
+  });
+
+  it("covers every class level 4-20 with class or subclass features", () => {
+    for (const klass of CLASSES) {
+      const covered = new Set([
+        ...klass.features.map((f) => f.level),
+        ...klass.subclasses.flatMap((s) => s.features.map((f) => f.level)),
+      ]);
+      for (let level = 4; level <= 20; level++) {
+        expect(covered.has(level), `${klass.name} has no feature at level ${level}`).toBe(
+          true,
+        );
+      }
+    }
+  });
+
+  it("includes ASI entries at levels 4, 8, 12, 16 and 19 for every class", () => {
+    for (const klass of CLASSES) {
+      for (const level of [4, 8, 12, 16, 19]) {
+        const names = klass.features.filter((f) => f.level === level).map((f) => f.name);
+        expect(
+          names,
+          `${klass.name} missing ASI at level ${level}`,
+        ).toContain("Poprawa cech (ASI)");
+      }
+    }
+  });
+
+  it("gives Extra Attack to martial classes at level 5 and Fighter also at 11", () => {
+    const martial = ["Barbarian", "Fighter", "Monk", "Paladin", "Ranger"];
+    for (const className of martial) {
+      const klass = CLASSES.find((c) => c.name === className);
+      expect(klass).toBeDefined();
+      expect(
+        klass!.features.some((f) => f.level === 5 && /extra attack/i.test(f.name)),
+        `${className} missing Extra Attack at level 5`,
+      ).toBe(true);
+    }
+    const fighter = CLASSES.find((c) => c.name === "Fighter");
+    expect(
+      fighter!.features.some((f) => f.level === 11 && /extra attack/i.test(f.name)),
+    ).toBe(true);
+  });
+});
+
+describe("SRD 5.2.1 feats", () => {
+  it("defines at least 30 feats with name, label and description", () => {
+    expect(FEATS.length).toBeGreaterThanOrEqual(30);
+    const names = new Set<string>();
+    for (const feat of FEATS) {
+      expect(feat.name.length).toBeGreaterThan(0);
+      expect(feat.label.length).toBeGreaterThan(0);
+      expect(feat.description.length).toBeGreaterThan(0);
+      expect(names.has(feat.name)).toBe(false);
+      names.add(feat.name);
+    }
+  });
+
+  it("findFeat matches by English name and Polish label, case-insensitively", () => {
+    expect(findFeat("Alert")?.label).toBe("Czujność");
+    expect(findFeat("czujność")?.name).toBe("Alert");
+    expect(findFeat(" tOuGh ")?.name).toBe("Tough");
+    expect(findFeat("Twardziel")?.name).toBe("Tough");
+    expect(findFeat("NoSuchFeat")).toBeUndefined();
   });
 });
 
@@ -117,6 +183,48 @@ describe("buildCharacterFeatures", () => {
     const onlyRace = buildCharacterFeatures({ race: "Human", className: "Ninja", level: 3 });
     expect(onlyRace.filter((f) => f.category === "race")).toHaveLength(2);
     expect(onlyRace.filter((f) => f.category === "class")).toHaveLength(0);
+  });
+
+  it("includes the character's feats as feat features with the ASI level", () => {
+    const features = buildCharacterFeatures({
+      race: "Human",
+      className: "Fighter",
+      level: 10,
+      feats: ["Tough"],
+      asiLevels: [8],
+    });
+    const featFeatures = features.filter((f) => f.category === "feat");
+    expect(featFeatures).toHaveLength(1);
+    const feat = featFeatures[0]!;
+    expect(feat.name).toBe("Twardziel");
+    expect(feat.description.length).toBeGreaterThan(0);
+    expect(feat.level).toBe(8);
+  });
+
+  it("matches feats by Polish label and defaults to level 4 without asiLevels", () => {
+    const features = buildCharacterFeatures({
+      race: "Human",
+      className: "Fighter",
+      level: 10,
+      feats: ["Czujność"],
+    });
+    const featFeatures = features.filter((f) => f.category === "feat");
+    expect(featFeatures).toHaveLength(1);
+    const feat = featFeatures[0]!;
+    expect(feat.name).toBe("Czujność");
+    expect(feat.level).toBe(4);
+  });
+
+  it("ignores unknown feat names gracefully", () => {
+    const features = buildCharacterFeatures({
+      race: "Human",
+      className: "Fighter",
+      level: 10,
+      feats: ["NoSuchFeat", "Tough", ""],
+    });
+    const featFeatures = features.filter((f) => f.category === "feat");
+    expect(featFeatures).toHaveLength(1);
+    expect(featFeatures[0]!.name).toBe("Twardziel");
   });
 });
 

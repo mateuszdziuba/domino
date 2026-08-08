@@ -282,16 +282,22 @@ function DrawerContent({ sheet, onClose }: { sheet: CharacterSheet; onClose: () 
       </section>
 
       <section className="border-t border-dotted border-[#c8b184] px-5 py-4">
-        <SectionLabel>Cechy rasowe, klasowe i subklasowe</SectionLabel>
+        <SectionLabel>Cechy rasowe, klasowe, subklasowe i featy</SectionLabel>
         {sheet.features.length === 0 ? (
           <p className="mt-2 text-xs italic text-[#7c6a45]">Brak cech.</p>
         ) : (
           <div className="mt-2 flex flex-col gap-2.5">
-            {(["race", "class", "subclass"] as const).map((category) => {
+            {(["race", "class", "subclass", "feat"] as const).map((category) => {
               const features = sheet.features.filter((f) => f.category === category);
               if (features.length === 0) return null;
               const label =
-                category === "race" ? "Rasa" : category === "class" ? "Klasa" : "Subklasa";
+                category === "race"
+                  ? "Rasa"
+                  : category === "class"
+                    ? "Klasa"
+                    : category === "subclass"
+                      ? "Subklasa"
+                      : "Featy";
               return (
                 <div key={category}>
                   <div className="font-display text-[9px] uppercase tracking-[0.14em] text-[#a97e1f]">

@@ -1,4 +1,4 @@
-import type { SheetFeature } from "@domino/shared";
+import type { AbilityScore, SheetFeature } from "@domino/shared";
 
 export type RaceDef = { name: string; features: SheetFeature[] };
 
@@ -256,6 +256,114 @@ export const CLASSES: ClassDef[] = [
           "Masz przewagę w rzutach obronnych Zręczności przeciw efektom, które widzisz — w tym przeciw zasadzkom.",
         level: 2,
       },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 4,
+      },
+      {
+        name: "Atak dodatkowy (Extra Attack)",
+        description:
+          "Zamiast raz możesz atakować dwa razy, gdy w swojej turze wykonujesz akcję Ataku.",
+        level: 5,
+      },
+      {
+        name: "Szybki ruch (Fast Movement)",
+        description: "Twoja szybkość rośnie o 10 stóp, gdy nie nosisz ciężkiego pancerza.",
+        level: 5,
+      },
+      {
+        name: "Cecha ścieżki (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy (ścieżki).",
+        level: 6,
+      },
+      {
+        name: "Dziki instynkt (Feral Instinct)",
+        description: "Masz przewagę w rzutach na inicjatywę.",
+        level: 7,
+      },
+      {
+        name: "Instynktowny skok (Instinctive Pounce)",
+        description:
+          "Jako część akcji bonusowej wejścia w szał możesz przesunąć się o połowę swojej szybkości.",
+        level: 7,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 8,
+      },
+      {
+        name: "Brutalne uderzenie (Brutal Strike)",
+        description:
+          "Gdy używasz Zuchwałego ataku, możesz zrezygnować z przewagi przy jednym ataku; przy trafieniu cel otrzymuje dodatkowe 1k10 obrażeń i jeden efekt Brutalnego uderzenia (np. odrzucenie).",
+        level: 9,
+      },
+      {
+        name: "Cecha ścieżki (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy (ścieżki).",
+        level: 10,
+      },
+      {
+        name: "Nieugięty szał (Relentless Rage)",
+        description:
+          "Gdy podczas szału spadniesz do 0 punktów życia, możesz wykonać rzut obronny Kondycji (ST 10), aby zamiast tego zostać przy 1 punkcie życia.",
+        level: 11,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 12,
+      },
+      {
+        name: "Ulepszone brutalne uderzenie (Improved Brutal Strike)",
+        description:
+          "Zyskujesz nowe opcje Brutalnego uderzenia, m.in. Zataczające ciosy (oszołomienie celu).",
+        level: 13,
+      },
+      {
+        name: "Cecha ścieżki (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy (ścieżki).",
+        level: 14,
+      },
+      {
+        name: "Nieustający szał (Persistent Rage)",
+        description:
+          "Gdy rzucasz na inicjatywę, możesz odzyskać wszystkie użycia Szału — raz na długi odpoczynek.",
+        level: 15,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 16,
+      },
+      {
+        name: "Ulepszone brutalne uderzenie (Improved Brutal Strike)",
+        description:
+          "Dodatkowe obrażenia Brutalnego uderzenia rosną do 2k10, a przy użyciu możesz zastosować dwa efekty naraz.",
+        level: 17,
+      },
+      {
+        name: "Niezwyciężona siła (Indomitable Might)",
+        description:
+          "Jeśli suma testu Siły lub rzutu obronnego Siły jest niższa niż twój wynik Siły, możesz użyć wyniku Siły w zamian.",
+        level: 18,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 19,
+      },
+      {
+        name: "Pierwotny mistrz (Primal Champion)",
+        description: "Twoja Siła i Kondycja rosną o 4, maksymalnie do 25.",
+        level: 20,
+      },
     ],
     subclasses: [
       {
@@ -299,6 +407,102 @@ export const CLASSES: ClassDef[] = [
           "Podczas krótkiego odpoczynku ty i twoi sprzymierzeńcy odzyskujecie dodatkowe 1k6 punktów życia.",
         level: 2,
       },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 4,
+      },
+      {
+        name: "Źródło inspiracji (Font of Inspiration)",
+        description:
+          "Odzyskujesz wszystkie użycia Inspiracji barda po krótkim lub długim odpoczynku, a wydając slot zaklęcia, możesz odzyskać jedno użycie. Twoja kość inspiracji rośnie do k8.",
+        level: 5,
+      },
+      {
+        name: "Cecha kolegium (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojego kolegium bardów.",
+        level: 6,
+      },
+      {
+        name: "Kontrpieśń (Countercharm)",
+        description:
+          "Jeśli ty lub istota w zasięgu 30 stóp nie zdacie rzutu obronnego przeciw efektowi nakładającemu uroczenie lub przerażenie, możesz użyć reakcji, aby zmusić do ponownego rzutu.",
+        level: 7,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 8,
+      },
+      {
+        name: "Ekspertyza (Expertise)",
+        description:
+          "Wybierasz dwie umiejętności, w których masz biegłość, ale nie Ekspertyzę, i zyskujesz w nich Ekspertyzę.",
+        level: 9,
+      },
+      {
+        name: "Tajemnice magiczne (Magical Secrets)",
+        description:
+          "Gdy rośnie liczba przygotowanych zaklęć barda, możesz wybierać nowe zaklęcia także z list kapłana, druida i czarodzieja. Twoja kość inspiracji rośnie do k10.",
+        level: 10,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 6. kręgu wraz ze slotami tego kręgu.",
+        level: 11,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 12,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 7. kręgu wraz ze slotami tego kręgu.",
+        level: 13,
+      },
+      {
+        name: "Cecha kolegium (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojego kolegium bardów.",
+        level: 14,
+      },
+      {
+        name: "Większa kość inspiracji (Bardic Inspiration, d12)",
+        description: "Twoja kość Inspiracji barda rośnie do k12.",
+        level: 15,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 16,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 9. kręgu wraz ze slotami tego kręgu.",
+        level: 17,
+      },
+      {
+        name: "Wyższa inspiracja (Superior Inspiration)",
+        description:
+          "Gdy rzucasz na inicjatywę, odzyskujesz użycia Inspiracji barda do dwóch, jeśli masz ich mniej.",
+        level: 18,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 19,
+      },
+      {
+        name: "Słowa stworzenia (Words of Creation)",
+        description:
+          "Opanowujesz słowa życia i śmierci: zawsze masz przygotowane zaklęcia Power Word Heal i Power Word Kill, a rzucając je, możesz wskazać drugi cel w promieniu 10 stóp.",
+        level: 20,
+      },
     ],
     subclasses: [
       {
@@ -341,6 +545,106 @@ export const CLASSES: ClassDef[] = [
           "Raz na krótki odpoczynek możesz skierować energię bóstwa; podstawową opcją jest Boska iskra (Divine Spark): akcją zadajesz obrażenia promieniste lub leczysz za 2k8 + modyfikator Mądrości w zasięgu 60 stóp.",
         level: 2,
       },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 4,
+      },
+      {
+        name: "Porażanie nieumarłych (Sear Undead)",
+        description:
+          "Gdy użyjesz Turn Undead, każdy nieumarły, który nie zda rzutu obronnego, otrzymuje promieniste obrażenia równe rzutowi kością k8 za każdy punkt modyfikatora Mądrości (min. 1k8).",
+        level: 5,
+      },
+      {
+        name: "Cecha domeny (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej domeny.",
+        level: 6,
+      },
+      {
+        name: "Kanał bóstwa (trzy użycia)",
+        description: "Liczba użyć Kanału bóstwa między odpoczynkami rośnie do 3.",
+        level: 6,
+      },
+      {
+        name: "Błogosławione ciosy (Blessed Strikes)",
+        description:
+          "Boska moc przenika twoją walkę: wybierasz Boskie uderzenie (dodatkowe k8 obrażeń przy trafieniu bronią) albo Potężne zaklęcia (premia Mądrości do obrażeń cantripów kapłana).",
+        level: 7,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 8,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 5. kręgu wraz ze slotami tego kręgu.",
+        level: 9,
+      },
+      {
+        name: "Boska interwencja (Divine Intervention)",
+        description:
+          "Akcją magiczną możesz wezwać interwencję bóstwa i rzucić dowolne zaklęcie kapłana 5. kręgu lub niższego bez wydawania slotu — raz na długi odpoczynek.",
+        level: 10,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 6. kręgu wraz ze slotami tego kręgu.",
+        level: 11,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 12,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 7. kręgu wraz ze slotami tego kręgu.",
+        level: 13,
+      },
+      {
+        name: "Ulepszone błogosławione ciosy (Improved Blessed Strikes)",
+        description:
+          "Wybrana opcja Błogosławionych ciosów rośnie w siłę: Boskie uderzenie zadaje 2k8, a Potężne zaklęcia zyskują dodatkowy efekt.",
+        level: 14,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 8. kręgu wraz ze slotami tego kręgu.",
+        level: 15,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 16,
+      },
+      {
+        name: "Cecha domeny (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej domeny.",
+        level: 17,
+      },
+      {
+        name: "Kanał bóstwa (cztery użycia)",
+        description: "Liczba użyć Kanału bóstwa między odpoczynkami rośnie do 4.",
+        level: 18,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 19,
+      },
+      {
+        name: "Większa boska interwencja (Greater Divine Intervention)",
+        description:
+          "Używając Boskiej interwencji, możesz wybrać zaklęcie Wish; jeśli to zrobisz, nie możesz ponownie użyć Boskiej interwencji, dopóki nie zakończysz 2k4 długich odpoczynków.",
+        level: 20,
+      },
     ],
     subclasses: [
       {
@@ -377,6 +681,101 @@ export const CLASSES: ClassDef[] = [
         description:
           "Akcją możesz przybrać postać bestii; masz dwa ładunki na krótki odpoczynek, a ich liczba rośnie z poziomem.",
         level: 2,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 4,
+      },
+      {
+        name: "Dzika odnowa (Wild Resurgence)",
+        description:
+          "Raz na turę, gdy nie masz użyć Dzikich kształtów, możesz odzyskać jedno użycie, wydając slot zaklęcia; możesz też wydać użycie Dzikich kształtów, aby odzyskać slot 1. kręgu.",
+        level: 5,
+      },
+      {
+        name: "Cecha kręgu (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojego kręgu druidów.",
+        level: 6,
+      },
+      {
+        name: "Żywiołowa furia (Elemental Fury)",
+        description:
+          "Wybierasz Potężne zaklęcia (premia Mądrości do obrażeń cantripów druida) albo Pierwotne uderzenie (dodatkowe k8 obrażeń przy trafieniu atakiem).",
+        level: 7,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 8,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 5. kręgu wraz ze slotami tego kręgu.",
+        level: 9,
+      },
+      {
+        name: "Cecha kręgu (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojego kręgu druidów.",
+        level: 10,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 6. kręgu wraz ze slotami tego kręgu.",
+        level: 11,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 12,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 7. kręgu wraz ze slotami tego kręgu.",
+        level: 13,
+      },
+      {
+        name: "Cecha kręgu (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojego kręgu druidów.",
+        level: 14,
+      },
+      {
+        name: "Ulepszona żywiołowa furia (Improved Elemental Fury)",
+        description:
+          "Wybrana opcja Żywiołowej furii rośnie w siłę: zasięg cantripów wzrasta o 300 stóp albo Pierwotne uderzenie zadaje 2k8 obrażeń.",
+        level: 15,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 16,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 9. kręgu wraz ze slotami tego kręgu.",
+        level: 17,
+      },
+      {
+        name: "Zaklęcia bestii (Beast Spells)",
+        description:
+          "Podczas Dzikich kształtów możesz rzucać zaklęcia w formie bestii, z wyjątkiem zaklęć wymagających składnika materialnego o określonym koszcie lub go zużywających.",
+        level: 18,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 19,
+      },
+      {
+        name: "Arcydruid (Archdruid)",
+        description:
+          "Witalność natury stale w tobie kwitnie: gdy rzucasz na inicjatywę i nie masz użyć Dzikich kształtów, odzyskujesz jedno z nich.",
+        level: 20,
       },
     ],
     subclasses: [
@@ -421,6 +820,125 @@ export const CLASSES: ClassDef[] = [
           "Raz na krótki lub długi odpoczynek możesz wykonać dodatkową akcję w swojej turze.",
         level: 2,
       },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 4,
+      },
+      {
+        name: "Atak dodatkowy (Extra Attack)",
+        description:
+          "Zamiast raz możesz atakować dwa razy, gdy w swojej turze wykonujesz akcję Ataku.",
+        level: 5,
+      },
+      {
+        name: "Taktyczna zmiana (Tactical Shift)",
+        description:
+          "Gdy akcją bonusową używasz Drugiego oddechu, możesz przesunąć się o połowę swojej szybkości, nie prowokując ataków okazyjnych.",
+        level: 5,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 6,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy wojownika.",
+        level: 7,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 8,
+      },
+      {
+        name: "Niezłomność (Indomitable)",
+        description:
+          "Gdy nie zdasz rzutu obronnego, możesz powtórzyć go z premią równą twojemu poziomowi wojownika — raz na długi odpoczynek.",
+        level: 9,
+      },
+      {
+        name: "Mistrz taktyki (Tactical Master)",
+        description:
+          "Atakując bronią, której właściwość mistrzostwa znasz, możesz na czas ataku zastąpić ją właściwością Push, Sap lub Slow.",
+        level: 9,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy wojownika.",
+        level: 10,
+      },
+      {
+        name: "Dwa ataki dodatkowe (Two Extra Attacks)",
+        description:
+          "Zamiast raz możesz atakować trzy razy, gdy w swojej turze wykonujesz akcję Ataku.",
+        level: 11,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 12,
+      },
+      {
+        name: "Niezłomność (dwa użycia)",
+        description: "Liczba użyć Niezłomności między długimi odpoczynkami rośnie do 2.",
+        level: 13,
+      },
+      {
+        name: "Przestudiowane ataki (Studied Attacks)",
+        description:
+          "Gdy chybisz atakiem, masz przewagę w następnym rzucie ataku przeciw temu samemu celowi przed końcem twojej następnej tury.",
+        level: 13,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 14,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy wojownika.",
+        level: 15,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 16,
+      },
+      {
+        name: "Przypływ akcji (dwa użycia)",
+        description: "Liczba użyć Przypływu akcji między odpoczynkami rośnie do 2.",
+        level: 17,
+      },
+      {
+        name: "Niezłomność (trzy użycia)",
+        description: "Liczba użyć Niezłomności między długimi odpoczynkami rośnie do 3.",
+        level: 17,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy wojownika.",
+        level: 18,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 19,
+      },
+      {
+        name: "Trzy ataki dodatkowe (Three Extra Attacks)",
+        description:
+          "Zamiast raz możesz atakować cztery razy, gdy w swojej turze wykonujesz akcję Ataku.",
+        level: 20,
+      },
     ],
     subclasses: [
       {
@@ -463,6 +981,143 @@ export const CLASSES: ClassDef[] = [
         description:
           "Zyskujesz punkty skupienia równe poziomowi mnicha; wydajesz je na techniki ki (np. Flurry of Blows, Step of the Wind) i odzyskujesz na krótkim odpoczynku.",
         level: 2,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 4,
+      },
+      {
+        name: "Powolne opadanie (Slow Fall)",
+        description:
+          "Gdy upadasz, możesz użyć reakcji, aby zmniejszyć obrażenia od upadku o pięć razy twój poziom mnicha.",
+        level: 4,
+      },
+      {
+        name: "Atak dodatkowy (Extra Attack)",
+        description:
+          "Zamiast raz możesz atakować dwa razy, gdy w swojej turze wykonujesz akcję Ataku.",
+        level: 5,
+      },
+      {
+        name: "Oszałamiające uderzenie (Stunning Strike)",
+        description:
+          "Raz na turę, gdy trafisz bronią mnicha lub atakiem bez broni, możesz wydać 1 punkt skupienia, aby cel wykonał rzut obronny Kondycji lub został oszołomiony do końca twojej następnej tury.",
+        level: 5,
+      },
+      {
+        name: "Większa kość skupienia (Focus Points, d8)",
+        description: "Twoja kość punktów skupienia rośnie do k8.",
+        level: 5,
+      },
+      {
+        name: "Umacniające uderzenia (Empowered Strikes)",
+        description:
+          "Twoje ataki bez broni mogą zadawać obrażenia siłowe zamiast zwykłego typu obrażeń.",
+        level: 6,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy mnicha.",
+        level: 6,
+      },
+      {
+        name: "Unikanie (Evasion)",
+        description:
+          "Gdy efekt wymaga od ciebie rzutu obronnego Zręczności, przy sukcesie nie otrzymujesz obrażeń, a przy porażce — połowę.",
+        level: 7,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 8,
+      },
+      {
+        name: "Akrobatyczny ruch (Acrobatic Movement)",
+        description:
+          "Podczas swojej tury możesz przemieszczać się po pionowych powierzchniach i ponad cieczami, nie upadając w trakcie ruchu.",
+        level: 9,
+      },
+      {
+        name: "Wyostrzona koncentracja (Heightened Focus)",
+        description:
+          "Twoje techniki Flurry of Blows, Patient Defense i Step of the Wind zyskują dodatkowe efekty — np. Flurry of Blows może oznaczać trzy ataki bez broni.",
+        level: 10,
+      },
+      {
+        name: "Samouzdrawianie (Self-Restoration)",
+        description:
+          "Na końcu każdej swojej tury możesz usunąć z siebie jeden ze stanów: uroczenie, przerażenie lub zatrucie.",
+        level: 10,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy mnicha.",
+        level: 11,
+      },
+      {
+        name: "Większa kość skupienia (Focus Points, d10)",
+        description: "Twoja kość punktów skupienia rośnie do k10.",
+        level: 11,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 12,
+      },
+      {
+        name: "Odparcie energii (Deflect Energy)",
+        description:
+          "Twoja zdolność Odparcia ataków działa przeciw obrażeniom wszelkich typów, nie tylko obuchowym, ciętym i przebijającym.",
+        level: 13,
+      },
+      {
+        name: "Zdyscyplinowany ocalały (Disciplined Survivor)",
+        description:
+          "Zyskujesz biegłość we wszystkich rzutach obronnych; gdy nie zdasz rzutu obronnego, możesz wydać 1 punkt skupienia, aby powtórzyć go.",
+        level: 14,
+      },
+      {
+        name: "Doskonałe skupienie (Perfect Focus)",
+        description:
+          "Gdy rzucasz na inicjatywę, odzyskujesz punkty skupienia do czterech, jeśli masz ich trzy lub mniej.",
+        level: 15,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 16,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy mnicha.",
+        level: 17,
+      },
+      {
+        name: "Większa kość skupienia (Focus Points, d12)",
+        description: "Twoja kość punktów skupienia rośnie do k12.",
+        level: 17,
+      },
+      {
+        name: "Wyższa obrona (Superior Defense)",
+        description:
+          "Na początku swojej tury możesz wydać 3 punkty skupienia, aby na 1 minutę uzyskać odporność na wszystkie obrażenia oprócz siłowych.",
+        level: 18,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 19,
+      },
+      {
+        name: "Ciało i umysł (Body and Mind)",
+        description: "Twoja Zręczność i Mądrość rosną o 4, maksymalnie do 25.",
+        level: 20,
       },
     ],
     subclasses: [
@@ -512,6 +1167,108 @@ export const CLASSES: ClassDef[] = [
           "Gdy trafisz atakiem bronią, możesz wydać slot zaklęcia, aby zadać dodatkowe 2k8 obrażeń promienistych (rosnące za sloty wyższych poziomów).",
         level: 2,
       },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 4,
+      },
+      {
+        name: "Atak dodatkowy (Extra Attack)",
+        description:
+          "Zamiast raz możesz atakować dwa razy, gdy w swojej turze wykonujesz akcję Ataku.",
+        level: 5,
+      },
+      {
+        name: "Wierny wierzchowiec (Faithful Steed)",
+        description:
+          "Zawsze masz przygotowane zaklęcie Find Steed i możesz je rzucić raz bez wydawania slotu; tę zdolność odzyskujesz po długim odpoczynku.",
+        level: 5,
+      },
+      {
+        name: "Aura ochrony (Aura of Protection)",
+        description:
+          "Ty i sojusznicy w promieniu 10 stóp dodajecie modyfikator Charyzmy (min. +1) do wszystkich rzutów obronnych.",
+        level: 6,
+      },
+      {
+        name: "Cecha przysięgi (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej przysięgi paladyna.",
+        level: 7,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 8,
+      },
+      {
+        name: "Odpędzanie wrogów (Abjure Foes)",
+        description:
+          "Akcją magiczną możesz wydać użycie Kanału bóstwa, aby istoty w zasięgu 30 stóp wykonały rzut obronny Mądrości lub zostały przerażone i nie mogły się do ciebie zbliżyć.",
+        level: 9,
+      },
+      {
+        name: "Aura odwagi (Aura of Courage)",
+        description:
+          "Ty i sojusznicy w obrębie twojej Aury ochrony jesteście odporni na przerażenie (immunity).",
+        level: 10,
+      },
+      {
+        name: "Promienne ciosy (Radiant Strikes)",
+        description:
+          "Gdy trafisz atakiem bronią białą lub atakiem bez broni, cel otrzymuje dodatkowe 1k8 obrażeń promienistych.",
+        level: 11,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 12,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 4. kręgu wraz ze slotami tego kręgu.",
+        level: 13,
+      },
+      {
+        name: "Uzdrawiający dotyk (Restoring Touch)",
+        description:
+          "Używając Nałożenia rąk, możesz usunąć z istoty jeden lub więcej stanów: oślepienie, uroczenie, ogłuszenie, przerażenie, porażenie lub obezwładnienie.",
+        level: 14,
+      },
+      {
+        name: "Cecha przysięgi (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej przysięgi paladyna.",
+        level: 15,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 16,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 5. kręgu wraz ze slotami tego kręgu.",
+        level: 17,
+      },
+      {
+        name: "Rozszerzona aura (Aura Expansion)",
+        description: "Zasięg twojej Aury ochrony rośnie do 30 stóp.",
+        level: 18,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 19,
+      },
+      {
+        name: "Cecha przysięgi (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej przysięgi paladyna.",
+        level: 20,
+      },
     ],
     subclasses: [
       {
@@ -553,6 +1310,103 @@ export const CLASSES: ClassDef[] = [
         name: "Rzucanie zaklęć (Spellcasting)",
         description: "Rzucasz zaklęcia łowcy; twoim atrybutem rzucania jest Mądrość.",
         level: 2,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 4,
+      },
+      {
+        name: "Atak dodatkowy (Extra Attack)",
+        description:
+          "Zamiast raz możesz atakować dwa razy, gdy w swojej turze wykonujesz akcję Ataku.",
+        level: 5,
+      },
+      {
+        name: "Wędrówka (Roving)",
+        description:
+          "Twoja szybkość rośnie o 10 stóp, gdy nie nosisz ciężkiego pancerza; masz też szybkość wspinaczki i pływania równą twojej szybkości.",
+        level: 6,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy łowcy.",
+        level: 7,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 8,
+      },
+      {
+        name: "Ekspertyza (Expertise)",
+        description:
+          "Wybierasz dwie umiejętności, w których masz biegłość, ale nie Ekspertyzę, i zyskujesz w nich Ekspertyzę.",
+        level: 9,
+      },
+      {
+        name: "Niestrudzony (Tireless)",
+        description:
+          "Akcją magiczną możesz zyskać tymczasowe punkty życia równe 1k8 + modyfikator Mądrości; podczas krótkiego odpoczynku możesz też usuwać poziomy wyczerpania.",
+        level: 10,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy łowcy.",
+        level: 11,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 12,
+      },
+      {
+        name: "Nieustępliwy łowca (Relentless Hunter)",
+        description:
+          "Otrzymanie obrażeń nie przerywa twojej koncentracji na zaklęciu Hunter's Mark.",
+        level: 13,
+      },
+      {
+        name: "Zasłona natury (Nature's Veil)",
+        description:
+          "Akcją bonusową możesz stać się niewidzialny do końca swojej następnej tury; możesz to zrobić tyle razy, ile wynosi twoja premia z biegłości, i odzyskujesz użycia po długim odpoczynku.",
+        level: 14,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy łowcy.",
+        level: 15,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 16,
+      },
+      {
+        name: "Precyzyjny łowca (Precise Hunter)",
+        description:
+          "Masz przewagę w rzutach ataku przeciw istocie oznaczonej twoim zaklęciem Hunter's Mark.",
+        level: 17,
+      },
+      {
+        name: "Dzikie zmysły (Feral Senses)",
+        description: "Zyskujesz widzenie w ciemności (blindsight) w promieniu 30 stóp.",
+        level: 18,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 19,
+      },
+      {
+        name: "Pogromca wrogów (Foe Slayer)",
+        description: "Kość obrażeń twojego zaklęcia Hunter's Mark rośnie do k10.",
+        level: 20,
       },
     ],
     subclasses: [
@@ -598,6 +1452,137 @@ export const CLASSES: ClassDef[] = [
           "Akcją bonusową możesz wykonać szarżę (Dash), wycofanie (Disengage) lub ukrycie się (Hide).",
         level: 2,
       },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 4,
+      },
+      {
+        name: "Cios specjalny (Cunning Strike)",
+        description:
+          "Zadając obrażenia Ciosu w plecy, możesz zrezygnować z części kości obrażeń, aby dodać efekt, np. wytrącenie broni albo spowolnienie celu. Twój Cios w plecy rośnie do 3k6.",
+        level: 5,
+      },
+      {
+        name: "Nadludzki refleks (Uncanny Dodge)",
+        description:
+          "Gdy atakujący, którego widzisz, trafi cię rzutem ataku, możesz użyć reakcji, aby zmniejszyć obrażenia o połowę.",
+        level: 5,
+      },
+      {
+        name: "Ekspertyza (Expertise)",
+        description:
+          "Wybierasz dwie umiejętności, w których masz biegłość, i zyskujesz w nich Ekspertyzę (podwójna premia z biegłości).",
+        level: 6,
+      },
+      {
+        name: "Unikanie (Evasion)",
+        description:
+          "Gdy efekt wymaga od ciebie rzutu obronnego Zręczności, przy sukcesie nie otrzymujesz obrażeń, a przy porażce — połowę.",
+        level: 7,
+      },
+      {
+        name: "Niezawodny talent (Reliable Talent)",
+        description:
+          "Gdy wykonujesz test umiejętności z biegłością, wynik k20 równy 9 lub niższy liczysz jako 10.",
+        level: 7,
+      },
+      {
+        name: "Cios w plecy 4k6 (Sneak Attack, 4d6)",
+        description: "Twoja kość Ciosu w plecy rośnie do 4k6.",
+        level: 7,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 8,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy łotrzyka.",
+        level: 9,
+      },
+      {
+        name: "Cios w plecy 5k6 (Sneak Attack, 5d6)",
+        description: "Twoja kość Ciosu w plecy rośnie do 5k6.",
+        level: 9,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 10,
+      },
+      {
+        name: "Ulepszony cios specjalny (Improved Cunning Strike)",
+        description:
+          "Zadając obrażenia Ciosu w plecy, możesz użyć dwóch efektów Ciosu specjalnego naraz, płacąc koszt w kościach za każdy. Twój Cios w plecy rośnie do 6k6.",
+        level: 11,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 12,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy łotrzyka.",
+        level: 13,
+      },
+      {
+        name: "Cios w plecy 7k6 (Sneak Attack, 7d6)",
+        description: "Twoja kość Ciosu w plecy rośnie do 7k6.",
+        level: 13,
+      },
+      {
+        name: "Złoczyńcze ciosy (Devious Strikes)",
+        description:
+          "Zyskujesz nowe opcje Ciosu specjalnego, m.in. oszołomienie (Daze) i powalenie, dostępne za odpowiedni koszt kości.",
+        level: 14,
+      },
+      {
+        name: "Śliski umysł (Slippery Mind)",
+        description:
+          "Zyskujesz biegłość w rzutach obronnych Mądrości i Charyzmy. Twój Cios w plecy rośnie do 8k6.",
+        level: 15,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 16,
+      },
+      {
+        name: "Cecha podklasy (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej podklasy łotrzyka.",
+        level: 17,
+      },
+      {
+        name: "Cios w plecy 9k6 (Sneak Attack, 9d6)",
+        description: "Twoja kość Ciosu w plecy rośnie do 9k6.",
+        level: 17,
+      },
+      {
+        name: "Nieuchwytny (Elusive)",
+        description:
+          "Żaden rzut ataku nie może mieć przewagi przeciw tobie, chyba że jesteś obezwładniony.",
+        level: 18,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 19,
+      },
+      {
+        name: "Traf szczęścia (Stroke of Luck)",
+        description:
+          "Jeśli nie zdasz testu k20, możesz zamienić wynik rzutu na 20 — raz na krótki lub długi odpoczynek.",
+        level: 20,
+      },
     ],
     subclasses: [
       {
@@ -641,6 +1626,100 @@ export const CLASSES: ClassDef[] = [
           "Zyskujesz punkty czarów równe poziomowi czarnoksiężnika; możesz zamieniać je na sloty zaklęć i odwrotnie, a odzyskujesz je na długim odpoczynku.",
         level: 2,
       },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 4,
+      },
+      {
+        name: "Czarodziejska odnowa (Sorcerous Restoration)",
+        description:
+          "Po krótkim odpoczynku możesz odzyskać wydane punkty czarów w liczbie do połowy twojego poziomu (zaokrąglonej w dół) — raz na długi odpoczynek.",
+        level: 5,
+      },
+      {
+        name: "Cecha pochodzenia (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojego smoczego pochodzenia.",
+        level: 6,
+      },
+      {
+        name: "Ucieleśniona czarowność (Sorcery Incarnate)",
+        description:
+          "Gdy nie masz użyć Wrodzonej magii, możesz ją aktywować, wydając 2 punkty czarów; podczas jej trwania możesz użyć do dwóch opcji Metamagii na jedno zaklęcie.",
+        level: 7,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 8,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 5. kręgu wraz ze slotami tego kręgu.",
+        level: 9,
+      },
+      {
+        name: "Metamagia (Metamagic)",
+        description:
+          "Wybierasz dwie opcje Metamagii, np. Podwójne zaklęcie albo Wzmocnione zaklęcie, które możesz stosować za punkty czarów.",
+        level: 10,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 6. kręgu wraz ze slotami tego kręgu.",
+        level: 11,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 12,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 7. kręgu wraz ze slotami tego kręgu.",
+        level: 13,
+      },
+      {
+        name: "Cecha pochodzenia (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojego smoczego pochodzenia.",
+        level: 14,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 8. kręgu wraz ze slotami tego kręgu.",
+        level: 15,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 16,
+      },
+      {
+        name: "Metamagia (Metamagic)",
+        description: "Wybierasz dodatkową opcję Metamagii.",
+        level: 17,
+      },
+      {
+        name: "Cecha pochodzenia (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojego smoczego pochodzenia.",
+        level: 18,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 19,
+      },
+      {
+        name: "Arcymagiczna apoteoza (Arcane Apotheosis)",
+        description:
+          "Podczas trwania Wrodzonej magii możesz raz na turę użyć opcji Metamagii bez wydawania punktów czarów.",
+        level: 20,
+      },
     ],
     subclasses: [
       {
@@ -679,6 +1758,99 @@ export const CLASSES: ClassDef[] = [
           "Wybierasz dar paktu: broń paktu (pact weapon), familiera paktu, księgę cieni albo talizman paktu.",
         level: 3,
       },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 4,
+      },
+      {
+        name: "Nowe przyzwania (Eldritch Invocations)",
+        description: "Liczba znanych ci przyzwań rośnie do 5 — wybierasz dodatkowe przyzwanie.",
+        level: 5,
+      },
+      {
+        name: "Cecha patrona (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojego patrona.",
+        level: 6,
+      },
+      {
+        name: "Nowe przyzwania (Eldritch Invocations)",
+        description: "Liczba znanych ci przyzwań rośnie do 6.",
+        level: 7,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 8,
+      },
+      {
+        name: "Kontakt z patronem (Contact Patron)",
+        description:
+          "Zawsze masz przygotowane zaklęcie Contact Other Plane i możesz je rzucić bez wydawania slotu, aby skontaktować się bezpośrednio ze swoim patronem.",
+        level: 9,
+      },
+      {
+        name: "Cecha patrona (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojego patrona.",
+        level: 10,
+      },
+      {
+        name: "Mistyczne arkanum (Mystic Arcanum)",
+        description:
+          "Patron obdarza cię arkanum: wybierasz zaklęcie czarownika 6. kręgu, które możesz rzucić raz bez wydawania slotu na długi odpoczynek.",
+        level: 11,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 12,
+      },
+      {
+        name: "Mistyczne arkanum (Mystic Arcanum)",
+        description: "Wybierasz zaklęcie czarownika 7. kręgu jako kolejne arkanum.",
+        level: 13,
+      },
+      {
+        name: "Cecha patrona (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojego patrona.",
+        level: 14,
+      },
+      {
+        name: "Mistyczne arkanum (Mystic Arcanum)",
+        description: "Wybierasz zaklęcie czarownika 8. kręgu jako kolejne arkanum.",
+        level: 15,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 16,
+      },
+      {
+        name: "Mistyczne arkanum (Mystic Arcanum)",
+        description: "Wybierasz zaklęcie czarownika 9. kręgu jako ostatnie arkanum.",
+        level: 17,
+      },
+      {
+        name: "Nowe przyzwania (Eldritch Invocations)",
+        description: "Liczba znanych ci przyzwań rośnie do 10.",
+        level: 18,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 19,
+      },
+      {
+        name: "Mistrz paktu (Eldritch Master)",
+        description:
+          "Gdy używasz Magicznej przebiegłości, odzyskujesz wszystkie wydane sloty Magii paktu.",
+        level: 20,
+      },
     ],
     subclasses: [
       {
@@ -710,6 +1882,99 @@ export const CLASSES: ClassDef[] = [
           "Raz na długi odpoczynek, podczas krótkiego odpoczynku, możesz odzyskać sloty zaklęć o łącznym poziomie do połowy twojego poziomu (zaokrąglone w górę), bez slotów 6. poziomu i wyższych.",
         level: 1,
       },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 4,
+      },
+      {
+        name: "Zapamiętanie zaklęcia (Memorize Spell)",
+        description:
+          "Po krótkim odpoczynku możesz przestudiować księgę zaklęć i zastąpić jedno przygotowane zaklęcie czarodzieja innym zaklęciem z księgi.",
+        level: 5,
+      },
+      {
+        name: "Cecha szkoły (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej szkoły magii.",
+        level: 6,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 4. kręgu wraz ze slotami tego kręgu.",
+        level: 7,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 8,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 5. kręgu wraz ze slotami tego kręgu.",
+        level: 9,
+      },
+      {
+        name: "Cecha szkoły (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej szkoły magii.",
+        level: 10,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 6. kręgu wraz ze slotami tego kręgu.",
+        level: 11,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 12,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 7. kręgu wraz ze slotami tego kręgu.",
+        level: 13,
+      },
+      {
+        name: "Cecha szkoły (Subclass Feature)",
+        description: "Zyskujesz kolejną zdolność swojej szkoły magii.",
+        level: 14,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 8. kręgu wraz ze slotami tego kręgu.",
+        level: 15,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 16,
+      },
+      {
+        name: "Nowy krąg zaklęć (New Spell Circle)",
+        description: "Uzyskujesz dostęp do zaklęć 9. kręgu wraz ze slotami tego kręgu.",
+        level: 17,
+      },
+      {
+        name: "Mistrzostwo zaklęć (Spell Mastery)",
+        description:
+          "Wybierasz zaklęcie 1. i 2. kręgu z księgi z czasem rzucania równym akcji: masz je zawsze przygotowane i rzucasz je bez wydawania slotów.",
+        level: 18,
+      },
+      {
+        name: "Poprawa cech (ASI)",
+        description:
+          "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
+        level: 19,
+      },
+      {
+        name: "Zaklęcia sygnaturowe (Signature Spells)",
+        description:
+          "Wybierasz dwa zaklęcia 3. kręgu z księgi: zawsze masz je przygotowane i możesz rzucić każde z nich raz bez wydawania slotu na długi odpoczynek.",
+        level: 20,
+      },
     ],
     subclasses: [
       {
@@ -733,11 +1998,278 @@ export const CLASSES: ClassDef[] = [
   },
 ];
 
+export type FeatDef = {
+  name: string;
+  label: string;
+  description: string;
+  abilityBonus?: (keyof AbilityScore)[];
+};
+
+export const FEATS: FeatDef[] = [
+  {
+    name: "Alert",
+    label: "Czujność",
+    description:
+      "Dodajesz premię z biegłości do rzutów na inicjatywę; po rzucie na inicjatywę możesz zamienić się inicjatywą z jednym chętnym sojusznikiem.",
+  },
+  {
+    name: "Athlete",
+    label: "Atleta",
+    description:
+      "Wspinaczka i wstawanie z pozycji leżącej kosztują mniej ruchu, a skoki są dłuższe. Zwiększasz Siłę lub Zręczność o 1.",
+    abilityBonus: ["strength", "dexterity"],
+  },
+  {
+    name: "Charger",
+    label: "Szarżant",
+    description:
+      "Gdy w swojej turze szarżujesz co najmniej 10 stóp, możesz atakować z premia do obrażeń albo popchnąć cel przy trafieniu.",
+  },
+  {
+    name: "Crafter",
+    label: "Rzemieślnik",
+    description:
+      "Biegłość w narzędziach rzemieślnika pozwala ci tworzyć przedmioty; podczas długiego odpoczynku możesz wyprodukować do pięciu przedmiotów za połowę ceny.",
+  },
+  {
+    name: "Crossbow Expert",
+    label: "Ekspert kuszy",
+    description:
+      "Ignorujesz właściwość Przeładowanie kusz i nie masz utrudnienia przy atakach z kuszy w zwarciu; ataki kuszą nie prowokują ataków okazyjnych.",
+  },
+  {
+    name: "Defense",
+    label: "Obrona",
+    description:
+      "Niosąc lekki, średni lub ciężki pancerz, zyskujesz premię +1 do klasy pancerza.",
+  },
+  {
+    name: "Dual Wielder",
+    label: "Podwójna broń",
+    description:
+      "Zyskujesz +1 do klasy pancerza, gdy walczysz dwiema broniami, i możesz dobierać bronie lekkie bez kosztowania akcji.",
+  },
+  {
+    name: "Dungeon Delver",
+    label: "Znawca lochów",
+    description:
+      "Masz przewagę w testach poszukiwania pułapek i zrozumienia ich działania, a obrażenia od pułapek zmniejszasz o połowę przy porażce w rzucie obronnym.",
+  },
+  {
+    name: "Durable",
+    label: "Wytrzymały",
+    description:
+      "Podczas krótkiego odpoczynku odzyskujesz punkty życia w liczbie co najmniej dwa razy większej niż modyfikator Kondycji. Zwiększasz Kondycję o 1.",
+    abilityBonus: ["constitution"],
+  },
+  {
+    name: "Elemental Adept",
+    label: "Adept żywiołów",
+    description:
+      "Wybierasz typ obrażeń żywiołowych; twoje zaklęcia tego typu ignorują odporność, a rzuty na obrażenia minimum 1 traktujesz jak 2.",
+  },
+  {
+    name: "Fey Touched",
+    label: "Dotknięty fejami",
+    description:
+      "Znasz zaklęcia Misty Step i jedno zaklęcie 1. kręgu z listy Iluzji lub Wróżbiarstwa; możesz rzucić je bez wydawania slotu raz na długi odpoczynek. Zwiększasz Inteligencję, Mądrość lub Charyzmę o 1.",
+    abilityBonus: ["intelligence", "wisdom", "charisma"],
+  },
+  {
+    name: "Grappler",
+    label: "Zapaśnik",
+    description:
+      "Masz przewagę w rzutach ataku przeciw istocie, którą chwytasz; możesz obalić złapaną istotę, gdy poruszasz się z nią. Zwiększasz Siłę lub Zręczność o 1.",
+    abilityBonus: ["strength", "dexterity"],
+  },
+  {
+    name: "Great Weapon Master",
+    label: "Mistrz wielkiej broni",
+    description:
+      "Gdy trafisz krytycznie albo pokonasz wroga ciężką bronią, możesz wykonać dodatkowy atak; możesz też przyjąć utrudnienie -5 do ataku za +10 do obrażeń.",
+  },
+  {
+    name: "Healer",
+    label: "Medyk",
+    description:
+      "Użycie zestawu medycznego akcją przywraca istocie 1k6 + 4 + jej maksymalną liczbę kości wytrzymałości punktów życia, raz na krótki odpoczynek.",
+  },
+  {
+    name: "Heavily Armored",
+    label: "Biegłość w ciężkich pancerzach",
+    description:
+      "Zyskujesz biegłość w ciężkich pancerzach. Zwiększasz Siłę o 1.",
+    abilityBonus: ["strength"],
+  },
+  {
+    name: "Heavy Armor Master",
+    label: "Mistrz ciężkich pancerzy",
+    description:
+      "Nosząc ciężki pancerz, zmniejszasz obrażenia od obuchów, cięć i przebić o premię z biegłości. Zwiększasz Siłę o 1.",
+    abilityBonus: ["strength"],
+  },
+  {
+    name: "Inspiring Leader",
+    label: "Inspirujący przywódca",
+    description:
+      "Po krótkim lub długim odpoczynku możesz wygłosić przemowę, dając do sześciu sojusznikom tymczasowe punkty życia równe poziomowi + modyfikator Charyzmy.",
+  },
+  {
+    name: "Keen Mind",
+    label: "Bystry umysł",
+    description:
+      "Zapamiętujesz wszystko, co widziałeś przez ostatni miesiąc, a orientacja w przestrzeni i czasie jest dla ciebie niezawodna. Zwiększasz Inteligencję o 1.",
+    abilityBonus: ["intelligence"],
+  },
+  {
+    name: "Lightly Armored",
+    label: "Lekki pancerz",
+    description:
+      "Zyskujesz biegłość w lekkich pancerzach. Zwiększasz Siłę lub Zręczność o 1.",
+    abilityBonus: ["strength", "dexterity"],
+  },
+  {
+    name: "Linguist",
+    label: "Lingwista",
+    description:
+      "Uczysz się trzech języków i potrafisz tworzyć proste kody, które mogą odczytać tylko wtajemniczeni. Zwiększasz Inteligencję o 1.",
+    abilityBonus: ["intelligence"],
+  },
+  {
+    name: "Lucky",
+    label: "Szczęściarz",
+    description:
+      "Masz trzy punkty szczęścia na długi odpoczynek: wydając jeden, możesz powtórzyć test k20 albo zmienić rzut ataku wymierzony w ciebie.",
+  },
+  {
+    name: "Mage Slayer",
+    label: "Pogromca magów",
+    description:
+      "Masz przewagę w rzutach obronnych przeciw zaklęciom, a gdy istota w zasięgu 5 stóp rzuca zaklęcie, możesz zaatakować ją reakcją.",
+  },
+  {
+    name: "Magic Initiate",
+    label: "Inicjacja magiczna",
+    description:
+      "Uczysz się dwóch cantripów z listy kapłana, druida lub czarodzieja oraz jednego zaklęcia 1. kręgu z tej samej listy, które możesz rzucić raz bez slotu na długi odpoczynek.",
+  },
+  {
+    name: "Martial Adept",
+    label: "Adept sztuk walki",
+    description:
+      "Uczysz się dwóch manewrów z zestawu mistrza wojennego oraz jednej kości walki k6, którą odzyskujesz na krótkim odpoczynku.",
+  },
+  {
+    name: "Medium Armor Master",
+    label: "Mistrz średnich pancerzy",
+    description:
+      "Nosisz średnie pancerze, nie mając utrudnienia w testach Zręczności, a ich modyfikator Zręczności do AC wynosi maksymalnie 3. Zwiększasz Siłę lub Zręczność o 1.",
+    abilityBonus: ["strength", "dexterity"],
+  },
+  {
+    name: "Mobile",
+    label: "Mobilność",
+    description:
+      "Twoja szybkość rośnie o 10 stóp, a po ataku wręcz możesz oddalić się bez prowokowania ataku okazyjnego.",
+  },
+  {
+    name: "Moderately Armored",
+    label: "Średni pancerz",
+    description:
+      "Zyskujesz biegłość w średnich pancerzach i tarczach. Zwiększasz Siłę lub Zręczność o 1.",
+    abilityBonus: ["strength", "dexterity"],
+  },
+  {
+    name: "Mounted Combatant",
+    label: "Jeździec bojowy",
+    description:
+      "Masz przewagę w atakach wręcz przeciw istotom mniejszym od twojego wierzchowca; możesz też zmusić atak wymierzony w wierzchowca, by trafił ciebie.",
+  },
+  {
+    name: "Observant",
+    label: "Spostrzegawczy",
+    description:
+      "Zyskujesz biegłość w Percepcji i Zbadaniu albo Ekspertyzę w jednej z nich; potrafisz też czytać z ruchu warg. Zwiększasz Mądrość lub Inteligencję o 1.",
+    abilityBonus: ["wisdom", "intelligence"],
+  },
+  {
+    name: "Sentinel",
+    label: "Wartownik",
+    description:
+      "Gdy trafisz istotę atakiem okazyjnym, jej szybkość spada do 0; istoty w zasięgu nie mogą uniknąć twoich ataków okazyjnych, a ty możesz kontratakować przy opuszczeniu przez nie zasięgu.",
+  },
+  {
+    name: "Sharpshooter",
+    label: "Strzelec wyborowy",
+    description:
+      "Ataki dystansowe bronią nie mają utrudnienia w zwarciu i ignorują osłonę; możesz też przyjąć utrudnienie -5 do ataku za +10 do obrażeń.",
+  },
+  {
+    name: "Shield Master",
+    label: "Mistrz tarczy",
+    description:
+      "Możesz odepchnąć cel, który zadasz tarczą; gdy efekt wymaga rzutu obronnego Zręczności, przy sukcesie nie otrzymujesz obrażeń, a przy porażce — połowę.",
+  },
+  {
+    name: "Skilled",
+    label: "Wszechstronnie uzdolniony",
+    description:
+      "Zyskujesz biegłość w dowolnej kombinacji trzech umiejętności lub narzędzi. Możesz wybrać ten atut więcej niż raz.",
+  },
+  {
+    name: "Skulker",
+    label: "Zaczajony",
+    description:
+      "Możesz ukryć się, gdy jesteś tylko lekko przesłonięty, a chybienie atakiem dystansowym nie zdradza twojej pozycji.",
+  },
+  {
+    name: "Spell Sniper",
+    label: "Snajper zaklęć",
+    description:
+      "Zasięg twoich cantripów z rzutem ataku podwaja się, a ataki zaklęciem nie mają utrudnienia w zwarciu; uczysz się jednego cantripu z dowolnej listy.",
+  },
+  {
+    name: "Tavern Brawler",
+    label: "Awanturnik z karczmy",
+    description:
+      "Twoje ataki bez broni i improwizowane zadają k4 obrażeń, a gdy trafisz, możesz chwycić cel jako akcję bonusową. Zwiększasz Siłę lub Kondycję o 1.",
+    abilityBonus: ["strength", "constitution"],
+  },
+  {
+    name: "Tough",
+    label: "Twardziel",
+    description:
+      "Twoje maksimum punktów życia rośnie o 2 za każdy twój poziom.",
+  },
+  {
+    name: "War Caster",
+    label: "Wojenny czarownik",
+    description:
+      "Masz przewagę w rzutach obronnych o utrzymanie koncentracji i możesz wykonywać składniki somatyczne zajętą ręką; w ataku okazyjnym możesz rzucić zaklęcie z czasem rzucania równym akcji.",
+  },
+  {
+    name: "Weapon Master",
+    label: "Mistrz broni",
+    description:
+      "Zyskujesz biegłość w czterech broniach według wyboru. Zwiększasz Siłę lub Zręczność o 1.",
+    abilityBonus: ["strength", "dexterity"],
+  },
+];
+
+export function findFeat(name: string): FeatDef | undefined {
+  const query = name.trim().toLowerCase();
+  return FEATS.find(
+    (f) => f.name.toLowerCase() === query || f.label.toLowerCase() === query,
+  );
+}
+
 export function buildCharacterFeatures(character: {
   race: string;
   className: string;
   subclass?: string;
   level: number;
+  feats?: string[];
+  asiLevels?: number[];
 }): SheetFeature[] {
   const level = Math.max(1, character.level);
   const race = RACES.find((r) => r.name === character.race);
@@ -767,6 +2299,17 @@ export function buildCharacterFeatures(character: {
         });
       }
     }
+  }
+  const asiLevels = character.asiLevels ?? [];
+  for (const [index, featName] of (character.feats ?? []).entries()) {
+    const feat = findFeat(featName);
+    if (!feat) continue;
+    features.push({
+      name: feat.label,
+      description: feat.description,
+      level: asiLevels[index] ?? 4,
+      category: "feat",
+    });
   }
   return features;
 }
