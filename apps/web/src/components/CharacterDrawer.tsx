@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { CharacterSheet } from "@domino/shared";
-import { characterApi } from "../lib/api-client";
+import { characterApi, spellbookApi, type SpellMeta } from "../lib/api-client";
 import { Badge } from "./ui/badge";
 import { cn } from "../lib/utils";
 import {
@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from "./ui/tooltip";
 import { SKILL_ALIASES } from "../lib/chat-tooltips";
+import { spellDisplayName } from "../lib/spell-lang";
 
 const ABILITY_LABELS_PL: Record<string, string> = {
   strength: "Siła",
@@ -57,7 +58,12 @@ export default function CharacterDrawer({ open, onClose, characterId }: Characte
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
+  const [spellRegistry, setSpellRegistry] = useState<SpellMeta[] | null>(null);
   const cacheRef = useRef<Record<string, CharacterSheet>>({});
+
+  useEffect(() => {
+    spellbookApi.list().then((r) => setSpellRegistry(r.spells)).catch(() => {});
+  }, []);
 
   const sheet = characterId ? sheets[characterId] : undefined;
 
@@ -106,7 +112,7 @@ export default function CharacterDrawer({ open, onClose, characterId }: Characte
       <aside
         role="dialog"
         aria-label="Karta postaci"
-        className="animate-fade-up fixed right-0 top-0 h-full w-full max-w-md overflow-y-auto border-l border-[#a97e1f]/60 bg-[#fbf3dd] shadow-[-10px_0_35px_-12px_rgba(30,20,5,0.6)]"
+        className="animate-fade-up fixed right-0 top-0 h-full w-full max-w-md overflow-y-auto border-l border-[#a97e1f]/60 bg-[#fbf3dd] pb-[env(safe-area-inset-bottom)] shadow-[-10px_0_35px_-12px_rgba(30,20,5,0.6)]"
       >
         {loading && (
           <div className="flex h-full items-center justify-center italic text-[#7c6a45]">
@@ -125,13 +131,21 @@ export default function CharacterDrawer({ open, onClose, characterId }: Characte
             </button>
           </div>
         )}
-        {sheet && <DrawerContent sheet={sheet} onClose={onClose} />}
+        {sheet && <DrawerContent sheet={sheet} spellRegistry={spellRegistry} onClose={onClose} />}
       </aside>
     </div>
   );
 }
 
-function DrawerContent({ sheet, onClose }: { sheet: CharacterSheet; onClose: () => void }) {
+function DrawerContent({
+  sheet,
+  spellRegistry,
+  onClose,
+}: {
+  sheet: CharacterSheet;
+  spellRegistry: SpellMeta[] | null;
+  onClose: () => void;
+}) {
   const { character, abilityModifiers, savingThrows, attacks, spellcasting, spellSlots } = sheet;
   const inventory = character.inventory ?? [];
   const hpPct =
@@ -347,7 +361,7 @@ function DrawerContent({ sheet, onClose }: { sheet: CharacterSheet; onClose: () 
                 key={spell}
                 className="rounded-sm border border-[#a97e1f]/50 bg-[#e8d3a0]/60 px-1.5 py-0.5 font-display text-[10px] tracking-[0.05em] text-[#3a2c17]"
               >
-                {spell}
+                {spellDisplayName(spellRegistry?.find((m) => m.name === spell), spell)}
               </span>
             ))}
           </div>

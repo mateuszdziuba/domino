@@ -17,7 +17,7 @@ export const requireAuth = createMiddleware<{
 }>(async (c, next) => {
   const token = getCookie(c, SESSION_COOKIE);
   if (!token) {
-    return c.json({ error: "Not authenticated" }, 401);
+    return c.json({ error: "Nie jesteś zalogowany." }, 401);
   }
   const session = db
     .select()
@@ -25,11 +25,11 @@ export const requireAuth = createMiddleware<{
     .where(eq(sessions.token, token))
     .get();
   if (!session || new Date(session.expiresAt) < new Date()) {
-    return c.json({ error: "Session expired" }, 401);
+    return c.json({ error: "Sesja wygasła." }, 401);
   }
   const user = db.select().from(users).where(eq(users.id, session.userId)).get();
   if (!user) {
-    return c.json({ error: "User not found" }, 401);
+    return c.json({ error: "Nie znaleziono użytkownika." }, 401);
   }
   c.set("user", { id: user.id, username: user.username });
   await next();

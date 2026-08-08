@@ -34,6 +34,7 @@ import { LevelUpDialog } from "../components/LevelUpDialog";
 import CharacterDrawer from "../components/CharacterDrawer";
 import { subscribeCampaign } from "../lib/stream";
 import { RichMessageText } from "../lib/chat-tooltips";
+import { setSpellNamesPl, spellDisplayName, spellNamesPlEnabled } from "../lib/spell-lang";
 import { playDice, playMessage, setSoundEnabled, soundEnabled } from "../lib/sound";
 
 type RollEntry = {
@@ -172,6 +173,7 @@ export default function CampaignPage() {
   const [sending, setSending] = useState(false);
   const [dmMode, setDmMode] = useState<string>("preview");
   const [soundOn, setSoundOn] = useState(() => soundEnabled());
+  const [spellPl, setSpellPl] = useState(() => spellNamesPlEnabled());
   const [connState, setConnState] = useState<"connecting" | "live" | "offline">("connecting");
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -671,8 +673,42 @@ export default function CampaignPage() {
               {member && spellbook && spellbook.spells.length > 0 && (
                 <div className="mt-3 rounded-sm border border-[#c8b184]/70 bg-[#fbf3dd]/40 p-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
-                      Księga zaklęć
+                    <div className="flex items-center gap-1.5">
+                      <div className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                        Księga zaklęć
+                      </div>
+                      <TooltipProvider delayDuration={250}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex">
+                              <button
+                                type="button"
+                                aria-label="Polskie nazwy zaklęć"
+                                aria-pressed={spellPl}
+                                onClick={() => {
+                                  const next = !spellPl;
+                                  setSpellNamesPl(next);
+                                  setSpellPl(next);
+                                }}
+                                className={`h-7 min-w-7 shrink-0 rounded-sm border px-1.5 font-display text-[9px] uppercase tracking-[0.1em] transition-colors ${
+                                  spellPl
+                                    ? "border-[#a97e1f] bg-[#e8d3a0]/60 text-[#5c4018]"
+                                    : "border-[#c8b184] bg-[#fbf3dd]/60 text-[#7c6a45] hover:bg-[#e8d3a0]/40"
+                                }`}
+                              >
+                                PL/EN
+                              </button>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <span className="text-[11px] text-[#f6ead0]">
+                              {spellPl
+                                ? "Polskie nazwy zaklęć włączone"
+                                : "Pokaż polskie nazwy zaklęć"}
+                            </span>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                     {spellbook.slots.filter((s) => s.max > 0).length > 0 && (
                       <div className="flex flex-wrap gap-1">
@@ -730,8 +766,10 @@ export default function CampaignPage() {
                                       <button
                                         type="button"
                                         disabled={unavailable}
-                                        aria-label={`Rzucam zaklęcie ${spell}`}
-                                        onClick={() => setInput(`Rzucam ${spell} na `)}
+                                        aria-label={`Rzucam zaklęcie ${spellDisplayName(meta, spell)}`}
+                                        onClick={() =>
+                                          setInput(`Rzucam ${spellDisplayName(meta, spell)} na `)
+                                        }
                                         className={`group flex w-full items-center justify-between gap-2 rounded-sm border px-2.5 py-1.5 text-left transition-colors ${
                                           unavailable
                                             ? "cursor-not-allowed border-[#c8b184]/40 bg-[#fbf3dd]/20 opacity-50"
@@ -740,7 +778,7 @@ export default function CampaignPage() {
                                       >
                                         <span className="flex min-w-0 items-baseline gap-1.5">
                                           <span className="truncate font-display text-xs tracking-[0.06em] text-[#2e2113]">
-                                            {spell}
+                                            {spellDisplayName(meta, spell)}
                                           </span>
                                           {meta && (
                                             <span className="truncate text-[10px] text-[#7c6a45]">
@@ -773,7 +811,7 @@ export default function CampaignPage() {
                                       <div className="flex flex-col gap-1">
                                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                                           <span className="font-display text-xs tracking-[0.08em] text-[#e8c56a]">
-                                            {meta.name}
+                                            {spellDisplayName(meta, meta.name)}
                                           </span>
                                           <span className="text-[9px] uppercase tracking-[0.12em] text-[#c9b183]">
                                             {meta.school}
@@ -849,15 +887,22 @@ export default function CampaignPage() {
                   </TooltipProvider>
                 </div>
               )}
-              <form onSubmit={onSend} className="mt-3 flex gap-2">
+              <form
+                onSubmit={onSend}
+                className="mt-3 flex flex-wrap items-end gap-2 pb-[env(safe-area-inset-bottom)]"
+              >
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={`${member ? "Twoja tura, awanturniku" : "Najpierw dołącz postacią"}…`}
-                  className="min-h-[60px] flex-1"
+                  className="min-h-[60px] min-w-0 flex-1"
                   disabled={!member || sending}
                 />
-                <Button type="submit" disabled={!member || sending} className="self-end">
+                <Button
+                  type="submit"
+                  disabled={!member || sending}
+                  className="h-10 shrink-0"
+                >
                   <Send className="size-4" />
                   Wyślij
                 </Button>
@@ -872,7 +917,7 @@ export default function CampaignPage() {
                 <CardTitle className="text-base">Dołącz do kampanii</CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={onJoin} className="flex gap-2">
+                <form onSubmit={onJoin} className="flex flex-wrap items-center gap-2">
                   <Select value={joinCharacterId} onChange={(e) => setJoinCharacterId(e.target.value)}>
                     <option value="">Wybierz postać…</option>
                     {myCharacters.map((c) => (
@@ -881,7 +926,12 @@ export default function CampaignPage() {
                       </option>
                     ))}
                   </Select>
-                  <Button type="submit" disabled={!joinCharacterId} aria-label="Dołącz do kampanii">
+                  <Button
+                    type="submit"
+                    disabled={!joinCharacterId}
+                    aria-label="Dołącz do kampanii"
+                    className="shrink-0"
+                  >
                     Dołącz
                   </Button>
                 </form>

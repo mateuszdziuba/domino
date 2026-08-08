@@ -62,9 +62,9 @@ export const combatRoutes = new Hono();
 
 combatRoutes.post("/start", requireAuth, async (c) => {
   const campaignId = c.req.param("id")!;
-  if (!requireCampaign(c, campaignId)) return c.json({ error: "Campaign not found" }, 404);
+  if (!requireCampaign(c, campaignId)) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   const parsed = startSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "Invalid encounter", details: parsed.error.flatten() }, 400);
+  if (!parsed.success) return c.json({ error: "Nieprawidłowe spotkanie.", details: parsed.error.flatten() }, 400);
 
   let state = loadState(campaignId);
   const members = getCampaignMembers(campaignId);
@@ -93,7 +93,7 @@ combatRoutes.post("/start", requireAuth, async (c) => {
   }));
 
   if (combatants.length === 0 && enemies.length === 0) {
-    return c.json({ error: "No combatants: the campaign has no characters in it" }, 400);
+    return c.json({ error: "Brak kombatantów: w kampanii nie ma postaci." }, 400);
   }
 
   state = startCombat(state, [...combatants, ...enemies]);
@@ -111,19 +111,19 @@ combatRoutes.post("/start", requireAuth, async (c) => {
  */
 combatRoutes.post("/generate", requireAuth, async (c) => {
   const campaignId = c.req.param("id")!;
-  if (!requireCampaign(c, campaignId)) return c.json({ error: "Campaign not found" }, 404);
+  if (!requireCampaign(c, campaignId)) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   const parsed = generateSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "Invalid description" }, 400);
+  if (!parsed.success) return c.json({ error: "Nieprawidłowy opis." }, 400);
 
   const state0 = loadState(campaignId);
-  if (state0.combat.active) return c.json({ error: "Combat already in progress" }, 400);
+  if (state0.combat.active) return c.json({ error: "Walka już trwa." }, 400);
 
   const members = getCampaignMembers(campaignId);
   const party = members
     .map((m) => getCharacterById(m.characterId))
     .filter((ch): ch is Character => Boolean(ch));
   if (party.length === 0) {
-    return c.json({ error: "No characters in this campaign yet" }, 400);
+    return c.json({ error: "W tej kampanii nie ma jeszcze postaci." }, 400);
   }
 
   const description = parsed.data.description?.trim() || "a random encounter";
@@ -156,9 +156,9 @@ combatRoutes.post("/generate", requireAuth, async (c) => {
 
 combatRoutes.post("/advance", requireAuth, async (c) => {
   const campaignId = c.req.param("id")!;
-  if (!requireCampaign(c, campaignId)) return c.json({ error: "Campaign not found" }, 404);
+  if (!requireCampaign(c, campaignId)) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   let state = loadState(campaignId);
-  if (!state.combat.active) return c.json({ error: "No combat in progress" }, 400);
+  if (!state.combat.active) return c.json({ error: "Brak walki w toku." }, 400);
   const before = new Map(
     state.combat.combatants.map((c) => [c.id, c.currentHp]),
   );
@@ -180,9 +180,9 @@ combatRoutes.post("/advance", requireAuth, async (c) => {
 
 combatRoutes.post("/end", requireAuth, async (c) => {
   const campaignId = c.req.param("id")!;
-  if (!requireCampaign(c, campaignId)) return c.json({ error: "Campaign not found" }, 404);
+  if (!requireCampaign(c, campaignId)) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   let state = loadState(campaignId);
-  if (!state.combat.active) return c.json({ error: "No combat in progress" }, 400);
+  if (!state.combat.active) return c.json({ error: "Brak walki w toku." }, 400);
   const xpTotal = xpAwardForDeadEnemies(state.combat.combatants);
   for (const combatant of state.combat.combatants) {
     if (combatant.characterId) {
@@ -223,20 +223,20 @@ combatRoutes.post("/end", requireAuth, async (c) => {
 
 combatRoutes.post("/attack", requireAuth, async (c) => {
   const campaignId = c.req.param("id")!;
-  if (!requireCampaign(c, campaignId)) return c.json({ error: "Campaign not found" }, 404);
+  if (!requireCampaign(c, campaignId)) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   const parsed = attackSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "Invalid attack", details: parsed.error.flatten() }, 400);
+  if (!parsed.success) return c.json({ error: "Nieprawidłowy atak.", details: parsed.error.flatten() }, 400);
 
   const state = loadState(campaignId);
-  if (!state.combat.active) return c.json({ error: "No combat in progress" }, 400);
+  if (!state.combat.active) return c.json({ error: "Brak walki w toku." }, 400);
 
   const attacker = findCombatant(state, parsed.data.attackerId);
   const target = findCombatant(state, parsed.data.targetId);
-  if (!attacker || !target) return c.json({ error: "Combatant not found" }, 404);
+  if (!attacker || !target) return c.json({ error: "Nie znaleziono kombatanta." }, 404);
 
   const current = currentTurnCombatant(state);
   if (!current || current.id !== attacker.id) {
-    return c.json({ error: "Not this combatant's turn" }, 400);
+    return c.json({ error: "To nie tura tego kombatanta." }, 400);
   }
 
   let attackBonus = parsed.data.attackBonus;
@@ -286,14 +286,14 @@ combatRoutes.post("/attack", requireAuth, async (c) => {
 
 combatRoutes.post("/death-save", requireAuth, async (c) => {
   const campaignId = c.req.param("id")!;
-  if (!requireCampaign(c, campaignId)) return c.json({ error: "Campaign not found" }, 404);
+  if (!requireCampaign(c, campaignId)) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   const parsed = deathSaveSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "Combatant id required" }, 400);
+  if (!parsed.success) return c.json({ error: "Wymagane jest ID kombatanta." }, 400);
 
   const state = loadState(campaignId);
   const outcome = performDeathSave(state, parsed.data.combatantId);
   if (!outcome.ok) {
-    const status = outcome.error === "Combatant not found" ? 404 : 400;
+    const status = outcome.error === "Nie znaleziono kombatanta." ? 404 : 400;
     return c.json({ error: outcome.error }, status);
   }
 

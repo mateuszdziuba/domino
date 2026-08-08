@@ -108,6 +108,7 @@ export type Combatant = {
   traits?: string[];
   attacksPerTurn?: number;
   attacksLeft?: number;
+  reactionAvailable?: boolean;
   status?: CombatantStatus;
   conditions?: string[];
   deathSaveSuccesses?: number;

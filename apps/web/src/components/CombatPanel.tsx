@@ -134,11 +134,11 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                       : "border-[#c8b184] bg-[#fbf3dd]/50"
                   }`}
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="w-6 font-display text-[10px] tracking-wide text-[#7c6a45]">
+                  <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                    <span className="w-6 shrink-0 font-display text-[10px] tracking-wide text-[#7c6a45]">
                       {c.initiative}
                     </span>
-                    <span className={cn("font-display text-sm tracking-[0.04em]", c.characterId ? "text-[#2e2113]" : "text-[#5c4018]")}>
+                    <span className={cn("min-w-0 truncate font-display text-sm tracking-[0.04em]", c.characterId ? "text-[#2e2113]" : "text-[#5c4018]")}>
                       {c.name}
                     </span>
                     {c.characterId && <Badge variant="secondary">PC</Badge>}
@@ -181,7 +181,7 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                       </Tooltip>
                     )}
                   </span>
-                  <span className="flex items-center gap-2">
+                  <span className="flex shrink-0 items-center gap-2">
                     {c.isPlayer ? (
                       <>
                         <span className="h-1.5 w-14 overflow-hidden rounded-full bg-[#dcc89a]">
@@ -206,7 +206,11 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Select value={targetId} onChange={(e) => setTargetId(e.target.value)} className="max-w-40">
+              <Select
+                value={targetId}
+                onChange={(e) => setTargetId(e.target.value)}
+                className="w-full max-w-full sm:max-w-40"
+              >
                 <option value="">Cel…</option>
                 {combat.combatants
                   .filter((c) => !c.characterId)
@@ -219,11 +223,12 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
               <Input
                 value={damageNotation}
                 onChange={(e) => setDamageNotation(e.target.value)}
-                className="w-24"
+                className="w-full sm:w-24"
                 title="Notacja obrażeń (domyślnie z broni postaci)"
               />
               <Button
                 size="sm"
+                className="h-10"
                 onClick={() => myCombatant && void onAttack(myCombatant)}
                 disabled={!myCombatant || !targetId}
               >

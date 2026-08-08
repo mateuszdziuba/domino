@@ -7,6 +7,7 @@ export type DmToolName =
   | "request_dice_roll"
   | "resolve_action"
   | "attack_combatant"
+  | "opportunity_attack"
   | "cast_spell"
   | "resolve_death_save"
   | "advance_turn"
@@ -74,6 +75,18 @@ export const DM_TOOLS: DmTool[] = [
       advantage: { type: "boolean" },
       disadvantage: { type: "boolean" },
       useInspiration: { type: "boolean" },
+    },
+  },
+  {
+    name: "opportunity_attack",
+    description:
+      "Resolve an opportunity attack (reaction) when a hostile leaves a combatant's reach. Uses the attacker's reaction for the round.",
+    parameters: {
+      attackerId: { type: "string" },
+      targetId: { type: "string" },
+      damageNotation: { type: "string" },
+      attackBonus: { type: "number" },
+      damageBonus: { type: "number" },
     },
   },
   {

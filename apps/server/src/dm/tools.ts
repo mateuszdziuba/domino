@@ -35,6 +35,7 @@ import {
   combatantByCharacter,
   performAttack,
   applyHitToTarget,
+  resolveAttack,
   performDeathSave,
   characterAttackInput,
   extraAttacksForClass,
@@ -42,7 +43,7 @@ import {
 import { abilityModifier, proficiencyBonus } from "../rules/abilities.js";
 import { buildCharacterFeatures } from "../rules/features.js";
 import {
-  SPELLS,
+  findSpellByName,
   spellSlotsForLevel,
   resolveSpellCast,
   applySpellRider,
@@ -487,6 +488,101 @@ export async function runDmTool(
         data: outcome.result,
       };
     }
+    case "opportunity_attack": {
+      const parsed = z
+        .object({
+          attackerId: z.string().min(1),
+          targetId: z.string().min(1),
+          damageNotation: z.string().optional(),
+          attackBonus: z.number().optional(),
+          damageBonus: z.number().optional(),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) return { ok: false, message: "Wymagane są attackerId i targetId." };
+      const state = loadState(campaignId);
+      if (!state.combat.active) return { ok: false, message: "Brak walki w toku." };
+      const attacker = findCombatant(state, parsed.data.attackerId);
+      const target = findCombatant(state, parsed.data.targetId);
+      if (!attacker || !target) return { ok: false, message: "Nie znaleziono kombatanta." };
+      if (attacker.id === target.id) {
+        return { ok: false, message: "Nie można zaatakować samego siebie." };
+      }
+      const current = currentTurnCombatant(state);
+      if (current && current.id === attacker.id) {
+        return { ok: false, message: "To twoja tura — użyj attack_combatant." };
+      }
+      if (attacker.reactionAvailable === false) {
+        return {
+          ok: false,
+          message: "Ten kombatant wykorzystał już swoją reakcję w tej rundzie.",
+        };
+      }
+      if (attacker.currentHp === 0 || !canAct(attacker)) {
+        return { ok: false, message: "Atakujący jest obezwładniony i nie może działać." };
+      }
+      if (target.status === "dead") return { ok: false, message: "Cel jest martwy." };
+      let { attackBonus, damageNotation, damageBonus } = parsed.data;
+      if (attacker.characterId) {
+        const character = getCharacterById(attacker.characterId);
+        if (character) {
+          const defaults =
+            equippedWeaponAttackInput(character) ??
+            characterAttackInput(attacker, character);
+          attackBonus ??= defaults.attackBonus;
+          damageNotation ??= defaults.damageNotation;
+          damageBonus ??= defaults.damageBonus;
+        }
+      }
+      const mods = attackRollAdvantages(attacker, target);
+      const result = resolveAttack(target, {
+        attackBonus: attackBonus ?? 0,
+        damageNotation: damageNotation ?? "1d6",
+        damageBonus: damageBonus ?? 0,
+        advantage: mods.advantage,
+        disadvantage: mods.disadvantage,
+      });
+      let newTarget: Combatant;
+      if (result.hit) {
+        newTarget = applyHitToTarget(target, result.damageTotal, result.critical);
+        if ((target.conditions ?? []).includes(GUIDING_BOLT_MARKER)) {
+          newTarget = {
+            ...newTarget,
+            conditions: (target.conditions ?? []).filter((c) => c !== GUIDING_BOLT_MARKER),
+          };
+        }
+        result.targetStatus = newTarget.status;
+        result.targetCurrentHp = newTarget.currentHp;
+      } else {
+        newTarget = { ...target, currentHp: result.targetCurrentHp, status: result.targetStatus };
+      }
+      const combatants = state.combat.combatants.map((c) => {
+        if (c.id === attacker.id) return { ...c, reactionAvailable: false };
+        if (c.id === target.id) return newTarget;
+        return c;
+      });
+      saveState(campaignId, {
+        ...state,
+        combat: { ...state.combat, combatants },
+        updatedAt: new Date().toISOString(),
+      });
+      if (target.characterId) {
+        updateCharacterHp(target.characterId, result.targetCurrentHp);
+      }
+      pushEvent(campaignId, "action.resolved", {
+        type: "opportunity-attack",
+        attacker: attacker.name,
+        target: target.name,
+        ...result,
+      });
+      const reactionMessage = result.hit
+        ? `${attacker.name} wykonuje atak okazyjny na ${target.name} — trafienie za ${result.damageTotal} obrażeń (atak ${result.attackTotal} vs AC ${target.armorClass}).${result.critical ? " Krytyk!" : ""}`
+        : `${attacker.name} wykonuje atak okazyjny na ${target.name} — chybienie (atak ${result.attackTotal} vs AC ${target.armorClass}).`;
+      return {
+        ok: true,
+        message: `${reactionMessage}${result.fumble ? " — pudło!" : ""}`,
+        data: result,
+      };
+    }
     case "cast_spell": {
       const parsed = z
         .object({
@@ -503,7 +599,7 @@ export async function runDmTool(
       }
       const character = getCharacterById(parsed.data.characterId);
       if (!character) return { ok: false, message: "Nie znaleziono postaci." };
-      const def = SPELLS[parsed.data.spellName];
+      const def = findSpellByName(parsed.data.spellName);
       if (!def) {
         return {
           ok: false,
@@ -516,7 +612,7 @@ export async function runDmTool(
           message: `Definicja zaklęcia używa nieznanego stanu "${def.effect.condition}".`,
         };
       }
-      if (!character.spells?.includes(parsed.data.spellName)) {
+      if (!character.spells?.includes(def.name)) {
         return { ok: false, message: "Postać nie zna tego zaklęcia." };
       }
       if (character.currentHp === 0) {

@@ -17,10 +17,20 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select } from "../components/ui/select";
 import { cn } from "../lib/utils";
+import { SKILL_ALIASES } from "../lib/chat-tooltips";
 
 const RACES = ["Dwarf", "Elf", "Halfling", "Human", "Dragonborn", "Gnome", "Half-Elf", "Half-Orc", "Tiefling"];
 const CLASSES = ["Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk", "Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard"];
 const ABILITIES = ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"] as const;
+
+const ABILITY_LABELS_PL: Record<string, string> = {
+  strength: "Siła",
+  dexterity: "Zręczność",
+  constitution: "Kondycja",
+  intelligence: "Inteligencja",
+  wisdom: "Mądrość",
+  charisma: "Charyzma",
+};
 
 export default function CharactersPage() {
   const [characters, setCharacters] = useState<CharacterSummary[]>([]);
@@ -85,7 +95,7 @@ export default function CharactersPage() {
       setArmorClass(12);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create character");
+      setError(err instanceof Error ? err.message : "Nie udało się utworzyć postaci");
     }
   }
 
@@ -94,33 +104,35 @@ export default function CharactersPage() {
       await characterApi.remove(id);
       load();
     } catch {
-      setError("Failed to delete character");
+      setError("Nie udało się usunąć postaci");
     }
   }
 
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="mb-1 text-2xl tracking-[0.12em] text-[#3a2c17]">
-        <span className="mr-2 text-[#a97e1f]">✦</span>Characters
+        <span className="mr-2 text-[#a97e1f]">✦</span>Postacie
       </h1>
       <p className="mb-6 text-sm italic text-[#7c6a45]">
-        Heroes in the making, bound for glory or ruin.
+        Bohaterowie w budowie — skazani na chwałę lub zgubę.
       </p>
 
       <Card className="mb-6 border-[#b99f6b]">
         <CardHeader className="pb-3">
-          <CardTitle>New character</CardTitle>
-          <CardDescription>Create a level 1 adventurer. Ability scores are SRD 5.2.1 standard.</CardDescription>
+          <CardTitle>Nowa postać</CardTitle>
+          <CardDescription>
+            Stwórz awanturnika 1. poziomu. Wartości cech to standard SRD 5.2.1.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onCreate} className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="char-name">Name</Label>
+                <Label htmlFor="char-name">Imię</Label>
                 <Input id="char-name" value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="char-class">Class</Label>
+                <Label htmlFor="char-class">Klasa</Label>
                 <Select id="char-class" value={className} onChange={(e) => { setClassName(e.target.value); setSubclass(""); }}>
                   {CLASSES.map((c) => (
                     <option key={c} value={c}>{c}</option>
@@ -142,7 +154,7 @@ export default function CharactersPage() {
                 </div>
               )}
               <div className="flex flex-col gap-2">
-                <Label htmlFor="char-race">Race</Label>
+                <Label htmlFor="char-race">Rasa</Label>
                 <Select id="char-race" value={race} onChange={(e) => setRace(e.target.value)}>
                   {RACES.map((r) => (
                     <option key={r} value={r}>{r}</option>
@@ -151,7 +163,7 @@ export default function CharactersPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="char-hp">Max HP</Label>
+                  <Label htmlFor="char-hp">Maks. HP</Label>
                   <Input id="char-hp" type="number" min={1} value={maxHp} onChange={(e) => setMaxHp(Number(e.target.value))} required />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -162,11 +174,11 @@ export default function CharactersPage() {
             </div>
 
             <div>
-              <Label className="mb-2 block">Ability scores</Label>
+              <Label className="mb-2 block">Wartości cech</Label>
               <div className="grid grid-cols-6 gap-3">
                 {ABILITIES.map((ability) => (
                   <div key={ability} className="flex flex-col items-center gap-1">
-                    <Label className="text-xs capitalize text-muted-foreground">{ability}</Label>
+                    <Label className="text-xs text-muted-foreground">{ABILITY_LABELS_PL[ability]}</Label>
                     <Input
                       type="number"
                       min={1}
@@ -182,7 +194,7 @@ export default function CharactersPage() {
 
             <div>
               <Label className="mb-1 block">
-                Skill proficiencies{" "}
+                Biegłości umiejętności{" "}
                 <span className={cn("text-xs", selectedCount >= skillLimit ? "text-destructive" : "text-muted-foreground")}>
                   ({selectedCount}/{skillLimit} — {className})
                 </span>
@@ -204,9 +216,11 @@ export default function CharactersPage() {
                       )}
                     >
                       <span className="font-display text-[10px] uppercase tracking-[0.08em]">
-                        {skill.label}
+                        {SKILL_ALIASES[skill.key]?.[1] ?? skill.label}
                       </span>
-                      <span className="block text-[10px] italic opacity-70">{skill.ability}</span>
+                      <span className="block text-[10px] italic opacity-70">
+                        {ABILITY_LABELS_PL[skill.ability]}
+                      </span>
                     </button>
                   );
                 })}
@@ -215,7 +229,7 @@ export default function CharactersPage() {
 
             {error && <p className="text-sm text-[#8f1d1d]">{error}</p>}
             <Button type="submit" className="self-start">
-              Create character
+              Stwórz postać
             </Button>
           </form>
         </CardContent>
@@ -223,7 +237,7 @@ export default function CharactersPage() {
 
       <div className="flex flex-col gap-3">
         {characters.length === 0 && (
-          <p className="text-sm text-muted-foreground">No characters yet.</p>
+          <p className="text-sm text-muted-foreground">Nie masz jeszcze postaci.</p>
         )}
         {characters.map((character) => (
           <Card key={character.id}>
@@ -231,20 +245,20 @@ export default function CharactersPage() {
               <div className="flex items-center gap-3">
                 <CardTitle>{character.name}</CardTitle>
                 <Badge variant="secondary">
-                  {character.race} {character.className} · level {character.level}
+                  {character.race} {character.className} · poziom {character.level}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-1">
                 {Object.keys(character.skills ?? {}).length === 0 && (
-                  <span className="text-xs text-muted-foreground">No skill proficiencies</span>
+                  <span className="text-xs text-muted-foreground">Brak biegłości</span>
                 )}
                 {Object.entries(character.skills ?? {}).map(([key, enabled]) => {
                   const info = SKILLS.find((s) => s.key === key);
                   return enabled && info ? (
                     <Badge key={key} variant="outline">
-                      {info.label}
+                      {SKILL_ALIASES[key]?.[1] ?? info.label}
                     </Badge>
                   ) : null;
                 })}
@@ -258,12 +272,12 @@ export default function CharactersPage() {
                 <Button asChild variant="outline" size="sm">
                   <Link to="/app/characters/$id" params={{ id: character.id }}>
                     <Eye className="size-4" />
-                    View
+                    Otwórz
                   </Link>
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => void onDelete(character.id)}>
                   <Trash2 className="size-4" />
-                  Delete
+                  Usuń
                 </Button>
               </div>
             </CardFooter>

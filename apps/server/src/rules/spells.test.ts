@@ -7,6 +7,8 @@ import {
   spellSlotsForLevel,
   summarizeSpells,
   applySpellRider,
+  findSpellByName,
+  findSpellInText,
   type SpellCasterStats,
 } from "./spells.js";
 
@@ -911,6 +913,47 @@ describe("resolveSpellCast — full-HP revive (Resurrection)", () => {
     );
     expect(result.revived).toBe(true);
     expect(result.targetCurrentHp).toBe(1);
+  });
+});
+
+describe("Polish spell names", () => {
+  it("gives every spell a non-empty Polish name", () => {
+    for (const [name, def] of Object.entries(SPELLS)) {
+      expect(def.namePl, name).toBeTruthy();
+      expect(def.namePl.trim().length, name).toBeGreaterThan(0);
+    }
+  });
+
+  it("resolves canonical English names case-insensitively (with trimming)", () => {
+    expect(findSpellByName("healing word")?.name).toBe("Healing Word");
+    expect(findSpellByName("  Cure Wounds  ")?.name).toBe("Cure Wounds");
+  });
+
+  it("resolves Polish spell names to their canonical defs", () => {
+    expect(findSpellByName("Uzdrawiające słowo")?.name).toBe("Healing Word");
+    expect(findSpellByName("Przytrzymanie osoby")?.name).toBe("Hold Person");
+    expect(findSpellByName("Święty płomień")?.name).toBe("Sacred Flame");
+    expect(findSpellByName("Ochrona przed śmiercią")?.name).toBe("Spare the Dying");
+  });
+
+  it("returns undefined for unknown or empty names", () => {
+    expect(findSpellByName("Fireball")).toBeUndefined();
+    expect(findSpellByName("")).toBeUndefined();
+    expect(findSpellByName("   ")).toBeUndefined();
+  });
+
+  it("findSpellInText matches English or Polish names inside text", () => {
+    expect(findSpellInText("rzucam Uzdrawiające słowo na goblina")?.name).toBe("Healing Word");
+    expect(findSpellInText("cast healing word on the goblin")?.name).toBe("Healing Word");
+    expect(findSpellInText("no spell here")?.name).toBeUndefined();
+  });
+
+  it("summarizeSpells carries the Polish name on every entry", () => {
+    const healingWord = summarizeSpells().find((m) => m.name === "Healing Word");
+    expect(healingWord?.namePl).toBe("Uzdrawiające słowo");
+    for (const meta of summarizeSpells()) {
+      expect(meta.namePl).toBeTruthy();
+    }
   });
 });
 

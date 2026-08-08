@@ -180,7 +180,7 @@ describe("runDmTool combat tools (real store)", () => {
       targetId: "enemy-1",
     });
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("turn");
+    expect(result.message).toContain("To nie tura tego kombatanta.");
   });
 
   it("end_combat deactivates combat and writes HP back to the character sheet", async () => {

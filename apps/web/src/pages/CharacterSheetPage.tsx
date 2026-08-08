@@ -30,7 +30,8 @@ import {
 } from "../components/ui/tooltip";
 import { SubclassPicker } from "../components/SubclassPicker";
 import { LevelUpDialog } from "../components/LevelUpDialog";
-import { SKILL_DESCRIPTIONS } from "../lib/chat-tooltips";
+import { SKILL_ALIASES, SKILL_DESCRIPTIONS } from "../lib/chat-tooltips";
+import { spellDisplayName } from "../lib/spell-lang";
 
 const ASI_LEVELS = [4, 8, 12, 16, 19];
 
@@ -445,7 +446,7 @@ export default function CharacterSheetPage() {
             </TooltipProvider>
           </div>
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap justify-end gap-2">
           <Badge variant="secondary">HP {character.currentHp}/{character.maxHp}</Badge>
           <Badge variant="outline">AC {character.armorClass}</Badge>
           <Badge variant="outline">Szybkość {character.speed}</Badge>
@@ -524,13 +525,13 @@ export default function CharacterSheetPage() {
                           skill.proficient && "bg-[#e8d3a0]/50",
                         )}
                       >
-                        <span className="flex items-center gap-2">
-                          <span className={cn("w-3 text-center text-[10px]", skill.proficient ? "text-[#a97e1f]" : "text-transparent")}>
-                            ✦
+                          <span className="flex items-center gap-2">
+                            <span className={cn("w-3 text-center text-[10px]", skill.proficient ? "text-[#a97e1f]" : "text-transparent")}>
+                              ✦
+                            </span>
+                            {SKILL_ALIASES[skill.key]?.[1] ?? skill.label}
+                            <span className="text-xs text-[#7c6a45]">{ABILITY_LABELS[skill.ability]}</span>
                           </span>
-                          {skill.label}
-                          <span className="text-xs text-[#7c6a45]">{ABILITY_LABELS[skill.ability]}</span>
-                        </span>
                         <span className={cn("font-display", skill.proficient ? "text-[#2e2113]" : "text-[#7c6a45]")}>
                           {skill.mod >= 0 ? "+" : ""}
                           {skill.mod}
@@ -644,7 +645,7 @@ export default function CharacterSheetPage() {
                                 />
                                 <span>
                                   <span className="block font-display text-sm text-[#2e2113]">
-                                    {meta.name}
+                                    {spellDisplayName(meta, meta.name)}
                                   </span>
                                   <span className="block text-sm text-[#7c6a45]">
                                     {spellEffectSummary(meta)}
@@ -928,12 +929,12 @@ export default function CharacterSheetPage() {
                   <div className="mb-1.5 font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
                     Dodaj z katalogu SRD
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Select
                       value={pendingGear}
                       disabled={saving || (equipment?.gear ?? []).length === 0}
                       onChange={(e) => setPendingGear(e.target.value)}
-                      className="h-8"
+                      className="h-8 min-w-0 flex-1 sm:flex-none"
                     >
                       <option value="">— wybierz przedmiot —</option>
                       {gearGroups.map((group) => (

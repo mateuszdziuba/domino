@@ -73,6 +73,7 @@ export type SpellEffect =
 
 export type SpellDef = {
   name: string;
+  namePl: string;
   level: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
   school: string;
   components: string;
@@ -83,6 +84,7 @@ export type SpellDef = {
 export const SPELLS: Record<string, SpellDef> = {
   "Sacred Flame": {
     name: "Sacred Flame",
+    namePl: "Święty płomień",
     level: 0,
     school: "Evocation",
     components: "V, S",
@@ -101,6 +103,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Spare the Dying": {
     name: "Spare the Dying",
+    namePl: "Ochrona przed śmiercią",
     level: 0,
     school: "Necromancy",
     components: "V, S",
@@ -115,6 +118,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Cure Wounds": {
     name: "Cure Wounds",
+    namePl: "Leczenie ran",
     level: 1,
     school: "Evocation",
     components: "V, S",
@@ -131,6 +135,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Healing Word": {
     name: "Healing Word",
+    namePl: "Uzdrawiające słowo",
     level: 1,
     school: "Evocation",
     components: "V",
@@ -147,6 +152,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Guiding Bolt": {
     name: "Guiding Bolt",
+    namePl: "Prowadzący promień",
     level: 1,
     school: "Evocation",
     components: "V, S",
@@ -165,6 +171,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Inflict Wounds": {
     name: "Inflict Wounds",
+    namePl: "Zadawanie ran",
     level: 1,
     school: "Necromancy",
     components: "V, S",
@@ -182,6 +189,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Spiritual Weapon": {
     name: "Spiritual Weapon",
+    namePl: "Duchowa broń",
     level: 2,
     school: "Evocation",
     components: "V, S",
@@ -199,6 +207,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Prayer of Healing": {
     name: "Prayer of Healing",
+    namePl: "Modlitwa uzdrawiająca",
     level: 2,
     school: "Evocation",
     components: "V",
@@ -216,6 +225,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Lesser Restoration": {
     name: "Lesser Restoration",
+    namePl: "Mniejsze przywrócenie",
     level: 2,
     school: "Abjuration",
     components: "V, S",
@@ -230,6 +240,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Hold Person": {
     name: "Hold Person",
+    namePl: "Przytrzymanie osoby",
     level: 2,
     school: "Enchantment",
     components: "V, S, M",
@@ -247,6 +258,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Blindness/Deafness": {
     name: "Blindness/Deafness",
+    namePl: "Ślepota/Głuchota",
     level: 2,
     school: "Necromancy",
     components: "V",
@@ -264,6 +276,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Revivify": {
     name: "Revivify",
+    namePl: "Wskrzeszenie",
     level: 3,
     school: "Necromancy",
     components: "V, S, M",
@@ -278,6 +291,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Spirit Guardians": {
     name: "Spirit Guardians",
+    namePl: "Duchy opiekuńcze",
     level: 3,
     school: "Conjuration",
     components: "V, S, M",
@@ -297,6 +311,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Guardian of Faith": {
     name: "Guardian of Faith",
+    namePl: "Strażnik wiary",
     level: 4,
     school: "Conjuration",
     components: "V",
@@ -315,6 +330,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Banishment": {
     name: "Banishment",
+    namePl: "Wygnanie",
     level: 4,
     school: "Abjuration",
     components: "V, S, M",
@@ -332,6 +348,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Greater Restoration": {
     name: "Greater Restoration",
+    namePl: "Większe przywrócenie",
     level: 5,
     school: "Abjuration",
     components: "V, S, M",
@@ -346,6 +363,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Heal": {
     name: "Heal",
+    namePl: "Uzdrowienie",
     level: 6,
     school: "Evocation",
     components: "V, S",
@@ -363,6 +381,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Blade Barrier": {
     name: "Blade Barrier",
+    namePl: "Bariera ostrzy",
     level: 6,
     school: "Evocation",
     components: "V, S",
@@ -382,6 +401,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Resurrection": {
     name: "Resurrection",
+    namePl: "Zmartwychwstanie",
     level: 7,
     school: "Necromancy",
     components: "V, S, M",
@@ -397,6 +417,7 @@ export const SPELLS: Record<string, SpellDef> = {
   },
   "Mass Heal": {
     name: "Mass Heal",
+    namePl: "Masowe uzdrowienie",
     level: 9,
     school: "Evocation",
     components: "V, S",
@@ -416,6 +437,7 @@ export const SPELLS: Record<string, SpellDef> = {
 
 export type SpellMeta = {
   name: string;
+  namePl: string;
   level: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
   school: string;
   components: string;
@@ -446,6 +468,7 @@ export function summarizeSpells(): SpellMeta[] {
   return Object.values(SPELLS)
     .map((spell) => ({
       name: spell.name,
+      namePl: spell.namePl,
       level: spell.level,
       school: spell.school,
       components: spell.components,
@@ -456,6 +479,27 @@ export function summarizeSpells(): SpellMeta[] {
       effect: spell.effect,
     }))
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+}
+
+export function findSpellByName(name: string): SpellDef | undefined {
+  const wanted = name.trim().toLowerCase();
+  if (!wanted) return undefined;
+  return Object.values(SPELLS).find(
+    (spell) =>
+      spell.name.toLowerCase() === wanted || spell.namePl.toLowerCase() === wanted,
+  );
+}
+
+export function findSpellInText(text: string): SpellDef | undefined {
+  const lower = text.toLowerCase();
+  const longestFirst = Object.values(SPELLS).sort(
+    (a, b) => b.name.length - a.name.length,
+  );
+  return longestFirst.find(
+    (spell) =>
+      lower.includes(spell.name.toLowerCase()) ||
+      lower.includes(spell.namePl.toLowerCase()),
+  );
 }
 
 // Cleric spell slots per caster level (SRD 5.2.1 full-caster table), columns are 1st-9th level spell slots.

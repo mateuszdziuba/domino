@@ -48,6 +48,7 @@ export const characterApi = {
 
 export type SpellMeta = {
   name: string;
+  namePl?: string;
   level: number;
   school: string;
   components: string;

@@ -67,7 +67,7 @@ characterRoutes.get("/:id", requireAuth, (c) => {
     .from(characters)
     .where(and(eq(characters.id, c.req.param("id")), eq(characters.userId, user.id)))
     .get();
-  if (!row) return c.json({ error: "Character not found" }, 404);
+  if (!row) return c.json({ error: "Nie znaleziono postaci." }, 404);
   return c.json({ character: rowToCharacter(row) });
 });
 
@@ -78,7 +78,7 @@ characterRoutes.get("/:id/sheet", requireAuth, (c) => {
     .from(characters)
     .where(and(eq(characters.id, c.req.param("id")), eq(characters.userId, user.id)))
     .get();
-  if (!row) return c.json({ error: "Character not found" }, 404);
+  if (!row) return c.json({ error: "Nie znaleziono postaci." }, 404);
   return c.json({ sheet: buildCharacterSheet(rowToCharacter(row)) });
 });
 
@@ -86,7 +86,7 @@ characterRoutes.post("/", requireAuth, async (c) => {
   const user = c.get("user");
   const parsed = characterSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
-    return c.json({ error: "Invalid character", details: parsed.error.flatten() }, 400);
+    return c.json({ error: "Nieprawidłowa postać.", details: parsed.error.flatten() }, 400);
   }
   const data = parsed.data;
   const now = isoNow();
@@ -127,11 +127,11 @@ characterRoutes.patch("/:id", requireAuth, async (c) => {
     .from(characters)
     .where(and(eq(characters.id, id), eq(characters.userId, user.id)))
     .get();
-  if (!existing) return c.json({ error: "Character not found" }, 404);
+  if (!existing) return c.json({ error: "Nie znaleziono postaci." }, 404);
 
   const parsed = characterSchema.partial().safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
-    return c.json({ error: "Invalid character", details: parsed.error.flatten() }, 400);
+    return c.json({ error: "Nieprawidłowa postać.", details: parsed.error.flatten() }, 400);
   }
   const data = parsed.data;
   const abilityScores = data.abilityScores
@@ -175,7 +175,7 @@ characterRoutes.delete("/:id", requireAuth, (c) => {
     .delete(characters)
     .where(and(eq(characters.id, id), eq(characters.userId, user.id)))
     .run();
-  if (result.changes === 0) return c.json({ error: "Character not found" }, 404);
+  if (result.changes === 0) return c.json({ error: "Nie znaleziono postaci." }, 404);
   return c.json({ ok: true });
 });
 

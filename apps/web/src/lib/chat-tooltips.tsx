@@ -2,6 +2,7 @@ import * as React from "react";
 import { SKILLS, type SkillInfo } from "@domino/shared";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import type { SpellMeta } from "./api-client";
+import { spellDisplayName } from "./spell-lang";
 
 export const SKILL_DESCRIPTIONS: Record<string, string> = {
   acrobatics:
@@ -169,7 +170,7 @@ export function RichMessageText({
                   <div className="flex flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <span className="font-display text-xs tracking-[0.08em] text-[#e8c56a]">
-                        {token.meta.name}
+                        {spellDisplayName(token.meta, token.meta.name)}
                       </span>
                       <span className="text-[9px] uppercase tracking-[0.12em] text-[#c9b183]">
                         {token.meta.school}
@@ -191,7 +192,7 @@ export function RichMessageText({
                   <div className="flex flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <span className="font-display text-xs tracking-[0.08em] text-[#e8c56a]">
-                        {token.meta.name}
+                        {spellDisplayName(token.meta, token.meta.name)}
                       </span>
                       <span className="text-[9px] uppercase tracking-[0.12em] text-[#c9b183]">
                         {token.meta.school}

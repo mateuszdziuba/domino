@@ -359,7 +359,7 @@ describe("runDmTool combat tools (mocked store)", () => {
       targetId: "enemy-1",
     });
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("turn");
+    expect(result.message).toContain("To nie tura tego kombatanta.");
   });
 
   it("attack_combatant rejects a missing target", async () => {
@@ -504,7 +504,7 @@ describe("runDmTool combat tools (mocked store)", () => {
   it("resolve_death_save rejects a healthy combatant", async () => {
     const result = await runTool("resolve_death_save", { combatantId: "char-ch1" });
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("downed");
+    expect(result.message).toContain("Kombatant nie jest powalony.");
   });
 
   it("end_combat deactivates combat and writes back HP", async () => {
@@ -725,6 +725,148 @@ describe("runDmTool attack_combatant weapon derivation (mocked store)", () => {
   });
 });
 
+describe("runDmTool opportunity_attack (mocked store)", () => {
+  it("resolves an off-turn reaction attack and consumes the attacker's reaction", async () => {
+    const state = stateWithCombat();
+    state.combat.turnIndex = 1;
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      reactionAvailable: true,
+    };
+    mock.states.set("c1", state);
+    const original = Math.random;
+    Math.random = () => 0.9; // d20 = 19, 1d8 = 8
+    const result = await runTool("opportunity_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("atak okazyjny");
+    const saved = mock.states.get("c1")!;
+    const aria = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(aria.reactionAvailable).toBe(false);
+    const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.currentHp).toBeLessThanOrEqual(7);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "opportunity-attack",
+        attacker: "Aria",
+        target: "Goblin",
+      }),
+    );
+  });
+
+  it("refuses an attacker that already used its reaction this round", async () => {
+    const state = stateWithCombat();
+    state.combat.turnIndex = 1;
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      reactionAvailable: false,
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("opportunity_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("reakcję");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("refuses the current combatant (a reaction is off-turn)", async () => {
+    const result = await runTool("opportunity_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("twoja tura");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("refuses an incapacitated off-turn attacker", async () => {
+    const state = stateWithCombat();
+    state.combat.turnIndex = 1;
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      conditions: ["paralyzed"],
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("opportunity_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("obezwładnion");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("refuses without active combat and with unknown combatants", async () => {
+    mock.states.set("c1", mock.defaultState());
+    const inactive = await runTool("opportunity_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(inactive.ok).toBe(false);
+    expect(inactive.message).toContain("Brak walki");
+    mock.states.set("c1", stateWithCombat());
+    const ghost = await runTool("opportunity_attack", {
+      attackerId: "ghost",
+      targetId: "enemy-1",
+    });
+    expect(ghost.ok).toBe(false);
+    expect(ghost.message).toContain("Nie znaleziono kombatanta");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("refuses a dead target", async () => {
+    const state = stateWithCombat();
+    state.combat.turnIndex = 1;
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      currentHp: 0,
+      status: "dead",
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("opportunity_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("martwy");
+  });
+
+  it("restores the attacker's reaction at the start of its next turn", async () => {
+    const state = stateWithCombat();
+    state.combat.turnIndex = 1;
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      reactionAvailable: true,
+    };
+    mock.states.set("c1", state);
+    const original = Math.random;
+    Math.random = () => 0.01; // miss keeps the goblin alive
+    const used = await runTool("opportunity_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(used.ok).toBe(true);
+    let saved = mock.states.get("c1")!;
+    expect(
+      saved.combat.combatants.find((c) => c.id === "char-ch1")!.reactionAvailable,
+    ).toBe(false);
+    const advance = await runTool("advance_turn");
+    Math.random = original;
+    expect(advance.ok).toBe(true);
+    saved = mock.states.get("c1")!;
+    expect(
+      saved.combat.combatants.find((c) => c.id === "char-ch1")!.reactionAvailable,
+    ).toBe(true);
+  });
+});
+
 describe("runDmTool cast_spell (mocked store)", () => {
   const baseSpells = ["Cure Wounds", "Guiding Bolt", "Sacred Flame", "Spare the Dying"];
 
@@ -821,6 +963,22 @@ describe("runDmTool cast_spell (mocked store)", () => {
         caster: "Elara",
         target: "Goblin",
       }),
+    );
+  });
+
+  it("casts a known spell given its Polish name (findSpellByName)", async () => {
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Healing Word"] }));
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Uzdrawiające słowo",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Healing Word");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "spell", spell: "Healing Word" }),
     );
   });
 

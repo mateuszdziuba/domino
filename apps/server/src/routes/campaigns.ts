@@ -96,7 +96,7 @@ campaignRoutes.get("/", requireAuth, (c) => {
 campaignRoutes.get("/:id", requireAuth, (c) => {
   const user = c.get("user");
   const campaign = getCampaignForUser(c.req.param("id"), user.id);
-  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   return c.json({
     campaign,
     state: loadState(campaign.id),
@@ -108,7 +108,7 @@ campaignRoutes.post("/", requireAuth, async (c) => {
   const user = c.get("user");
   const parsed = campaignSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
-    return c.json({ error: "Invalid campaign", details: parsed.error.flatten() }, 400);
+    return c.json({ error: "Nieprawidłowa kampania.", details: parsed.error.flatten() }, 400);
   }
   const id = newId();
   db.transaction((tx) => {
@@ -135,10 +135,10 @@ campaignRoutes.post("/:id/invite", requireAuth, (c) => {
     .from(campaigns)
     .where(eq(campaigns.id, c.req.param("id")))
     .get();
-  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   const isOwner = campaign.ownerId === user.id;
   const isMember = Boolean(getMember(campaign.id, user.id));
-  if (!isOwner && !isMember) return c.json({ error: "Campaign not found" }, 404);
+  if (!isOwner && !isMember) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   if (!isOwner) return c.json({ error: "Brak kodu zaproszenia — wygeneruj go jako właściciel." }, 404);
   let code = campaign.inviteCode;
   if (!code) {
@@ -162,7 +162,7 @@ campaignRoutes.get("/invite/:code", requireAuth, (c) => {
 campaignRoutes.post("/join", requireAuth, async (c) => {
   const user = c.get("user");
   const parsed = joinByInviteSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "Code and character id required" }, 400);
+  if (!parsed.success) return c.json({ error: "Wymagany jest kod zaproszenia i ID postaci." }, 400);
   const campaign = db
     .select()
     .from(campaigns)
@@ -174,7 +174,7 @@ campaignRoutes.post("/join", requireAuth, async (c) => {
     .from(characters)
     .where(and(eq(characters.id, parsed.data.characterId), eq(characters.userId, user.id)))
     .get();
-  if (!character) return c.json({ error: "Character not found" }, 404);
+  if (!character) return c.json({ error: "Nie znaleziono postaci." }, 404);
   const existing = getMember(campaign.id, user.id);
   if (existing) return c.json({ error: "Już jesteś członkiem tej kampanii." }, 409);
 
@@ -205,19 +205,19 @@ campaignRoutes.post("/:id/join", requireAuth, async (c) => {
     .from(campaigns)
     .where(eq(campaigns.id, c.req.param("id")))
     .get();
-  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   const isOwner = campaign.ownerId === user.id;
   const existing = getMember(campaign.id, user.id);
-  if (!isOwner && !existing) return c.json({ error: "Campaign not found" }, 404);
+  if (!isOwner && !existing) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   const parsed = joinSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "Character id required" }, 400);
+  if (!parsed.success) return c.json({ error: "Wymagane jest ID postaci." }, 400);
   const character = db
     .select()
     .from(characters)
     .where(and(eq(characters.id, parsed.data.characterId), eq(characters.userId, user.id)))
     .get();
-  if (!character) return c.json({ error: "Character not found" }, 404);
-  if (existing) return c.json({ error: "Already a member" }, 409);
+  if (!character) return c.json({ error: "Nie znaleziono postaci." }, 404);
+  if (existing) return c.json({ error: "Już jesteś członkiem tej kampanii." }, 409);
 
   db.transaction((tx) => {
     tx.insert(campaignMembers)
@@ -234,14 +234,14 @@ campaignRoutes.post("/:id/join", requireAuth, async (c) => {
 campaignRoutes.get("/:id/state", requireAuth, (c) => {
   const user = c.get("user");
   const campaign = getCampaignForUser(c.req.param("id"), user.id);
-  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   return c.json({ state: loadState(campaign.id) });
 });
 
 campaignRoutes.get("/:id/dm-suggestion", requireAuth, (c) => {
   const user = c.get("user");
   const campaign = getCampaignForUser(c.req.param("id"), user.id);
-  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   const member = getMember(campaign.id, user.id);
   const state = loadState(campaign.id);
   let suggestion: DmSuggestion | null = null;
@@ -259,16 +259,16 @@ campaignRoutes.get("/:id/dm-suggestion", requireAuth, (c) => {
 campaignRoutes.get("/:id/messages", requireAuth, (c) => {
   const user = c.get("user");
   const campaign = getCampaignForUser(c.req.param("id"), user.id);
-  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   return c.json({ messages: getRecentMessages(campaign.id, 500) });
 });
 
 campaignRoutes.post("/:id/messages", requireAuth, async (c) => {
   const user = c.get("user");
   const campaign = getCampaignForUser(c.req.param("id"), user.id);
-  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   const parsed = chatSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) return c.json({ error: "Message too long or empty" }, 400);
+  if (!parsed.success) return c.json({ error: "Wiadomość jest pusta lub za długa." }, 400);
 
   const member = getMember(campaign.id, user.id);
 
@@ -316,7 +316,7 @@ campaignRoutes.post("/:id/messages", requireAuth, async (c) => {
 campaignRoutes.get("/:id/events", requireAuth, (c) => {
   const user = c.get("user");
   const campaign = getCampaignForUser(c.req.param("id"), user.id);
-  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   const rows = db
     .select()
     .from(gameEvents)
@@ -336,7 +336,7 @@ campaignRoutes.get("/:id/events", requireAuth, (c) => {
 campaignRoutes.get("/:id/stream", requireAuth, (c) => {
   const user = c.get("user");
   const campaign = getCampaignForUser(c.req.param("id"), user.id);
-  if (!campaign) return c.json({ error: "Campaign not found" }, 404);
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
   return streamSSE(c, async (stream) => {
     const unsub = subscribe(campaign.id, (event) => {
       try {

@@ -54,6 +54,7 @@ export function startCombat(
       traits: entry.traits ?? [],
       attacksPerTurn: entry.attacksPerTurn ?? 1,
       attacksLeft: entry.attacksPerTurn ?? 1,
+      reactionAvailable: true,
     };
   });
   combatants.sort((a, b) => {
@@ -111,6 +112,7 @@ export function nextTurn(state: CampaignState): CampaignState {
               currentHp:
                 regenerated > 0 ? c.currentHp + regenerated : c.currentHp,
               attacksLeft: c.attacksPerTurn ?? 1,
+              reactionAvailable: true,
             }
           : c,
       ),
@@ -331,18 +333,18 @@ export function performAttack(
   targetId: string,
   input: AttackInput,
 ): AttackOutcome {
-  if (!state.combat.active) return { ok: false, error: "No combat in progress" };
+  if (!state.combat.active) return { ok: false, error: "Brak walki w toku." };
   const attacker = findCombatant(state, attackerId);
   const target = findCombatant(state, targetId);
-  if (!attacker || !target) return { ok: false, error: "Combatant not found" };
-  if (attacker.id === target.id) return { ok: false, error: "Cannot attack yourself" };
+  if (!attacker || !target) return { ok: false, error: "Nie znaleziono kombatanta." };
+  if (attacker.id === target.id) return { ok: false, error: "Nie możesz zaatakować sam siebie." };
   if (attacker.currentHp === 0 || !canAct(attacker)) {
-    return { ok: false, error: "Attacker is incapacitated" };
+    return { ok: false, error: "Atakujący jest niezdolny do działania." };
   }
-  if (target.status === "dead") return { ok: false, error: "Target is dead" };
+  if (target.status === "dead") return { ok: false, error: "Cel jest martwy." };
   const current = currentTurnCombatant(state);
   if (!current || current.id !== attacker.id) {
-    return { ok: false, error: "Not this combatant's turn" };
+    return { ok: false, error: "To nie tura tego kombatanta." };
   }
   const mods = attackRollAdvantages(attacker, target);
   const packTacticsAdvantage =
@@ -431,18 +433,18 @@ export type DeathSaveOutcome =
   | { ok: false; error: string };
 
 export function performDeathSave(state: CampaignState, combatantId: string): DeathSaveOutcome {
-  if (!state.combat.active) return { ok: false, error: "No combat in progress" };
+  if (!state.combat.active) return { ok: false, error: "Brak walki w toku." };
   const combatant = findCombatant(state, combatantId);
-  if (!combatant) return { ok: false, error: "Combatant not found" };
+  if (!combatant) return { ok: false, error: "Nie znaleziono kombatanta." };
   if (
     combatant.currentHp > 0 ||
     combatant.status === "stable" ||
     combatant.status === "dead"
   ) {
-    return { ok: false, error: "Combatant is not downed" };
+    return { ok: false, error: "Kombatant nie jest powalony." };
   }
   const outcome = applyDeathSave(state.combat, combatantId);
-  if (!outcome) return { ok: false, error: "Combatant not found" };
+  if (!outcome) return { ok: false, error: "Nie znaleziono kombatanta." };
   const updated =
     outcome.result.roll === 20
       ? { ...outcome.combatant, currentHp: 1, status: "active" as const }

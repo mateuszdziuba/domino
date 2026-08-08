@@ -77,7 +77,7 @@ describe("performAttack", () => {
       damageNotation: "1d8",
       damageBonus: 5,
     });
-    expect(outcome).toEqual({ ok: false, error: "Not this combatant's turn" });
+    expect(outcome).toEqual({ ok: false, error: "To nie tura tego kombatanta." });
   });
 
   it("rejects a downed attacker", () => {
@@ -92,7 +92,7 @@ describe("performAttack", () => {
       damageNotation: "1d8",
       damageBonus: 5,
     });
-    expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
+    expect(outcome).toEqual({ ok: false, error: "Atakujący jest niezdolny do działania." });
   });
 
   it("rejects a dead attacker", () => {
@@ -107,7 +107,7 @@ describe("performAttack", () => {
       damageNotation: "1d8",
       damageBonus: 5,
     });
-    expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
+    expect(outcome).toEqual({ ok: false, error: "Atakujący jest niezdolny do działania." });
   });
 
   it("rejects an attacker at 0 HP even when status is active", () => {
@@ -122,7 +122,7 @@ describe("performAttack", () => {
       damageNotation: "1d8",
       damageBonus: 5,
     });
-    expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
+    expect(outcome).toEqual({ ok: false, error: "Atakujący jest niezdolny do działania." });
   });
 
   it("rejects attacking yourself", () => {
@@ -132,7 +132,7 @@ describe("performAttack", () => {
       damageNotation: "1d8",
       damageBonus: 5,
     });
-    expect(outcome).toEqual({ ok: false, error: "Cannot attack yourself" });
+    expect(outcome).toEqual({ ok: false, error: "Nie możesz zaatakować sam siebie." });
   });
 
   it("rejects a stable attacker", () => {
@@ -149,7 +149,7 @@ describe("performAttack", () => {
       damageNotation: "1d8",
       damageBonus: 5,
     });
-    expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
+    expect(outcome).toEqual({ ok: false, error: "Atakujący jest niezdolny do działania." });
   });
 
   it("rejects attacking a dead target", () => {
@@ -164,7 +164,7 @@ describe("performAttack", () => {
       damageNotation: "1d8",
       damageBonus: 5,
     });
-    expect(outcome).toEqual({ ok: false, error: "Target is dead" });
+    expect(outcome).toEqual({ ok: false, error: "Cel jest martwy." });
   });
 
   it("allows finishing a downed target", () => {
@@ -189,17 +189,17 @@ describe("performAttack", () => {
       damageNotation: "1d8",
       damageBonus: 5,
     });
-    expect(outcome).toEqual({ ok: false, error: "No combat in progress" });
+    expect(outcome).toEqual({ ok: false, error: "Brak walki w toku." });
   });
 
   it("rejects an unknown combatant id", () => {
     const state = combatState(0);
     expect(
       performAttack(state, "nobody", "enemy-1", { attackBonus: 0, damageNotation: "1d6", damageBonus: 0 }),
-    ).toEqual({ ok: false, error: "Combatant not found" });
+    ).toEqual({ ok: false, error: "Nie znaleziono kombatanta." });
     expect(
       performAttack(state, "char-1", "nobody", { attackBonus: 0, damageNotation: "1d6", damageBonus: 0 }),
-    ).toEqual({ ok: false, error: "Combatant not found" });
+    ).toEqual({ ok: false, error: "Nie znaleziono kombatanta." });
   });
 
   it("misses when the attack total is below AC", () => {
@@ -357,7 +357,7 @@ describe("performAttack", () => {
       damageNotation: "1d8",
       damageBonus: 5,
     });
-    expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
+    expect(outcome).toEqual({ ok: false, error: "Atakujący jest niezdolny do działania." });
   });
 
   it("rolls with disadvantage when the attacker has exhaustion level 3", () => {
@@ -438,7 +438,7 @@ describe("performAttack", () => {
       damageNotation: "1d8",
       damageBonus: 5,
     });
-    expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
+    expect(outcome).toEqual({ ok: false, error: "Atakujący jest niezdolny do działania." });
   });
 
   it("rejects a paralyzed attacker", () => {
@@ -452,7 +452,7 @@ describe("performAttack", () => {
       damageNotation: "1d8",
       damageBonus: 5,
     });
-    expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
+    expect(outcome).toEqual({ ok: false, error: "Atakujący jest niezdolny do działania." });
   });
 
   it("auto-crits a HIT against a paralyzed target", () => {
@@ -892,7 +892,7 @@ describe("lethal damage at 0 HP and stable status", () => {
     });
     expect(performDeathSave(state, "enemy-1")).toEqual({
       ok: false,
-      error: "Combatant is not downed",
+      error: "Kombatant nie jest powalony.",
     });
   });
 
@@ -904,7 +904,7 @@ describe("lethal damage at 0 HP and stable status", () => {
     });
     expect(performDeathSave(state, "enemy-1")).toEqual({
       ok: false,
-      error: "Combatant is not downed",
+      error: "Kombatant nie jest powalony.",
     });
   });
 });
@@ -1234,6 +1234,21 @@ describe("nextTurn", () => {
     expect(b.attacksPerTurn).toBe(2);
     expect(a.attacksLeft).toBe(0);
   });
+
+  it("resets the new current combatant's reactionAvailable to true at the start of its turn", () => {
+    const state = turnState(
+      [
+        { ...fighter("a"), reactionAvailable: false },
+        { ...fighter("b"), reactionAvailable: false },
+      ],
+      0,
+    );
+    const next = nextTurn(state);
+    const a = next.combat.combatants.find((c) => c.id === "a")!;
+    const b = next.combat.combatants.find((c) => c.id === "b")!;
+    expect(b.reactionAvailable).toBe(true);
+    expect(a.reactionAvailable).toBe(false);
+  });
 });
 
 describe("startCombat", () => {
@@ -1277,6 +1292,16 @@ describe("startCombat", () => {
     expect(state.combat.combatants[0]!.attacksPerTurn).toBe(2);
     expect(state.combat.combatants[0]!.attacksLeft).toBe(2);
   });
+
+  it("initializes reactionAvailable to true on every combatant", () => {
+    const state = startCombat(defaultCampaignState(), [
+      { id: "c1", name: "Aelar", isPlayer: true, maxHp: 10, armorClass: 14 },
+      { id: "c2", name: "Bran", isPlayer: true, maxHp: 10, armorClass: 12 },
+    ]);
+    for (const c of state.combat.combatants) {
+      expect(c.reactionAvailable).toBe(true);
+    }
+  });
 });
 
 describe("extraAttacksForClass", () => {
@@ -1299,20 +1324,20 @@ describe("performDeathSave", () => {
   it("rejects a combatant that is not downed", () => {
     const state = combatState(0);
     const outcome = performDeathSave(state, "char-1");
-    expect(outcome).toEqual({ ok: false, error: "Combatant is not downed" });
+    expect(outcome).toEqual({ ok: false, error: "Kombatant nie jest powalony." });
   });
 
   it("rejects when combat is inactive", () => {
     const state = combatState(0, false);
     expect(performDeathSave(state, "enemy-1")).toEqual({
       ok: false,
-      error: "No combat in progress",
+      error: "Brak walki w toku.",
     });
   });
 
   it("rejects an unknown combatant id", () => {
     const state = combatState(0);
-    expect(performDeathSave(state, "nobody")).toEqual({ ok: false, error: "Combatant not found" });
+    expect(performDeathSave(state, "nobody")).toEqual({ ok: false, error: "Nie znaleziono kombatanta." });
   });
 
   it("applies a death save to a downed combatant consistently", () => {

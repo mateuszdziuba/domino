@@ -18,12 +18,12 @@ export const authRoutes = new Hono();
 authRoutes.post("/register", async (c) => {
   const parsed = credentialsSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
-    return c.json({ error: "Invalid credentials", details: parsed.error.flatten() }, 400);
+    return c.json({ error: "Nieprawidłowe dane wejściowe.", details: parsed.error.flatten() }, 400);
   }
   const { username, password } = parsed.data;
   const existing = db.select().from(users).where(eq(users.username, username)).get();
   if (existing) {
-    return c.json({ error: "Username already taken" }, 409);
+    return c.json({ error: "Ta nazwa użytkownika jest zajęta." }, 409);
   }
   const id = newId();
   db.insert(users)
@@ -35,12 +35,12 @@ authRoutes.post("/register", async (c) => {
 authRoutes.post("/login", async (c) => {
   const parsed = credentialsSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
-    return c.json({ error: "Invalid credentials" }, 400);
+    return c.json({ error: "Nieprawidłowe dane wejściowe." }, 400);
   }
   const { username, password } = parsed.data;
   const user = db.select().from(users).where(eq(users.username, username)).get();
   if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
-    return c.json({ error: "Invalid username or password" }, 401);
+    return c.json({ error: "Nieprawidłowa nazwa użytkownika lub hasło." }, 401);
   }
   return login(c, user.id, user.username);
 });
