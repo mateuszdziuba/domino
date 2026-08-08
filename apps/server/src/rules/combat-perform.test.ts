@@ -342,6 +342,42 @@ describe("performAttack", () => {
     expect(outcome.result.attackRoll).toBe(5);
   });
 
+  it("rejects an attacker with exhaustion level 6 (incapacitated)", () => {
+    const state = combatState(0);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      exhaustionLevel: 6,
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
+  });
+
+  it("rolls with disadvantage when the attacker has exhaustion level 3", () => {
+    const seq = [0.2, 0.95]; // d20: 5, 20 -> effective roll is the lower die (5)
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      exhaustionLevel: 3,
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([5, 20]);
+    expect(outcome.result.attackRoll).toBe(5);
+    expect(outcome.result.hit).toBe(false);
+  });
+
   it("cancels condition advantage and disadvantage into a normal roll", () => {
     const seq = [0.5]; // single d20: 11
     const original = Math.random;
@@ -676,6 +712,16 @@ describe("startCombat", () => {
       { id: "c1", name: "Aelar", isPlayer: true, maxHp: 10, armorClass: 14 },
     ]);
     expect(state.combat.combatants[0]!.currentHp).toBe(10);
+  });
+
+  it("stores the combatant's exhaustion level (defaulting to 0)", () => {
+    const state = startCombat(defaultCampaignState(), [
+      { id: "c1", name: "Aelar", isPlayer: true, maxHp: 10, armorClass: 14, exhaustionLevel: 2 },
+      { id: "c2", name: "Bran", isPlayer: true, maxHp: 10, armorClass: 12 },
+    ]);
+    const byId = Object.fromEntries(state.combat.combatants.map((c) => [c.id, c]));
+    expect(byId.c1!.exhaustionLevel).toBe(2);
+    expect(byId.c2!.exhaustionLevel).toBe(0);
   });
 });
 

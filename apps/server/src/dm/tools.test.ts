@@ -21,6 +21,7 @@ const mock = vi.hoisted(() => {
     updateCharacterHp: vi.fn(),
     updateCharacterSpellSlots: vi.fn(),
     updateCharacterHitDice: vi.fn(),
+    updateCharacterExhaustion: vi.fn(),
     grantXp: vi.fn(),
     grantLoot: vi.fn(),
     members: vi.fn(() => [] as { characterId: string }[]),
@@ -38,6 +39,7 @@ vi.mock("../campaign/store.js", () => ({
   updateCharacterHp: mock.updateCharacterHp,
   updateCharacterSpellSlots: mock.updateCharacterSpellSlots,
   updateCharacterHitDice: mock.updateCharacterHitDice,
+  updateCharacterExhaustion: mock.updateCharacterExhaustion,
   grantXp: (id: string, amount: number) => mock.grantXp(id, amount),
   grantLoot: (id: string, gold: number, items: unknown[]) => mock.grantLoot(id, gold, items),
   getCharacterById: (id: string) => mock.characters.get(id),
@@ -124,6 +126,7 @@ beforeEach(() => {
   mock.updateCharacterHp.mockReset();
   mock.updateCharacterSpellSlots.mockReset();
   mock.updateCharacterHitDice.mockReset();
+  mock.updateCharacterExhaustion.mockReset();
   mock.grantXp.mockReset();
   mock.grantXp.mockImplementation((id: string, amount: number) => {
     const ch = mock.characters.get(id);
@@ -836,6 +839,95 @@ describe("runDmTool cast_spell (mocked store)", () => {
     expect(result.message).toContain("10 minut");
     expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
   });
+
+  it("Greater Restoration lowers the target combatant's exhaustion level in combat", async () => {
+    const state = clericCombatState();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      exhaustionLevel: 2,
+    };
+    mock.states.set("c1", state);
+    mock.characters.set(
+      "ch2",
+      cleric({ level: 9, spells: [...baseSpells, "Greater Restoration"] }),
+    );
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Greater Restoration",
+      targetId: "enemy-1",
+      restoreMode: "exhaustion",
+    });
+    expect(result.ok).toBe(true);
+    const goblin = mock.states.get("c1")!.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.exhaustionLevel).toBe(1);
+    expect(result.message).toContain("obniża wyczerpanie");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "spell",
+        spell: "Greater Restoration",
+        restoredExhaustion: true,
+      }),
+    );
+  });
+
+  it("Greater Restoration removes the target's first condition by default in combat", async () => {
+    const state = clericCombatState();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["poisoned"],
+    };
+    mock.states.set("c1", state);
+    mock.characters.set(
+      "ch2",
+      cleric({ level: 9, spells: [...baseSpells, "Greater Restoration"] }),
+    );
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Greater Restoration",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(true);
+    const goblin = mock.states.get("c1")!.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions).toEqual([]);
+    expect(result.message).toContain("usuwa stan");
+  });
+
+  it("Greater Restoration reduces exhaustion outside combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set(
+      "ch2",
+      cleric({ level: 9, spells: [...baseSpells, "Greater Restoration"] }),
+    );
+    mock.characters.set("ch1", { ...aria, exhaustion: 2 });
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Greater Restoration",
+      targetId: "ch1",
+      restoreMode: "exhaustion",
+    });
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterExhaustion).toHaveBeenCalledWith("ch1", 1);
+    expect(result.message).toContain("obniża wyczerpanie");
+  });
+
+  it("Greater Restoration refuses condition mode outside combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set(
+      "ch2",
+      cleric({ level: 9, spells: [...baseSpells, "Greater Restoration"] }),
+    );
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Greater Restoration",
+      targetId: "ch1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Stany dotyczą tylko walki.");
+    expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
+    expect(mock.updateCharacterExhaustion).not.toHaveBeenCalled();
+  });
 });
 
 describe("runDmTool take_long_rest (mocked store)", () => {
@@ -926,6 +1018,32 @@ describe("runDmTool take_long_rest (mocked store)", () => {
     expect(result.ok).toBe(true);
     expect(result.message).toContain("kości życia");
   });
+
+  it("reduces each member's exhaustion by 1 on a long rest (min 0)", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }, { characterId: "ch2" }]);
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch1", { ...aria, exhaustion: 2 });
+    mock.characters.set("ch2", { ...aria, id: "ch2", name: "Bran", exhaustion: 0 });
+
+    const result = await runTool("take_long_rest", {});
+
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterExhaustion).toHaveBeenCalledWith("ch1", 1);
+    expect(mock.updateCharacterExhaustion).toHaveBeenCalledWith("ch2", 0);
+    expect(result.message).toContain("wyczerpanie");
+  });
+
+  it("does not touch exhaustion when resting during combat", async () => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    mock.states.set("c1", stateWithCombat());
+
+    const result = await runTool("take_long_rest", {});
+
+    expect(result.ok).toBe(false);
+    expect(mock.updateCharacterExhaustion).not.toHaveBeenCalled();
+  });
 });
 
 describe("runDmTool conditions (mocked store)", () => {
@@ -982,6 +1100,23 @@ describe("runDmTool conditions (mocked store)", () => {
     expect(result.message).toContain("Brak walki");
   });
 
+  it("apply_condition works with the banished spell-effect condition", async () => {
+    const result = await runTool("apply_condition", {
+      combatantId: "enemy-1",
+      condition: "banished",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Wygnańczony");
+    const saved = mock.states.get("c1")!;
+    const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions).toEqual(["banished"]);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "condition", action: "apply", condition: "banished" }),
+    );
+  });
+
   it("remove_condition clears the condition and pushes an event", async () => {
     await runTool("apply_condition", { combatantId: "enemy-1", condition: "prone" });
     const result = await runTool("remove_condition", {
@@ -1021,6 +1156,48 @@ describe("runDmTool conditions (mocked store)", () => {
     const saved = mock.states.get("c1")!;
     const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
     expect(goblin.conditions).toEqual([]);
+  });
+});
+
+describe("runDmTool set_exhaustion (mocked store)", () => {
+  it("sets the exhaustion level and pushes an event", async () => {
+    const result = await runTool("set_exhaustion", { characterId: "ch1", level: 3 });
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe("Aria ma teraz 3 poziom(y) wyczerpania.");
+    expect(mock.updateCharacterExhaustion).toHaveBeenCalledWith("ch1", 3);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "exhaustion", characterId: "ch1", level: 3 }),
+    );
+  });
+
+  it("reports full recovery at level 0", async () => {
+    const result = await runTool("set_exhaustion", { characterId: "ch1", level: 0 });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("odzyskuje pełnię sił");
+    expect(mock.updateCharacterExhaustion).toHaveBeenCalledWith("ch1", 0);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "exhaustion", characterId: "ch1", level: 0 }),
+    );
+  });
+
+  it("validates the level range (0-6)", async () => {
+    const result = await runTool("set_exhaustion", { characterId: "ch1", level: 7 });
+    expect(result.ok).toBe(false);
+    expect(mock.updateCharacterExhaustion).not.toHaveBeenCalled();
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+    const negative = await runTool("set_exhaustion", { characterId: "ch1", level: -1 });
+    expect(negative.ok).toBe(false);
+  });
+
+  it("rejects an unknown character", async () => {
+    const result = await runTool("set_exhaustion", { characterId: "ghost", level: 2 });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Nie znaleziono postaci.");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
   });
 });
 

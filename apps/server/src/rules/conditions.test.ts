@@ -4,6 +4,7 @@ import {
   CONDITIONS,
   GUIDING_BOLT_MARKER,
   attackRollAdvantages,
+  canAct,
   isConditionKey,
 } from "./conditions.js";
 
@@ -21,9 +22,10 @@ function combatant(conditions: string[] = []): Combatant {
 }
 
 describe("CONDITIONS", () => {
-  it("defines the ten SRD 5.2.1 conditions", () => {
-    expect(CONDITIONS.length).toBeGreaterThanOrEqual(10);
+  it("defines the eleven SRD 5.2.1 conditions", () => {
+    expect(CONDITIONS.length).toBeGreaterThanOrEqual(11);
     expect(CONDITIONS.map((c) => c.key).sort()).toEqual([
+      "banished",
       "blinded",
       "frightened",
       "incapacitated",
@@ -51,6 +53,7 @@ describe("CONDITIONS", () => {
     expect(byKey.petrified!.canAct).toBe(false);
     expect(byKey.stunned!.canAct).toBe(false);
     expect(byKey.incapacitated!.canAct).toBe(false);
+    expect(byKey.banished!.canAct).toBe(false);
     expect(byKey.blinded!.canAct).toBe(true);
     expect(byKey.frightened!.canAct).toBe(true);
     expect(byKey.poisoned!.canAct).toBe(true);
@@ -62,6 +65,7 @@ describe("CONDITIONS", () => {
     expect(isConditionKey("prone")).toBe(true);
     expect(isConditionKey("blinded")).toBe(true);
     expect(isConditionKey("unconscious")).toBe(true);
+    expect(isConditionKey("banished")).toBe(true);
     expect(isConditionKey("teleport")).toBe(false);
     expect(isConditionKey("")).toBe(false);
   });
@@ -118,5 +122,37 @@ describe("attackRollAdvantages", () => {
       advantage: true,
       disadvantage: false,
     });
+  });
+});
+
+describe("exhaustion", () => {
+  it("gives disadvantage to an attacker with exhaustion level 3 or more", () => {
+    for (const level of [3, 4, 5, 6]) {
+      expect(
+        attackRollAdvantages({ ...combatant(), exhaustionLevel: level }, combatant()),
+      ).toEqual({ advantage: false, disadvantage: true });
+    }
+  });
+
+  it("has no effect on attack rolls at exhaustion level 0-2", () => {
+    for (const level of [0, 1, 2]) {
+      expect(
+        attackRollAdvantages({ ...combatant(), exhaustionLevel: level }, combatant()),
+      ).toEqual({ advantage: false, disadvantage: false });
+    }
+  });
+
+  it("does not grant advantage against an exhausted target", () => {
+    expect(attackRollAdvantages(combatant(), { ...combatant(), exhaustionLevel: 5 })).toEqual({
+      advantage: false,
+      disadvantage: false,
+    });
+  });
+
+  it("prevents acting at exhaustion level 6 but not at level 5", () => {
+    expect(canAct({ exhaustionLevel: 6 })).toBe(false);
+    expect(canAct({ exhaustionLevel: 5 })).toBe(true);
+    expect(canAct({})).toBe(true);
+    expect(canAct({ conditions: ["prone"], exhaustionLevel: 6 })).toBe(false);
   });
 });

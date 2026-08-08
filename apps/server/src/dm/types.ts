@@ -15,6 +15,7 @@ export type DmToolName =
   | "take_long_rest"
   | "apply_condition"
   | "remove_condition"
+  | "set_exhaustion"
   | "award_xp"
   | "grant_loot"
   | "update_world_state"
@@ -108,7 +109,7 @@ export const DM_TOOLS: DmTool[] = [
   {
     name: "apply_condition",
     description:
-      "Apply a SRD condition (blinded, frightened, poisoned, prone, restrained, paralyzed, petrified, stunned, unconscious, incapacitated) to a combatant in the active combat.",
+      "Apply a SRD condition (blinded, frightened, poisoned, prone, restrained, paralyzed, petrified, stunned, unconscious, incapacitated, banished) to a combatant in the active combat.",
     parameters: { combatantId: { type: "string" }, condition: { type: "string" } },
   },
   {
@@ -116,6 +117,12 @@ export const DM_TOOLS: DmTool[] = [
     description:
       "Remove a condition from a combatant in the active combat. Also works for the internal guiding_bolt marker.",
     parameters: { combatantId: { type: "string" }, condition: { type: "string" } },
+  },
+  {
+    name: "set_exhaustion",
+    description:
+      "Set a character's exhaustion level (0-6, SRD). Long rests reduce it by 1; hazards may increase it.",
+    parameters: { characterId: { type: "string" }, level: { type: "number" } },
   },
   {
     name: "award_xp",

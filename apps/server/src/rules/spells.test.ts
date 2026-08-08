@@ -44,10 +44,13 @@ function target(overrides: Partial<Combatant> = {}): Combatant {
 }
 
 describe("SPELLS catalog", () => {
-  it("defines the twelve mechanically supported SRD spells", () => {
+  it("defines the sixteen mechanically supported SRD spells", () => {
     expect(Object.keys(SPELLS).sort()).toEqual([
+      "Banishment",
       "Blindness/Deafness",
       "Cure Wounds",
+      "Greater Restoration",
+      "Guardian of Faith",
       "Guiding Bolt",
       "Healing Word",
       "Hold Person",
@@ -57,6 +60,7 @@ describe("SPELLS catalog", () => {
       "Revivify",
       "Sacred Flame",
       "Spare the Dying",
+      "Spirit Guardians",
       "Spiritual Weapon",
     ]);
   });
@@ -230,6 +234,89 @@ describe("SPELLS — 2nd and 3rd level spells", () => {
       "Hold Person",
       "Blindness/Deafness",
       "Revivify",
+    ]) {
+      expect(SPELLS[name]!.description.length).toBeGreaterThan(30);
+    }
+  });
+});
+
+describe("SPELLS — 3rd to 5th level spells", () => {
+  it("defines Spirit Guardians as a 3rd-level radiant aura save spell", () => {
+    expect(SPELLS["Spirit Guardians"]).toMatchObject({
+      name: "Spirit Guardians",
+      level: 3,
+      school: "Conjuration",
+      components: "V, S, M",
+      effect: {
+        kind: "damage",
+        dice: "3d8",
+        damageType: "radiant",
+        attack: false,
+        save: "wisdom",
+        range: "Self (15 ft)",
+        duration: "10 min",
+        castingTime: "action",
+      },
+    });
+  });
+
+  it("defines Guardian of Faith as a 4th-level radiant guard save spell", () => {
+    expect(SPELLS["Guardian of Faith"]).toMatchObject({
+      name: "Guardian of Faith",
+      level: 4,
+      school: "Conjuration",
+      components: "V",
+      effect: {
+        kind: "damage",
+        dice: "4d10",
+        damageType: "radiant",
+        attack: false,
+        save: "dexterity",
+        range: "30 ft",
+        duration: "8 h",
+        castingTime: "action",
+      },
+    });
+  });
+
+  it("defines Banishment as a 4th-level banishment save spell", () => {
+    expect(SPELLS["Banishment"]).toMatchObject({
+      name: "Banishment",
+      level: 4,
+      school: "Abjuration",
+      components: "V, S, M",
+      effect: {
+        kind: "condition_apply",
+        condition: "banished",
+        save: "charisma",
+        range: "60 ft",
+        duration: "1 min",
+        castingTime: "action",
+      },
+    });
+  });
+
+  it("defines Greater Restoration as a 5th-level restore spell", () => {
+    expect(SPELLS["Greater Restoration"]).toMatchObject({
+      name: "Greater Restoration",
+      level: 5,
+      school: "Abjuration",
+      components: "V, S, M",
+      effect: {
+        kind: "restore",
+        range: "Touch",
+        duration: "Instantaneous",
+        castingTime: "action",
+      },
+    });
+  });
+
+  it("gives every new higher-level spell a Polish description", () => {
+    for (const name of [
+      "Spirit Guardians",
+      "Guardian of Faith",
+      "Banishment",
+      "Greater Restoration",
     ]) {
       expect(SPELLS[name]!.description.length).toBeGreaterThan(30);
     }
@@ -572,6 +659,38 @@ describe("resolveSpellCast — condition_remove", () => {
   });
 });
 
+describe("resolveSpellCast — restore", () => {
+  const GREATER_RESTORATION = SPELLS["Greater Restoration"]!;
+
+  it("removes the target's first condition by default", () => {
+    const result = resolveSpellCast(
+      GREATER_RESTORATION,
+      casterStats,
+      target({ conditions: ["poisoned", "prone"] }),
+    );
+    expect(result.restoredCondition).toBe("poisoned");
+    expect(result.restoredExhaustion).toBeUndefined();
+    expect(result.damageTotal).toBe(0);
+    expect(result.healed).toBe(0);
+    expect(result.targetCurrentHp).toBe(20);
+    expect(result.targetStatus).toBe("active");
+  });
+
+  it("reports no condition when the target has none", () => {
+    const result = resolveSpellCast(GREATER_RESTORATION, casterStats, target());
+    expect(result.restoredCondition).toBeUndefined();
+    expect(result.restoredExhaustion).toBeUndefined();
+  });
+
+  it("reports restoredExhaustion in exhaustion mode", () => {
+    const result = resolveSpellCast(GREATER_RESTORATION, casterStats, target(), {
+      restoreMode: "exhaustion",
+    });
+    expect(result.restoredExhaustion).toBe(true);
+    expect(result.restoredCondition).toBeUndefined();
+  });
+});
+
 describe("resolveSpellCast — revive", () => {
   const REVIVIFY = SPELLS["Revivify"]!;
 
@@ -596,9 +715,9 @@ describe("resolveSpellCast — revive", () => {
 });
 
 describe("summarizeSpells", () => {
-  it("returns all twelve known spells with the correct levels and details", () => {
+  it("returns all sixteen known spells with the correct levels and details", () => {
     const metas = summarizeSpells();
-    expect(metas).toHaveLength(12);
+    expect(metas).toHaveLength(16);
     const byName = Object.fromEntries(metas.map((m) => [m.name, m]));
     expect(byName["Sacred Flame"]).toMatchObject({
       level: 0,
@@ -640,6 +759,22 @@ describe("summarizeSpells", () => {
       level: 3,
       effect: { kind: "revive" },
     });
+    expect(byName["Spirit Guardians"]).toMatchObject({
+      level: 3,
+      effect: { kind: "damage", save: "wisdom", dice: "3d8", damageType: "radiant" },
+    });
+    expect(byName["Guardian of Faith"]).toMatchObject({
+      level: 4,
+      effect: { kind: "damage", save: "dexterity", dice: "4d10", damageType: "radiant" },
+    });
+    expect(byName["Banishment"]).toMatchObject({
+      level: 4,
+      effect: { kind: "condition_apply", condition: "banished", save: "charisma" },
+    });
+    expect(byName["Greater Restoration"]).toMatchObject({
+      level: 5,
+      effect: { kind: "restore" },
+    });
   });
 
   it("sorts by level then name", () => {
@@ -656,6 +791,10 @@ describe("summarizeSpells", () => {
       "Prayer of Healing",
       "Spiritual Weapon",
       "Revivify",
+      "Spirit Guardians",
+      "Banishment",
+      "Guardian of Faith",
+      "Greater Restoration",
     ]);
   });
 
@@ -672,7 +811,7 @@ describe("summarizeSpells", () => {
         duration: expect.any(String),
         effect: {
           kind: expect.stringMatching(
-            /^(damage|heal|heal_all|condition_apply|condition_remove|revive|stabilize)$/,
+            /^(damage|heal|heal_all|condition_apply|condition_remove|revive|stabilize|restore)$/,
           ),
         },
       });

@@ -58,6 +58,7 @@ export type Character = {
   xp?: number;
   hitDiceUsed?: number;
   gold?: number;
+  exhaustion?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -81,6 +82,7 @@ export type Combatant = {
   maxHp: number;
   armorClass: number;
   cr?: number;
+  exhaustionLevel?: number;
   status?: CombatantStatus;
   conditions?: string[];
   deathSaveSuccesses?: number;

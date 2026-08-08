@@ -78,6 +78,7 @@ combatRoutes.post("/start", requireAuth, async (c) => {
       currentHp: ch.currentHp,
       armorClass: ch.armorClass,
       dexterity: ch.abilityScores.dexterity,
+      exhaustionLevel: ch.exhaustion ?? 0,
     }));
   const enemies = parsed.data.enemies.map((e) => ({
     id: e.id ?? `enemy-${crypto.randomUUID()}`,
@@ -133,6 +134,7 @@ combatRoutes.post("/generate", requireAuth, async (c) => {
     currentHp: ch.currentHp,
     armorClass: ch.armorClass,
     dexterity: ch.abilityScores.dexterity,
+    exhaustionLevel: ch.exhaustion ?? 0,
   }));
 
   let state = startCombat(state0, [...combatants, ...monsters]);

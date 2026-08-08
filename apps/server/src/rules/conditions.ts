@@ -77,6 +77,14 @@ export const CONDITIONS: ConditionDef[] = [
     description: "Twórca nie może wykonywać akcji, akcji dodatkowych ani reakcji.",
     canAct: false,
   },
+  // Spell effect modeled as a condition (Banishment).
+  {
+    key: "banished",
+    label: "Wygnańczony",
+    description:
+      "Istota została wygnana z aktualnej płaszczyzny (Banishment) — nie może działać, ataki przeciw niej nie mają przewagi.",
+    canAct: false,
+  },
 ];
 
 export function isConditionKey(key: string): boolean {
@@ -86,7 +94,9 @@ export function isConditionKey(key: string): boolean {
 export function canAct(combatant: {
   status?: string;
   conditions?: string[];
+  exhaustionLevel?: number;
 }): boolean {
+  if ((combatant.exhaustionLevel ?? 0) >= 6) return false;
   if (combatant.status && combatant.status !== "active") return false;
   const conditions = combatant.conditions ?? [];
   return !conditions.some((key) => {
@@ -102,6 +112,7 @@ export function attackRollAdvantages(
   const attackerConditions = new Set(attacker.conditions ?? []);
   const targetConditions = new Set(target.conditions ?? []);
   const disadvantage =
+    (attacker.exhaustionLevel ?? 0) >= 3 ||
     attackerConditions.has("blinded") ||
     attackerConditions.has("frightened") ||
     attackerConditions.has("poisoned") ||

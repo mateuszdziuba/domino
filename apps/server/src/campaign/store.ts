@@ -139,6 +139,13 @@ export function updateCharacterHitDice(characterId: string, used: number): void 
     .run();
 }
 
+export function updateCharacterExhaustion(characterId: string, level: number): void {
+  db.update(characters)
+    .set({ exhaustion: Math.max(0, Math.min(6, level)), updatedAt: isoNow() })
+    .where(eq(characters.id, characterId))
+    .run();
+}
+
 export function grantLoot(
   characterId: string,
   gold: number,
@@ -244,6 +251,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     spellSlotsUsed: (row.spellSlotsUsed as number[] | undefined) ?? undefined,
     hitDiceUsed: row.hitDiceUsed ?? 0,
     gold: row.gold ?? 0,
+    exhaustion: row.exhaustion ?? 0,
     xp: row.xp ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

@@ -57,11 +57,17 @@ export type SpellEffect =
       range: string;
       duration: string;
       castingTime: "action";
+    }
+  | {
+      kind: "restore";
+      range: string;
+      duration: string;
+      castingTime: "action";
     };
 
 export type SpellDef = {
   name: string;
-  level: 0 | 1 | 2 | 3;
+  level: 0 | 1 | 2 | 3 | 4 | 5;
   school: string;
   components: string;
   description: string;
@@ -262,11 +268,77 @@ export const SPELLS: Record<string, SpellDef> = {
       castingTime: "action",
     },
   },
+  "Spirit Guardians": {
+    name: "Spirit Guardians",
+    level: 3,
+    school: "Conjuration",
+    components: "V, S, M",
+    description:
+      "Wokół ciebie wirują duchy śpiewające i zasłaniające widok. Wróg rozpoczynający turę w promieniu 15 stóp wykonuje rzut obronny na Mądrość; nieudany oznacza 3k8 obrażeń promienistych (lub nekrotycznych, do wyboru). Utrudnia to także ataki przeciw tobie.",
+    effect: {
+      kind: "damage",
+      dice: "3d8",
+      damageType: "radiant",
+      attack: false,
+      save: "wisdom",
+      range: "Self (15 ft)",
+      duration: "10 min",
+      castingTime: "action",
+    },
+  },
+  "Guardian of Faith": {
+    name: "Guardian of Faith",
+    level: 4,
+    school: "Conjuration",
+    components: "V",
+    description:
+      "Przywołujesz widmowego strażnika, który strzeże wskazanego miejsca. Każdy wróg w promieniu 10 stóp od strażnika wykonuje rzut obronny na Zręczność; nieudany oznacza 4k10 obrażeń promienistych (uproszczenie: pełne obrażenia przy pierwszym uderzeniu).",
+    effect: {
+      kind: "damage",
+      dice: "4d10",
+      damageType: "radiant",
+      attack: false,
+      save: "dexterity",
+      range: "30 ft",
+      duration: "8 h",
+      castingTime: "action",
+    },
+  },
+  "Banishment": {
+    name: "Banishment",
+    level: 4,
+    school: "Abjuration",
+    components: "V, S, M",
+    description:
+      "Cel musi wykonać rzut obronny na Charyzmę; nieudany — zostaje wygnany z aktualnej płaszczyzny na czas trwania zaklęcia i nie może działać. Po upływie czasu wraca w to samo miejsce.",
+    effect: {
+      kind: "condition_apply",
+      condition: "banished",
+      save: "charisma",
+      range: "60 ft",
+      duration: "1 min",
+      castingTime: "action",
+    },
+  },
+  "Greater Restoration": {
+    name: "Greater Restoration",
+    level: 5,
+    school: "Abjuration",
+    components: "V, S, M",
+    description:
+      "Dotyk uzdrawia ciało i umysł: usuwa jeden stan albo obniża poziom wyczerpania o 1 (do wyboru przez rzucającego).",
+    effect: {
+      kind: "restore",
+      range: "Touch",
+      duration: "Instantaneous",
+      castingTime: "action",
+    },
+  },
 };
 
 export type SpellMeta = {
   name: string;
-  level: 0 | 1 | 2 | 3;
+  level: 0 | 1 | 2 | 3 | 4 | 5;
   school: string;
   components: string;
   description: string;
@@ -281,7 +353,8 @@ export type SpellMeta = {
       | "condition_apply"
       | "condition_remove"
       | "revive"
-      | "stabilize";
+      | "stabilize"
+      | "restore";
     dice?: string;
     damageType?: string;
     attack?: boolean;
@@ -337,6 +410,7 @@ export type SpellRollInput = {
   dice?: number[];
   advantage?: boolean;
   disadvantage?: boolean;
+  restoreMode?: "condition" | "exhaustion";
 };
 
 export type SpellCastResult = {
@@ -356,6 +430,8 @@ export type SpellCastResult = {
   conditionApplied?: string;
   conditionRemoved?: string;
   revived?: boolean;
+  restoredCondition?: string;
+  restoredExhaustion?: boolean;
 };
 
 export function applySpellRider(target: Combatant, def: SpellDef): Combatant | undefined {
@@ -433,6 +509,30 @@ export function resolveSpellCast(
       targetCurrentHp: Math.max(1, target.currentHp),
       targetStatus: "active",
       revived: true,
+    };
+  }
+
+  if (effect.kind === "restore") {
+    if (rolls?.restoreMode === "exhaustion") {
+      return {
+        damageTotal: 0,
+        damageRolls: [],
+        healed: 0,
+        healRolls: [],
+        targetCurrentHp: target.currentHp,
+        targetStatus: target.status ?? "active",
+        restoredExhaustion: true,
+      };
+    }
+    const existing = target.conditions ?? [];
+    return {
+      damageTotal: 0,
+      damageRolls: [],
+      healed: 0,
+      healRolls: [],
+      targetCurrentHp: target.currentHp,
+      targetStatus: target.status ?? "active",
+      restoredCondition: existing.length > 0 ? existing[0] : undefined,
     };
   }
 

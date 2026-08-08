@@ -203,6 +203,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     spellSlotsUsed: (row.spellSlotsUsed as number[] | undefined) ?? undefined,
     hitDiceUsed: row.hitDiceUsed ?? 0,
     gold: row.gold ?? 0,
+    exhaustion: row.exhaustion ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

@@ -10,6 +10,7 @@ import {
   updateCharacterHp,
   updateCharacterSpellSlots,
   updateCharacterHitDice,
+  updateCharacterExhaustion,
   grantXp,
   grantLoot,
 } from "../campaign/store.js";
@@ -277,6 +278,7 @@ export async function runDmTool(
         currentHp: ch.currentHp,
         armorClass: ch.armorClass,
         dexterity: ch.abilityScores.dexterity,
+        exhaustionLevel: ch.exhaustion ?? 0,
       }));
       let state = startCombat(state0, [...combatants, ...monsters]);
       state = saveState(campaignId, state);
@@ -349,6 +351,7 @@ export async function runDmTool(
           targetId: z.string().min(1),
           advantage: z.boolean().optional(),
           disadvantage: z.boolean().optional(),
+          restoreMode: z.enum(["condition", "exhaustion"]).optional(),
         })
         .safeParse(rawArgs);
       if (!parsed.success) {
@@ -443,6 +446,13 @@ export async function runDmTool(
           return { ok: false, message: "Nie znaleziono postaci-celu." };
         }
       }
+      if (
+        def.effect.kind === "restore" &&
+        !state.combat.active &&
+        parsed.data.restoreMode !== "exhaustion"
+      ) {
+        return { ok: false, message: "Stany dotyczą tylko walki." };
+      }
       if (nextUsed) updateCharacterSpellSlots(character.id, nextUsed);
       if (def.effect.kind === "heal_all") {
         if (state.combat.active && casterCombatant) {
@@ -519,6 +529,7 @@ export async function runDmTool(
         const result = resolveSpellCast(def, stats, targetCombatant, {
           advantage: mods.advantage || parsed.data.advantage,
           disadvantage: mods.disadvantage || parsed.data.disadvantage,
+          restoreMode: parsed.data.restoreMode,
         });
         let updated: Combatant = {
           ...targetCombatant,
@@ -553,6 +564,21 @@ export async function runDmTool(
         }
         if (result.revived) {
           updated = { ...updated, deathSaveSuccesses: 0, deathSaveFailures: 0 };
+        }
+        if (def.effect.kind === "restore") {
+          if (result.restoredExhaustion) {
+            updated = {
+              ...updated,
+              exhaustionLevel: Math.max(0, (updated.exhaustionLevel ?? 0) - 1),
+            };
+          } else if (result.restoredCondition) {
+            updated = {
+              ...updated,
+              conditions: (updated.conditions ?? []).filter(
+                (c) => c !== result.restoredCondition,
+              ),
+            };
+          }
         }
         const combatants = state.combat.combatants.map((c) =>
           c.id === targetCombatant.id ? updated : c,
@@ -591,11 +617,18 @@ export async function runDmTool(
           armorClass: targetCharacter.armorClass,
           status: targetCharacter.currentHp > 0 ? "active" : "downed",
         };
-        const result = resolveSpellCast(def, stats, synthetic);
+        const result = resolveSpellCast(def, stats, synthetic, {
+          restoreMode: parsed.data.restoreMode,
+        });
         if (def.effect.kind === "revive") {
           updateCharacterHp(targetCharacter.id, 1);
         } else if (def.effect.kind === "heal") {
           updateCharacterHp(targetCharacter.id, result.targetCurrentHp);
+        } else if (def.effect.kind === "restore") {
+          updateCharacterExhaustion(
+            targetCharacter.id,
+            Math.max(0, (targetCharacter.exhaustion ?? 0) - 1),
+          );
         }
         pushEvent(campaignId, "action.resolved", {
           type: "spell",
@@ -609,7 +642,9 @@ export async function runDmTool(
             ? `${character.name} rzuca ${def.name} na ${targetCharacter.name} — ${targetCharacter.name} wraca do życia z 1 punktem życia.`
             : def.effect.kind === "condition_remove"
               ? `${character.name} rzuca ${def.name} na ${targetCharacter.name} — usuwa jeden stan (ślepota, głuchota, paraliż, trucizna itp.).`
-              : `${character.name} rzuca ${def.name} na ${targetCharacter.name} — leczy o ${result.healed} punktów życia.`;
+              : def.effect.kind === "restore"
+                ? `${character.name} rzuca ${def.name} na ${targetCharacter.name} — obniża wyczerpanie o 1.`
+                : `${character.name} rzuca ${def.name} na ${targetCharacter.name} — leczy o ${result.healed} punktów życia.`;
         return {
           ok: true,
           message,
@@ -660,6 +695,10 @@ export async function runDmTool(
           character.id,
           Math.max(0, character.level - Math.max(1, Math.floor(character.level / 2))),
         );
+        updateCharacterExhaustion(
+          character.id,
+          Math.max(0, (character.exhaustion ?? 0) - 1),
+        );
         healed.push(character.name);
       }
       const state = {
@@ -672,7 +711,7 @@ export async function runDmTool(
       return {
         ok: true,
         message:
-          "Drużyna odpoczywa (długi odpoczynek): wszyscy odzyskują pełne HP, sloty zaklęć i połowę kości życia (minimum 1).",
+          "Drużyna odpoczywa (długi odpoczynek): wszyscy odzyskują pełne HP, sloty zaklęć i połowę kości życia (minimum 1), a wyczerpanie każdego spada o 1 poziom (minimum 0).",
         data: summarizeState(state),
       };
     }
@@ -817,6 +856,33 @@ export async function runDmTool(
         message: `${combatant.name} traci stan: ${label}.`,
         data: summarizeState(nextState),
       };
+    }
+    case "set_exhaustion": {
+      const parsed = z
+        .object({
+          characterId: z.string().min(1),
+          level: z.number().int().min(0).max(6),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          message: "level musi być liczbą całkowitą od 0 do 6, a characterId jest wymagany.",
+        };
+      }
+      const character = getCharacterById(parsed.data.characterId);
+      if (!character) return { ok: false, message: "Nie znaleziono postaci." };
+      updateCharacterExhaustion(character.id, parsed.data.level);
+      pushEvent(campaignId, "action.resolved", {
+        type: "exhaustion",
+        characterId: character.id,
+        level: parsed.data.level,
+      });
+      const message =
+        parsed.data.level === 0
+          ? `${character.name} odzyskuje pełnię sił (brak wyczerpania).`
+          : `${character.name} ma teraz ${parsed.data.level} poziom(y) wyczerpania.`;
+      return { ok: true, message };
     }
     case "end_combat": {
       let state = loadState(campaignId);
@@ -1034,6 +1100,18 @@ function spellNarration(
   }
   if (def.effect.kind === "revive") {
     return `${casterName} rzuca ${def.name} na ${target.name} — ${target.name} wraca do życia z 1 punktem życia.`;
+  }
+  if (def.effect.kind === "restore") {
+    if (result.restoredExhaustion) {
+      return `${casterName} rzuca ${def.name} na ${target.name} — obniża wyczerpanie o 1.`;
+    }
+    if (result.restoredCondition) {
+      const label =
+        CONDITIONS.find((c) => c.key === result.restoredCondition)?.label ??
+        result.restoredCondition;
+      return `${casterName} rzuca ${def.name} na ${target.name} — usuwa stan: ${label}.`;
+    }
+    return `${casterName} rzuca ${def.name} na ${target.name} — cel nie ma stanów do usunięcia.`;
   }
   return `${casterName} rzuca ${def.name} na ${target.name} — stabilizuje ${target.name}.`;
 }

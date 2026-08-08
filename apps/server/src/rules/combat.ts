@@ -18,6 +18,7 @@ export type NewCombatant = {
   initiative?: number;
   dexterity?: number;
   cr?: number;
+  exhaustionLevel?: number;
 };
 
 export function rollInitiative(dexterityScore: number): { roll: number; total: number } {
@@ -47,6 +48,7 @@ export function startCombat(
       status: "active",
       deathSaveSuccesses: 0,
       deathSaveFailures: 0,
+      exhaustionLevel: entry.exhaustionLevel ?? 0,
     };
   });
   combatants.sort((a, b) => {

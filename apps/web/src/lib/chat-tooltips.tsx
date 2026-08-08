@@ -78,19 +78,36 @@ function isLetter(ch: string | undefined): boolean {
 }
 
 function spellEffectDescription(meta: SpellMeta): string {
-  if (meta.effect.kind === "damage") {
-    const dice = [meta.effect.dice, meta.effect.damageType].filter(Boolean).join(" ");
-    const extra = meta.effect.attack
+  const effect = meta.effect as Omit<SpellMeta["effect"], "kind"> & {
+    kind: string;
+    condition?: string;
+  };
+  if (effect.kind === "damage") {
+    const dice = [effect.dice, effect.damageType].filter(Boolean).join(" ");
+    const extra = effect.attack
       ? "rzut ataku"
-      : meta.effect.save
-        ? `rzut obronny (${meta.effect.save})`
+      : effect.save
+        ? `rzut obronny (${effect.save})`
         : "";
     return `Obrażenia: ${dice}${extra ? ` — ${extra}` : ""}`;
   }
-  if (meta.effect.kind === "heal") {
-    return `Leczenie: ${meta.effect.dice ?? ""}${meta.effect.mod ? " + modyfikator" : ""} punktów życia`;
+  if (effect.kind === "heal" || effect.kind === "heal_all") {
+    return `Leczenie: ${effect.dice ?? ""}${effect.mod ? " + modyfikator" : ""} punktów życia`;
   }
-  return "Stabilizuje istotę na 0 punktach życia.";
+  switch (effect.kind) {
+    case "condition_apply":
+      return `Nakłada stan: ${effect.condition ?? "?"}${effect.save ? ` — rzut obronny (${effect.save})` : ""}`;
+    case "condition_remove":
+      return "Usuwa stan.";
+    case "restore":
+      return "Leczy stany i wyczerpanie.";
+    case "revive":
+      return "Wskrzeszenie.";
+    case "stabilize":
+      return "Stabilizuje istotę na 0 punktach życia.";
+    default:
+      return "—";
+  }
 }
 
 type ChatToken =

@@ -50,6 +50,13 @@
       "when": 1786125210932,
       "tag": "0006_moaning_demogoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1786194171426,
+      "tag": "0007_ambitious_sunspot",
+      "breakpoints": true
     }
   ]
 }

@@ -42,19 +42,36 @@ const XP_BY_LEVEL = [
 ];
 
 function spellEffectSummary(meta: SpellMeta): string {
-  if (meta.effect.kind === "damage") {
-    const dice = [meta.effect.dice, meta.effect.damageType].filter(Boolean).join(" ");
-    const extra = meta.effect.attack
+  const effect = meta.effect as Omit<SpellMeta["effect"], "kind"> & {
+    kind: string;
+    condition?: string;
+  };
+  if (effect.kind === "damage") {
+    const dice = [effect.dice, effect.damageType].filter(Boolean).join(" ");
+    const extra = effect.attack
       ? ", atak"
-      : meta.effect.save
-        ? `, rzut obronny ${meta.effect.save}`
+      : effect.save
+        ? `, rzut obronny ${effect.save}`
         : "";
     return `${dice}${extra}`;
   }
-  if (meta.effect.kind === "heal") {
-    return `${meta.effect.dice ?? ""}${meta.effect.mod ? "+mod" : ""} leczenia`;
+  if (effect.kind === "heal" || effect.kind === "heal_all") {
+    return `${effect.dice ?? ""}${effect.mod ? "+mod" : ""} leczenia`;
   }
-  return "stabilizacja";
+  switch (effect.kind) {
+    case "condition_apply":
+      return `nakłada stan: ${effect.condition ?? "?"}`;
+    case "condition_remove":
+      return "usuwa stan";
+    case "restore":
+      return "leczenie stanów/wyczerpania";
+    case "revive":
+      return "wskrzeszenie";
+    case "stabilize":
+      return "stabilizacja";
+    default:
+      return "—";
+  }
 }
 
 function SectionTitle({ icon: Icon, children }: { icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
@@ -144,6 +161,7 @@ export default function CharacterSheetPage() {
     ? 100
     : Math.max(0, Math.min(100, ((xp - prevThreshold) / Math.max(nextThreshold - prevThreshold, 1)) * 100));
   const hitDiceAvailable = Math.max(0, character.level - (character.hitDiceUsed ?? 0));
+  const exhaustion = character.exhaustion ?? 0;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -214,6 +232,31 @@ export default function CharacterSheetPage() {
                 <TooltipContent>
                   <span className="text-[11px] leading-relaxed text-[#f6ead0]">
                     Złoto zdobywane z łupów i nagród (DM przyznaje je narzędziem grant_loot).
+                  </span>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                    Wyczerpanie:{" "}
+                    <span
+                      className={cn(
+                        exhaustion >= 6
+                          ? "text-[#8f1d1d]"
+                          : exhaustion >= 3
+                            ? "text-[#a83f22]"
+                            : "text-inherit",
+                      )}
+                    >
+                      {exhaustion}/6
+                    </span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                    Poziomy wyczerpania (SRD): 1. Utrudnienie w testach cech; 2. Szybkość
+                    zmniejszona o połowę; 3. Utrudnienie w atakach i rzutach obronnych;
+                    4. Maksymalne HP zmniejszone o połowę; 5. Szybkość równa 0; 6. Śmierć.
                   </span>
                 </TooltipContent>
               </Tooltip>
