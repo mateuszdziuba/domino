@@ -692,6 +692,7 @@ describe("lethal damage at 0 HP and stable status", () => {
         expect(target.status).toBe("downed");
       }
     }
+    Math.random = original;
   });
 
   it("instantly kills a 0-HP target when damage equals or exceeds its max HP", () => {
