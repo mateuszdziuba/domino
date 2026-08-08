@@ -19,9 +19,10 @@ import {
   performDeathSave,
   currentTurnCombatant,
   findCombatant,
+  characterAttackInput,
 } from "../rules/combat.js";
 import { buildEncounter } from "../rules/monsters.js";
-import { abilityModifier } from "../rules/abilities.js";
+import { equippedWeaponAttackInput } from "../rules/weapons.js";
 import { xpAwardForDeadEnemies } from "../rules/advancement.js";
 import type { Character } from "@domino/shared";
 
@@ -233,10 +234,12 @@ combatRoutes.post("/attack", requireAuth, async (c) => {
   if (attacker.characterId) {
     const character = getCharacterById(attacker.characterId);
     if (character) {
-      const strMod = abilityModifier(character.abilityScores.strength);
-      attackBonus ??= character.proficiencyBonus + strMod;
-      damageBonus ??= strMod;
-      damageNotation ??= "1d8";
+      const defaults =
+        equippedWeaponAttackInput(character) ??
+        characterAttackInput(attacker, character);
+      attackBonus ??= defaults.attackBonus;
+      damageBonus ??= defaults.damageBonus;
+      damageNotation ??= defaults.damageNotation;
     }
   }
   if (attackBonus === undefined) attackBonus = 0;

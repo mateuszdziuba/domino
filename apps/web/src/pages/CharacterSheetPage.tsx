@@ -521,6 +521,11 @@ export default function CharacterSheetPage() {
               <SectionTitle icon={Swords}>Ataki</SectionTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
+              {inventory.some((item) => item.slot === "weapon") && (
+                <p className="text-xs italic text-[#7c6a45]">
+                  Ataki pochodzą z ekwipowanej broni — zmień broń w Ekwipunku.
+                </p>
+              )}
               <TooltipProvider delayDuration={250}>
                 {attacks.map((attack) => (
                   <Tooltip key={attack.name}>

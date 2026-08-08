@@ -48,6 +48,7 @@ import {
 } from "../rules/spells.js";
 import { buildEncounter, MONSTERS } from "../rules/monsters.js";
 import { EQUIPMENT_SLOTS, isSlotKey } from "../rules/equipment.js";
+import { equippedWeaponAttackInput } from "../rules/weapons.js";
 import {
   ADVENTURES,
   buildAdventureState,
@@ -312,10 +313,15 @@ export async function runDmTool(
       if (!attacker) return { ok: false, message: "Nie znaleziono kombatanta." };
       let { attackBonus, damageNotation, damageBonus } = parsed.data;
       if (attacker.characterId) {
-        const defaults = characterAttackInput(attacker, getCharacterById(attacker.characterId));
-        attackBonus ??= defaults.attackBonus;
-        damageNotation ??= defaults.damageNotation;
-        damageBonus ??= defaults.damageBonus;
+        const character = getCharacterById(attacker.characterId);
+        if (character) {
+          const defaults =
+            equippedWeaponAttackInput(character) ??
+            characterAttackInput(attacker, character);
+          attackBonus ??= defaults.attackBonus;
+          damageNotation ??= defaults.damageNotation;
+          damageBonus ??= defaults.damageBonus;
+        }
       }
       const outcome = performAttack(state, parsed.data.attackerId, parsed.data.targetId, {
         attackBonus: attackBonus ?? 0,

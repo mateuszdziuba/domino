@@ -389,6 +389,58 @@ describe("runDmTool combat tools (mocked store)", () => {
   });
 });
 
+describe("runDmTool attack_combatant weapon derivation (mocked store)", () => {
+  function withLongsword() {
+    mock.characters.set("ch1", {
+      ...aria,
+      inventory: [{ id: "i1", name: "Longsword", quantity: 1, slot: "weapon" }],
+    });
+  }
+
+  it("derives the attack from the equipped weapon (Longsword 1d10 + STR)", async () => {
+    withLongsword();
+    const original = Math.random;
+    Math.random = () => 0.9; // d20 = 19, 1d10 = 10
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const data = result.data as { attackTotal: number; damageTotal: number };
+    expect(data.attackTotal).toBe(24); // 19 + prof 2 + STR 3
+    expect(data.damageTotal).toBe(13); // 1d10 (10) + STR 3, not 1d8
+  });
+
+  it("keeps the 1d8 + STR fallback when no weapon is equipped", async () => {
+    const original = Math.random;
+    Math.random = () => 0.9; // d20 = 19, 1d8 = 8
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const data = result.data as { damageTotal: number };
+    expect(data.damageTotal).toBe(11); // 1d8 (8) + STR 3
+  });
+
+  it("explicit damageNotation still overrides the equipped weapon", async () => {
+    withLongsword();
+    const original = Math.random;
+    Math.random = () => 0.9; // 1d4 = 4
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+      damageNotation: "1d4",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const data = result.data as { damageTotal: number };
+    expect(data.damageTotal).toBe(7); // 1d4 (4) + STR 3, not the Longsword 13
+  });
+});
+
 describe("runDmTool cast_spell (mocked store)", () => {
   const baseSpells = ["Cure Wounds", "Guiding Bolt", "Sacred Flame", "Spare the Dying"];
 

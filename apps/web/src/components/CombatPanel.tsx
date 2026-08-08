@@ -205,7 +205,7 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                 value={damageNotation}
                 onChange={(e) => setDamageNotation(e.target.value)}
                 className="w-24"
-                title="Damage notation, e.g. 1d8+2"
+                title="Notacja obrażeń (domyślnie z broni postaci)"
               />
               <Button
                 size="sm"
@@ -236,7 +236,7 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
               ) : (
                 "Brak aktywnej tury."
               )}{" "}
-              Atak używa twojej broni (domyślnie 1d8 + STR) vs AC.
+              Atak używa ekwipowanej broni (kości i modyfikator z karty postaci) vs AC.
             </p>
           </>
         )}

@@ -65,6 +65,33 @@ describe("buildCharacterSheet", () => {
     expect(ranged.hitBonus).toBe(2); // prof 2 + DEX 0
   });
 
+  it("derives a single attack from the equipped weapon", () => {
+    const sheet = buildCharacterSheet(
+      makeCharacter({
+        inventory: [{ id: "i1", name: "Longsword", quantity: 1, slot: "weapon" }],
+      }),
+    );
+    expect(sheet.attacks).toHaveLength(1);
+    const attack = sheet.attacks[0]!;
+    expect(attack.name).toBe("Longsword");
+    expect(attack.hitBonus).toBe(4); // prof 2 + STR 2
+    expect(attack.damageNotation).toBe("1d10"); // versatile
+    expect(attack.damageBonus).toBe(2);
+    expect(attack.ability).toBe("strength");
+  });
+
+  it("keeps the default attacks when nothing is equipped in the weapon slot", () => {
+    const sheet = buildCharacterSheet(
+      makeCharacter({
+        inventory: [{ id: "i1", name: "Hempen Rope", quantity: 1 }],
+      }),
+    );
+    expect(sheet.attacks.map((a) => a.name)).toEqual([
+      "Melee (Strength)",
+      "Ranged (Dexterity)",
+    ]);
+  });
+
   it("computes spell save DC and attack bonus for spellcasters", () => {
     const sheet = buildCharacterSheet(makeCharacter());
     expect(sheet.spellcasting).not.toBeNull();
