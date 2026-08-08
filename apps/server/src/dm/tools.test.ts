@@ -1385,7 +1385,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
       targetId: "enemy-1",
     });
     expect(cast.ok).toBe(true);
-    let caster = mock
+    const caster = mock
       .states.get("c1")!
       .combat.combatants.find((c) => c.id === "char-ch2")!;
     expect(caster.attacksLeft).toBe(0);
@@ -1465,7 +1465,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
       targetId: "enemy-1",
     });
     expect(cast.ok).toBe(true);
-    let caster = mock
+    const caster = mock
       .states.get("c1")!
       .combat.combatants.find((c) => c.id === "char-ch2")!;
     expect(caster.bonusActionAvailable).toBe(false);
@@ -1493,7 +1493,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
       targetId: "enemy-1",
     });
     expect(cast.ok).toBe(true);
-    let caster = mock
+    const caster = mock
       .states.get("c1")!
       .combat.combatants.find((c) => c.id === "char-ch2")!;
     expect(caster.bonusActionAvailable).toBe(false);
@@ -2123,7 +2123,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
     });
     Math.random = original;
     expect(result.ok).toBe(true);
-    let caster = mock
+    const caster = mock
       .states.get("c1")!
       .combat.combatants.find((c) => c.id === "char-ch2")!;
     expect(caster.concentratingOn).toBeUndefined();
@@ -2390,7 +2390,7 @@ describe("runDmTool conditions (mocked store)", () => {
     });
     expect(result.ok).toBe(true);
     expect(result.message).not.toContain("koncentracj");
-    let caster = mock
+    const caster = mock
       .states.get("c1")!
       .combat.combatants.find((c) => c.id === "char-ch1")!;
     expect(caster.concentratingOn).toBe("Hold Person");
