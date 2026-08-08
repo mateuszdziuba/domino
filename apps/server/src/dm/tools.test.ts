@@ -562,7 +562,7 @@ describe("runDmTool encounter generation (mocked store)", () => {
       description: "goblins in a cave",
     });
     expect(result.ok).toBe(true);
-    const saved = mock.states.get("c1")!;
+    let saved = mock.states.get("c1")!;
     const elf = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
     expect(elf.darkvision).toBe(true);
     mock.characters.set("ch1", { ...aria, race: "Human" });
