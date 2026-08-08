@@ -51,12 +51,15 @@ const enemy = (state: CampaignState): Combatant =>
 
 describe("performAttack", () => {
   it("succeeds on the current combatant's turn and applies damage", () => {
+    const original = Math.random;
+    Math.random = () => 0.5; // d20 = 11 (attack 31 >= AC 12) -> hit
     const state = combatState(0);
     const outcome = performAttack(state, "char-1", "enemy-1", {
       attackBonus: 20,
       damageNotation: "1d8",
       damageBonus: 5,
     });
+    Math.random = original;
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expect(typeof outcome.result.hit).toBe("boolean");

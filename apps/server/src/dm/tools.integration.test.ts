@@ -362,13 +362,18 @@ describe("runDmTool XP award (real store)", () => {
   }
 
   function killGoblin() {
-    return runDmTool("c1", "dm", "attack_combatant", {
+    const original = Math.random;
+    Math.random = () => 0.5; // d20 = 11 (attack 16 >= AC 12) -> hit; 1d100 = 51 -> kills
+    const result = runDmTool("c1", "dm", "attack_combatant", {
       attackerId: "char-ch1",
       targetId: "enemy-1",
       damageNotation: "1d100",
       attackBonus: 5,
       damageBonus: 0,
+    }).finally(() => {
+      Math.random = original;
     });
+    return result;
   }
 
   it("end_combat awards XP for dead enemies to the party", async () => {
