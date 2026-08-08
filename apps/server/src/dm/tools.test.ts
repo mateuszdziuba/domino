@@ -2733,3 +2733,167 @@ describe("runDmTool use_item (mocked store)", () => {
     expect(mock.pushEvent).not.toHaveBeenCalled();
   });
 });
+
+describe("runDmTool environment_hazard (mocked store)", () => {
+  it("falling applies 3d6 damage, adds prone and pushes a hazard event", async () => {
+    const original = Math.random;
+    Math.random = () => 0.99; // d6 = 6 each -> 3d6 = 18
+    const result = await runTool("environment_hazard", {
+      type: "falling",
+      combatantId: "char-ch1",
+      feet: 30,
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe(
+      "Aria spada z wysokości 30 stóp — 18 obrażeń (upadek, ląduje powalony).",
+    );
+    const saved = mock.states.get("c1")!;
+    const aria = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(aria.currentHp).toBe(0);
+    expect(aria.status).toBe("downed");
+    expect(aria.conditions).toEqual(["prone"]);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 0);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "hazard",
+        hazard: "falling",
+        combatant: "Aria",
+        feet: 30,
+        damageTotal: 18,
+        damageRolls: [6, 6, 6],
+      }),
+    );
+  });
+
+  it("falling clamps the damage dice to 20d6 (feet 250)", async () => {
+    const original = Math.random;
+    Math.random = () => 0.99; // d6 = 6 each -> 20d6 = 120
+    const result = await runTool("environment_hazard", {
+      type: "falling",
+      combatantId: "enemy-1",
+      feet: 250,
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const goblin = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.currentHp).toBe(0);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "hazard",
+        hazard: "falling",
+        combatant: "Goblin",
+        feet: 250,
+        damageTotal: 120,
+        damageRolls: Array(20).fill(6),
+      }),
+    );
+  });
+
+  it("suffocation within air reserves deals no damage and reports the air left", async () => {
+    const result = await runTool("environment_hazard", {
+      type: "suffocation",
+      combatantId: "char-ch1",
+      conSaves: 2,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe(
+      "Aria wstrzymuje oddech — zostało 1 rund powietrza.",
+    );
+    const saved = mock.states.get("c1")!;
+    const aria = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(aria.currentHp).toBe(10);
+    expect(mock.updateCharacterHp).not.toHaveBeenCalled();
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("suffocation past air reserves deals 10 damage per round without air", async () => {
+    const result = await runTool("environment_hazard", {
+      type: "suffocation",
+      combatantId: "char-ch1",
+      conSaves: 5,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe("Aria dusi się — 20 obrażeń (uduszenie).");
+    const saved = mock.states.get("c1")!;
+    const aria = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(aria.currentHp).toBe(0);
+    expect(aria.status).toBe("downed");
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 0);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "hazard",
+        hazard: "suffocation",
+        combatant: "Aria",
+        damageTotal: 20,
+      }),
+    );
+  });
+
+  it("uses the combatant's conSaveMod for a non-player target's air reserves", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conSaveMod: 3,
+      currentHp: 50,
+      maxHp: 50,
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("environment_hazard", {
+      type: "suffocation",
+      combatantId: "enemy-1",
+      conSaves: 4,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe("Goblin wstrzymuje oddech — zostało 0 rund powietrza.");
+    const goblin = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.currentHp).toBe(50);
+  });
+
+  it("rejects a hazard without a combatantId", async () => {
+    const result = await runTool("environment_hazard", { type: "falling", feet: 30 });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Hazardy środowiskowe wymagają aktywnej walki i celu.");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid hazard type", async () => {
+    const result = await runTool("environment_hazard", {
+      type: "fireball",
+      combatantId: "char-ch1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Hazardy środowiskowe wymagają aktywnej walki i celu.");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects hazards without active combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    const result = await runTool("environment_hazard", {
+      type: "suffocation",
+      combatantId: "char-ch1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Hazardy środowiskowe wymagają aktywnej walki i celu.");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects falling without feet", async () => {
+    const result = await runTool("environment_hazard", {
+      type: "falling",
+      combatantId: "char-ch1",
+    });
+    expect(result.ok).toBe(false);
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+});

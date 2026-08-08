@@ -34,6 +34,7 @@ import {
   findCombatant,
   combatantByCharacter,
   performAttack,
+  applyHitToTarget,
   performDeathSave,
   characterAttackInput,
   extraAttacksForClass,
@@ -1063,6 +1064,120 @@ export async function runDmTool(
       return {
         ok: true,
         message: `${combatant.name} traci stan: ${label}.`,
+        data: summarizeState(nextState),
+      };
+    }
+    case "environment_hazard": {
+      const parsed = z
+        .object({
+          type: z.enum(["falling", "suffocation"]),
+          combatantId: z.string().optional(),
+          feet: z.number().int().min(5).max(250).optional(),
+          conSaves: z.number().int().min(1).max(30).optional(),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          message: "Hazardy środowiskowe wymagają aktywnej walki i celu.",
+        };
+      }
+      const state = loadState(campaignId);
+      if (!state.combat.active || !parsed.data.combatantId) {
+        return {
+          ok: false,
+          message: "Hazardy środowiskowe wymagają aktywnej walki i celu.",
+        };
+      }
+      const target = findCombatant(state, parsed.data.combatantId);
+      if (!target) return { ok: false, message: "Nie znaleziono kombatanta." };
+      if (parsed.data.type === "falling") {
+        const { feet } = parsed.data;
+        if (feet === undefined) {
+          return {
+            ok: false,
+            message: "Upadek wymaga podania wysokości (feet 5–200).",
+          };
+        }
+        const damageRoll = rollDiceNotation(
+          `${Math.min(20, Math.floor(feet / 10))}d6`,
+        );
+        const damageTotal = damageRoll.total;
+        const hit = applyHitToTarget(target, damageTotal, false);
+        const existing = hit.conditions ?? [];
+        const updated: Combatant = existing.includes("prone")
+          ? hit
+          : { ...hit, conditions: [...existing, "prone"] };
+        const nextState: CampaignState = {
+          ...state,
+          combat: {
+            ...state.combat,
+            combatants: state.combat.combatants.map((c) =>
+              c.id === target.id ? updated : c,
+            ),
+          },
+          updatedAt: new Date().toISOString(),
+        };
+        saveState(campaignId, nextState);
+        if (target.characterId) {
+          updateCharacterHp(target.characterId, updated.currentHp);
+        }
+        pushEvent(campaignId, "action.resolved", {
+          type: "hazard",
+          hazard: "falling",
+          combatant: target.name,
+          feet,
+          damageTotal,
+          damageRolls: damageRoll.rolls,
+        });
+        return {
+          ok: true,
+          message: `${target.name} spada z wysokości ${feet} stóp — ${damageTotal} obrażeń (upadek, ląduje powalony).`,
+          data: summarizeState(nextState),
+        };
+      }
+      let conMod = 0;
+      if (target.characterId) {
+        const character = getCharacterById(target.characterId);
+        conMod = character
+          ? abilityModifier(character.abilityScores.constitution)
+          : (target.conSaveMod ?? 0);
+      } else {
+        conMod = target.conSaveMod ?? 0;
+      }
+      const survivalRounds = 1 + conMod;
+      const conSaves = parsed.data.conSaves ?? 5;
+      if (conSaves <= survivalRounds) {
+        return {
+          ok: true,
+          message: `${target.name} wstrzymuje oddech — zostało ${survivalRounds - conSaves} rund powietrza.`,
+        };
+      }
+      const damageTotal = (conSaves - survivalRounds) * 10;
+      const updated = applyHitToTarget(target, damageTotal, false);
+      const nextState: CampaignState = {
+        ...state,
+        combat: {
+          ...state.combat,
+          combatants: state.combat.combatants.map((c) =>
+            c.id === target.id ? updated : c,
+          ),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      saveState(campaignId, nextState);
+      if (target.characterId) {
+        updateCharacterHp(target.characterId, updated.currentHp);
+      }
+      pushEvent(campaignId, "action.resolved", {
+        type: "hazard",
+        hazard: "suffocation",
+        combatant: target.name,
+        damageTotal,
+      });
+      return {
+        ok: true,
+        message: `${target.name} dusi się — ${damageTotal} obrażeń (uduszenie).`,
         data: summarizeState(nextState),
       };
     }

@@ -15,6 +15,7 @@ export type DmToolName =
   | "take_long_rest"
   | "apply_condition"
   | "remove_condition"
+  | "environment_hazard"
   | "set_exhaustion"
   | "stop_concentration"
   | "set_inspiration"
@@ -125,6 +126,17 @@ export const DM_TOOLS: DmTool[] = [
     description:
       "Remove a condition from a combatant in the active combat. Also works for the internal guiding_bolt marker.",
     parameters: { combatantId: { type: "string" }, condition: { type: "string" } },
+  },
+  {
+    name: "environment_hazard",
+    description:
+      "Resolve an environmental hazard (SRD) against a combatant in active combat. falling: 1d6 bludgeoning damage per 10 feet (max 20d6), the target lands prone. suffocation: the target can survive 1 + CON modifier rounds without air; past that it takes 10 damage per round.",
+    parameters: {
+      type: { type: "string" },
+      combatantId: { type: "string" },
+      feet: { type: "number" },
+      conSaves: { type: "number" },
+    },
   },
   {
     name: "set_exhaustion",
