@@ -1,50 +1,37 @@
 # Loop state
 
 ## Runde
-18 — roadmapa SRD: 9/12 kierunków zrealizowanych (465 testów)
+19 — roadmapa SRD: 10/13 kierunków (481 testów)
 
 ## Cel
-Pełny produkt D&D multiplayer (SRD 5.2.1, Baymard UX, PL) + realizacja roadmapy SRD.
+Pełny produkt D&D multiplayer (SRD 5.2.1, Baymard UX, PL) + roadmapa SRD + mobile-first.
 
 ## Wykonane zadania (ostatnie rundy)
-- R16: karta postaci w czacie (CharacterDrawer), roadmapa SRD
-- R17: cechy klasowe 4-20 + ASI + Feats (39 featów, LevelUpDialog z
-  ASI +2/+1+1 lub feat, migracja 0009); broń SRD (36) + ataki z
-  ekwipunku; koncentracja (CON save) + inspiracja (migracja 0008)
-- R18: cechy potworów (pack_tactics, undead_fortitude, regeneration,
-  web, paralyzing_touch) + random_encounter (budżet CR); skill_check
-  framework + mikstury (use_item); budżet akcji ataku (1/turę,
-  Extra Attack, Multiattack, bonus-action spells); hazardy
-  środowiskowe (upadek/duszenie)
-- Fix: port 3101 (konflikt docvue 3001) + vite loadEnv proxy
+- R18: cechy potworów, random_encounter, skill_check, mikstury,
+  budżet akcji ataku, hazardy środowiskowe; fix port 3101 (docvue)
+- R19: reakcje (opportunity_attack, reactionAvailable raz na rundę),
+  polskie nazwy zaklęć (namePl ×20, findSpellByName EN/PL, cast_spell
+  toleruje PL), pełny sweep tłumaczeń serwera (auth/characters/
+  campaigns/combat + rules), mobile-first (#13: iOS zoom fix, touch
+  targets, full-width mobile controls, safe-area), PL/EN toggle zaklęć
 
 ## Testy
-PASS — 465 testów (16 plików), typecheck 3/3, lint, build, 2x stabilne.
+PASS — 481 testów (16 plików), typecheck 3/3, lint, build, 2x stabilne.
+Live: PL błędy REST ("Nie znaleziono postaci.", "Nieprawidłowa nazwa
+użytkownika lub hasło.", "Brak walki w toku."), namePl w /api/spells.
 
-## Roadmapa SRD 5.2.1 — status
-1. ✅ Broń + właściwości (36 broni, finesse/versatile/thrown, ataki z ekwipunku)
-2. ✅ Cechy 4-20 + ASI + Feats (39 featów, dialog wyboru)
-3. ✅ Koncentracja (CON save DC 10/half, 0 HP, stop tool) + inspiracja
-4. ✅ Budżet akcji ataku (1/turę, Extra Attack 5+/11/20, Multiattack,
-   bonus-action spells) — pełna ekonomia (bonus/reakcja/ruch) zostaje
-5. ✅ Cechy potworów (Pack Tactics, Undead Fortitude, Regeneration,
-   Web, Paralyzing Touch)
-6. ✅ Tabele losowych spotkań (random_encounter, budżet CR, teren)
-7. ✅ Inspiracja
-8. ✅ Mikstury (4 poziomy, konsumpcja) — sklepy/encumbrance zostają
-9. ⬜ Ruch/zasięg/ataki okazyjne (duża zmiana silnika — wymaga tokenów/pola)
-10. ✅ Framework testów umiejętności (skill_check: DC, adv/disadv, inspiracja)
-11. ✅ Środowisko (upadek 1k6/10ft max 20k6 + prone, duszenie 1+CON mod)
-12. ⬜ Widzenie/światło (Darkvision mechanicznie — wymaga ruchu/oświetlenia)
+## Roadmapa SRD — status (13 pozycji)
+1-3,5-7,10-11 ✅ | 4 ✅ (budżet ataku; pełna ekonomia bonus/reakcja/ruch ⬜) |
+8 ✅ (mikstury; sklepy/encumbrance ⬜) | 9 ⬜ ruch/zasięg/ataki okazyjne
+(wymaga pozycji/pola) | 12 ⬜ światło/widzenie (z ruchem) |
+13 ✅ mobile-first | + PL sweep ✅ | + PL nazwy zaklęć ✅
 
 ## Największa luka
-- #9 ruch/zasięg/ataki okazyjne + #12 światło (wymagają wspólnego
-  fundamentu: pozycje na polu walki) — największy przyszły kierunek
-- #4 pełna ekonomia (akcja bonusowa/reakcja per combatant)
-- #8 pełne sklepy + encumbrance (STR×15)
+- #9 ruch/zasięg + #12 światło — wspólny fundament (pozycje na polu
+  walki) — największy przyszły kierunek
+- #4 pełna ekonomia (bonus actions per combatant), #8 sklepy +
+  encumbrance (STR×15)
 
 ## Odrzucone podejścia
 - Mastery (weapon mastery) — odłożone
-- Pełna ekwipunkowa walidacja atunementu po stronie serwera — UI-only
-- PDF SRD nieczytelny dla modelu — dane wg znajomości SRD 5.2.1,
-  PDF jako źródło weryfikacji (AGENTS.md)
+- PDF SRD nieczytelny dla modelu — dane wg znajomości SRD 5.2.1
