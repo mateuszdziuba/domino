@@ -487,6 +487,11 @@ export function findEquippedWeapon(character: Character): WeaponDef | undefined 
   return item ? findWeapon(item.name) : undefined;
 }
 
+export function findOffhandWeapon(character: Character): WeaponDef | undefined {
+  const item = character.inventory?.find((i) => i.slot === "offhand");
+  return item ? findWeapon(item.name) : undefined;
+}
+
 export function equippedWeaponAttackStats(
   character: Character,
 ): WeaponAttackStats | undefined {

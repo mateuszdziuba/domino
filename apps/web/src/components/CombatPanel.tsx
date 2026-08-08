@@ -123,6 +123,33 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
 
         {combat.active && (
           <>
+            {combat.lightLevel && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    "rounded-sm border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em]",
+                    combat.lightLevel === "bright"
+                      ? "border-[#4a7a3d]/40 bg-[#4a7a3d]/10 text-[#3f6b34]"
+                      : combat.lightLevel === "dim"
+                        ? "border-[#a97e1f]/60 bg-[#dcc89a]/50 text-[#5c4018]"
+                        : "border-[#2e2113]/50 bg-[#2e2113]/10 text-[#2e2113]",
+                  )}
+                >
+                  Światło:{" "}
+                  {combat.lightLevel === "bright"
+                    ? "jasne"
+                    : combat.lightLevel === "dim"
+                      ? "przyćmione"
+                      : "ciemne"}
+                </span>
+                {combat.lightLevel === "dark" && (
+                  <span className="text-[10px] leading-snug text-[#7c6a45]">
+                    Ciemność: postacie bez ciemnowidzenia mają utrudnienie ataków (i ataki przeciw
+                    nim mają przewagę).
+                  </span>
+                )}
+              </div>
+            )}
             <div className="flex flex-col gap-1">
               <TooltipProvider delayDuration={250}>
               {combat.combatants.map((c, i) => (
@@ -180,6 +207,32 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                         </TooltipContent>
                       </Tooltip>
                     )}
+                    {c.position != null && c.position > 0 && (
+                      <span className="text-[9px] text-[#a08b5c]">{c.position} ft</span>
+                    )}
+                    {c.darkvision && (
+                      <span
+                        title="Widzi w ciemności"
+                        className="rounded-sm border border-[#a97e1f]/50 bg-[#e8d3a0]/50 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em] text-[#5c4018]"
+                      >
+                        ciemnowidz.
+                      </span>
+                    )}
+                    <span
+                      title={
+                        c.bonusActionAvailable
+                          ? "Dostępna akcja dodatkowa"
+                          : "Brak akcji dodatkowej"
+                      }
+                      className={cn(
+                        "rounded-sm border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em]",
+                        c.bonusActionAvailable
+                          ? "border-[#a97e1f]/60 bg-[#dcc89a]/50 text-[#5c4018]"
+                          : "border-[#c8b184] bg-[#fbf3dd]/40 text-[#a08b5c]",
+                      )}
+                    >
+                      akcja dod.
+                    </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
                     {c.isPlayer ? (

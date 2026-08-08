@@ -9,9 +9,39 @@ export const EQUIPMENT_SLOTS: EquipmentSlotInfo[] = [
   { key: "belt", label: "Pas" },
   { key: "ring", label: "Pierścień" },
   { key: "weapon", label: "Broń" },
+  { key: "offhand", label: "Ręka lewa" },
   { key: "shield", label: "Tarcza" },
   { key: "boots", label: "Buty" },
 ];
+
+function priceInGp(price: string): number {
+  if (price === "—") return 500;
+  const [amount, unit] = price.split(" ");
+  const value = parseFloat(amount ?? "0");
+  if (unit === "sp") return value / 10;
+  if (unit === "cp") return value / 100;
+  return value;
+}
+
+export function carryingCapacity(str: number): number {
+  return str * 15;
+}
+
+export function totalInventoryWeight(
+  inventory: { weight?: number; quantity: number }[],
+): number {
+  return inventory.reduce(
+    (sum, item) => sum + (item.weight ?? 0) * item.quantity,
+    0,
+  );
+}
+
+export function isEncumbered(
+  str: number,
+  inventory: { weight?: number; quantity: number }[],
+): boolean {
+  return totalInventoryWeight(inventory) > carryingCapacity(str);
+}
 
 export function isSlotKey(key: string): boolean {
   return EQUIPMENT_SLOTS.some((s) => s.key === key);
@@ -28,6 +58,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "armor",
     weight: 10,
     price: "10 gp",
+    priceGp: priceInGp("10 gp"),
     description: "Lekka zbroja z garbowanej, sztywnej skóry.",
   },
   {
@@ -36,6 +67,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "armor",
     weight: 13,
     price: "45 gp",
+    priceGp: priceInGp("45 gp"),
     description: "Skórzana zbroja wzmocniona metalowymi ćwiekami.",
   },
   {
@@ -44,6 +76,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "armor",
     weight: 20,
     price: "50 gp",
+    priceGp: priceInGp("50 gp"),
     description: "Koszula z metalowych ogniwek chroniąca tułów.",
   },
   {
@@ -52,6 +85,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "armor",
     weight: 45,
     price: "50 gp",
+    priceGp: priceInGp("50 gp"),
     description: "Zbroja z zachodzących na siebie metalowych łusek.",
   },
   {
@@ -60,6 +94,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "armor",
     weight: 20,
     price: "400 gp",
+    priceGp: priceInGp("400 gp"),
     description: "Napierśnik osłaniający klatkę piersiową i brzuch.",
   },
   {
@@ -68,6 +103,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "armor",
     weight: 40,
     price: "750 gp",
+    priceGp: priceInGp("750 gp"),
     description: "Zbroja łącząca napierśnik ze stalowymi elementami.",
   },
   {
@@ -76,6 +112,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "armor",
     weight: 40,
     price: "30 gp",
+    priceGp: priceInGp("30 gp"),
     description: "Skórzana zbroja naszyta metalowymi pierścieniami.",
   },
   {
@@ -84,6 +121,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "armor",
     weight: 55,
     price: "75 gp",
+    priceGp: priceInGp("75 gp"),
     description: "Kolczuga okrywająca całe ciało.",
   },
   {
@@ -92,6 +130,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "armor",
     weight: 60,
     price: "200 gp",
+    priceGp: priceInGp("200 gp"),
     description: "Zbroja z metalowych płyt przymocowanych do podkładu.",
   },
   {
@@ -100,6 +139,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "armor",
     weight: 65,
     price: "1500 gp",
+    priceGp: priceInGp("1500 gp"),
     description: "Pełna płyta bojowa zapewniająca najlepszą ochronę.",
   },
   {
@@ -108,6 +148,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "shield",
     weight: 6,
     price: "10 gp",
+    priceGp: priceInGp("10 gp"),
     description: "Tarcza zwiększająca klasę pancerza o 2.",
   },
   {
@@ -116,6 +157,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 2,
     price: "2 sp",
+    priceGp: priceInGp("2 sp"),
     description: "Prosta, ciężka maczuga.",
   },
   {
@@ -124,6 +166,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 1,
     price: "2 gp",
+    priceGp: priceInGp("2 gp"),
     description: "Krótki sztylet do walki wręcz i rzucania.",
   },
   {
@@ -132,6 +175,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 2,
     price: "5 gp",
+    priceGp: priceInGp("5 gp"),
     description: "Niewielki topór, którym można także rzucać.",
   },
   {
@@ -140,6 +184,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 2,
     price: "5 sp",
+    priceGp: priceInGp("5 sp"),
     description: "Lekki oszczep do walki wręcz i rzucania.",
   },
   {
@@ -148,6 +193,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 4,
     price: "5 gp",
+    priceGp: priceInGp("5 gp"),
     description: "Bulawa z ciężką metalową głowicą.",
   },
   {
@@ -156,6 +202,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 4,
     price: "2 sp",
+    priceGp: priceInGp("2 sp"),
     description: "Długi, prosty kij bojowy.",
   },
   {
@@ -164,6 +211,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 3,
     price: "1 gp",
+    priceGp: priceInGp("1 gp"),
     description: "Włócznia z żelaznym grotem, można nią rzucać.",
   },
   {
@@ -172,6 +220,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 5,
     price: "25 gp",
+    priceGp: priceInGp("25 gp"),
     description: "Lekka kusza strzelająca bełtami.",
   },
   {
@@ -180,6 +229,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 2,
     price: "25 gp",
+    priceGp: priceInGp("25 gp"),
     description: "Mały, łatwy w obsłudze łuk.",
   },
   {
@@ -188,6 +238,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 4,
     price: "10 gp",
+    priceGp: priceInGp("10 gp"),
     description: "Topór bojowy do walki wręcz.",
   },
   {
@@ -196,6 +247,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 2,
     price: "10 gp",
+    priceGp: priceInGp("10 gp"),
     description: "Cep bojowy z łańcuchem i kolczastą głowicą.",
   },
   {
@@ -204,6 +256,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 6,
     price: "20 gp",
+    priceGp: priceInGp("20 gp"),
     description: "Broń drzewcowa z ostrzem osadzonym na długim drzewcu.",
   },
   {
@@ -212,6 +265,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 7,
     price: "30 gp",
+    priceGp: priceInGp("30 gp"),
     description: "Wielki topór dwuręczny o ogromnej sile ciosu.",
   },
   {
@@ -220,6 +274,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 6,
     price: "50 gp",
+    priceGp: priceInGp("50 gp"),
     description: "Ogromny, dwuręczny miecz.",
   },
   {
@@ -228,6 +283,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 6,
     price: "20 gp",
+    priceGp: priceInGp("20 gp"),
     description: "Halabarda łącząca ostrze topora i grot.",
   },
   {
@@ -236,6 +292,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 3,
     price: "15 gp",
+    priceGp: priceInGp("15 gp"),
     description: "Klasyczny miecz trzymany w jednej ręce.",
   },
   {
@@ -244,6 +301,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 10,
     price: "10 gp",
+    priceGp: priceInGp("10 gp"),
     description: "Młot bojowy o ogromnej głowicy.",
   },
   {
@@ -252,6 +310,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 2,
     price: "15 gp",
+    priceGp: priceInGp("15 gp"),
     description: "Młot bojowy do walki jedną ręką.",
   },
   {
@@ -260,6 +319,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 2,
     price: "25 gp",
+    priceGp: priceInGp("25 gp"),
     description: "Lekka broń kłująca o cienkim, ostrym ostrzu.",
   },
   {
@@ -268,6 +328,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 3,
     price: "25 gp",
+    priceGp: priceInGp("25 gp"),
     description: "Zakrzywiona, jednosieczna szabla.",
   },
   {
@@ -276,6 +337,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 2,
     price: "10 gp",
+    priceGp: priceInGp("10 gp"),
     description: "Krótki miecz do walki wręcz.",
   },
   {
@@ -284,6 +346,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 2,
     price: "50 gp",
+    priceGp: priceInGp("50 gp"),
     description: "Długi łuk o wielkim zasięgu.",
   },
   {
@@ -292,6 +355,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 18,
     price: "50 gp",
+    priceGp: priceInGp("50 gp"),
     description: "Ciężka kusza o dużej sile przebicia.",
   },
   {
@@ -299,6 +363,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "gear",
     weight: 5,
     price: "2 gp",
+    priceGp: priceInGp("2 gp"),
     description: "Pleciony plecak do przenoszenia ekwipunku.",
   },
   {
@@ -306,12 +371,14 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "gear",
     weight: 7,
     price: "1 gp",
+    priceGp: priceInGp("1 gp"),
     description: "Zwijany posłanie do spania w terenie.",
   },
   {
     name: "Candle",
     category: "gear",
     price: "1 cp",
+    priceGp: priceInGp("1 cp"),
     description: "Woskowa świeca rozpraszająca ciemność.",
   },
   {
@@ -319,12 +386,14 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "gear",
     weight: 5,
     price: "2 gp",
+    priceGp: priceInGp("2 gp"),
     description: "Łom dający przewagę w testach Siły przy podważaniu.",
   },
   {
     name: "Flint and Steel",
     category: "gear",
     price: "1 gp",
+    priceGp: priceInGp("1 gp"),
     description: "Krzesiwo służące do rozpalania ognia.",
   },
   {
@@ -332,6 +401,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "gear",
     weight: 10,
     price: "1 gp",
+    priceGp: priceInGp("1 gp"),
     description: "Wytrzymała lina konopna o długości 50 stóp.",
   },
   {
@@ -339,6 +409,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "gear",
     weight: 2,
     price: "5 gp",
+    priceGp: priceInGp("5 gp"),
     description: "Latarnia z klapką regulującą snop światła.",
   },
   {
@@ -346,6 +417,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "gear",
     weight: 2,
     price: "5 sp",
+    priceGp: priceInGp("5 sp"),
     description: "Jednodniowa racja żywnościowa.",
   },
   {
@@ -353,6 +425,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "gear",
     weight: 1,
     price: "1 cp",
+    priceGp: priceInGp("1 cp"),
     description: "Smolna pochodnia świecąca przez 1 godzinę.",
   },
   {
@@ -360,6 +433,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "gear",
     weight: 5,
     price: "2 sp",
+    priceGp: priceInGp("2 sp"),
     description: "Bukłak mieszczący pół galona wody.",
   },
   {
@@ -367,6 +441,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "gear",
     weight: 2,
     price: "25 gp",
+    priceGp: priceInGp("25 gp"),
     description: "Sakiewka z drobnymi komponentami do rzucania zaklęć.",
   },
   {
@@ -374,6 +449,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "gear",
     weight: 3,
     price: "50 gp",
+    priceGp: priceInGp("50 gp"),
     description: "Księga zapisana formułami zaklęć maga.",
   },
   {
@@ -382,6 +458,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "neck",
     weight: 3,
     price: "—",
+    priceGp: priceInGp("—"),
     description: "Ustawia Kondycję na 19, wymaga atunementu.",
     attuned: true,
   },
@@ -391,6 +468,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "boots",
     weight: 1,
     price: "—",
+    priceGp: priceInGp("—"),
     description: "Ciche stąpanie — przewaga w Skradaniu się.",
     attuned: true,
   },
@@ -400,6 +478,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "gloves",
     weight: 1,
     price: "—",
+    priceGp: priceInGp("—"),
     description: "AC +2, gdy nie nosisz zbroi ani tarczy.",
     attuned: true,
   },
@@ -409,6 +488,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "cloak",
     weight: 1,
     price: "—",
+    priceGp: priceInGp("—"),
     description: "AC +1 i przewaga w rzutach obronnych.",
     attuned: true,
   },
@@ -418,6 +498,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "gloves",
     weight: 2,
     price: "—",
+    priceGp: priceInGp("—"),
     description: "Ustawia Siłę na 19.",
     attuned: true,
   },
@@ -427,6 +508,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "head",
     weight: 1,
     price: "—",
+    priceGp: priceInGp("—"),
     description: "Ustawia Inteligencję na 19.",
     attuned: true,
   },
@@ -436,6 +518,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "ring",
     weight: 1,
     price: "—",
+    priceGp: priceInGp("—"),
     description: "AC +1 i przewaga w rzutach obronnych.",
     attuned: true,
   },
@@ -445,6 +528,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     slot: "weapon",
     weight: 1,
     price: "—",
+    priceGp: priceInGp("—"),
     description: "7 pocisków, przywraca 1k6+1 na świcie.",
     attuned: true,
   },
@@ -453,6 +537,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "magic",
     weight: 0.5,
     price: "50 gp",
+    priceGp: priceInGp("50 gp"),
     description: "Mikstura leczenia: akcja — odzyskujesz 2k4+2 punktów życia. Jednorazowa.",
   },
   {
@@ -460,6 +545,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "magic",
     weight: 0.5,
     price: "150 gp",
+    priceGp: priceInGp("150 gp"),
     description: "Mikstura leczenia: akcja — odzyskujesz 4k4+4 punktów życia. Jednorazowa.",
   },
   {
@@ -467,6 +553,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "magic",
     weight: 0.5,
     price: "450 gp",
+    priceGp: priceInGp("450 gp"),
     description: "Mikstura leczenia: akcja — odzyskujesz 8k4+8 punktów życia. Jednorazowa.",
   },
   {
@@ -474,6 +561,7 @@ export const SRD_GEAR: SrdGearItem[] = [
     category: "magic",
     weight: 0.5,
     price: "1350 gp",
+    priceGp: priceInGp("1350 gp"),
     description: "Mikstura leczenia: akcja — odzyskujesz 10k4+20 punktów życia. Jednorazowa.",
   },
 ];

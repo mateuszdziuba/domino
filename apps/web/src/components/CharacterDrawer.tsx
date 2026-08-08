@@ -148,6 +148,12 @@ function DrawerContent({
 }) {
   const { character, abilityModifiers, savingThrows, attacks, spellcasting, spellSlots } = sheet;
   const inventory = character.inventory ?? [];
+  const totalWeight = inventory.reduce(
+    (sum, item) => sum + (item.weight ?? 0) * (item.quantity ?? 1),
+    0,
+  );
+  const carryingCapacity = character.abilityScores.strength * 15;
+  const overloaded = totalWeight > carryingCapacity;
   const hpPct =
     character.maxHp > 0
       ? Math.max(0, Math.min(100, (character.currentHp / character.maxHp) * 100))
@@ -199,6 +205,25 @@ function DrawerContent({
           <span>Szybkość {character.speed}</span>
           <span>·</span>
           <span>Złoto {character.gold ?? 0}</span>
+          <span>·</span>
+          {overloaded ? (
+            <TooltipProvider delayDuration={250}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="font-display text-[#8f1d1d]">
+                    Ładowność {totalWeight}/{carryingCapacity} lb
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                    Przeciążony — szybkość zmniejszona o 10 stóp (SRD).
+                  </span>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <span>Ładowność {totalWeight}/{carryingCapacity} lb</span>
+          )}
           <span>·</span>
           <span>XP {character.xp ?? 0}</span>
           {character.inspiration && (

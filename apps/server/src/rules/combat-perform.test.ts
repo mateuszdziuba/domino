@@ -1353,6 +1353,21 @@ describe("nextTurn", () => {
     expect(b.reactionAvailable).toBe(true);
     expect(a.reactionAvailable).toBe(false);
   });
+
+  it("resets the new current combatant's bonusActionAvailable to true at the start of its turn", () => {
+    const state = turnState(
+      [
+        { ...fighter("a"), bonusActionAvailable: true },
+        { ...fighter("b"), bonusActionAvailable: false },
+      ],
+      0,
+    );
+    const next = nextTurn(state);
+    const a = next.combat.combatants.find((c) => c.id === "a")!;
+    const b = next.combat.combatants.find((c) => c.id === "b")!;
+    expect(b.bonusActionAvailable).toBe(true);
+    expect(a.bonusActionAvailable).toBe(true);
+  });
 });
 
 describe("startCombat", () => {

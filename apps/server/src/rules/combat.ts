@@ -124,6 +124,7 @@ export function nextTurn(state: CampaignState): CampaignState {
                 regenerated > 0 ? c.currentHp + regenerated : c.currentHp,
               attacksLeft: c.attacksPerTurn ?? 1,
               reactionAvailable: true,
+              bonusActionAvailable: true,
             }
           : c,
       ),

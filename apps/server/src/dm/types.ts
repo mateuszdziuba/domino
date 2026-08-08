@@ -8,6 +8,7 @@ export type DmToolName =
   | "resolve_action"
   | "attack_combatant"
   | "opportunity_attack"
+  | "bonus_attack"
   | "move_combatant"
   | "set_lighting"
   | "cast_spell"
@@ -83,6 +84,18 @@ export const DM_TOOLS: DmTool[] = [
     name: "opportunity_attack",
     description:
       "Resolve an opportunity attack (reaction) when a hostile leaves a combatant's reach. Uses the attacker's reaction for the round.",
+    parameters: {
+      attackerId: { type: "string" },
+      targetId: { type: "string" },
+      damageNotation: { type: "string" },
+      attackBonus: { type: "number" },
+      damageBonus: { type: "number" },
+    },
+  },
+  {
+    name: "bonus_attack",
+    description:
+      "Two-weapon fighting: a bonus-action attack with the off-hand Light weapon (no damage bonus). Requires two equipped Light weapons and an available bonus action.",
     parameters: {
       attackerId: { type: "string" },
       targetId: { type: "string" },

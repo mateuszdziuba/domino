@@ -745,6 +745,162 @@ describe("runDmTool attack_combatant weapon derivation (mocked store)", () => {
   });
 });
 
+describe("runDmTool bonus_attack (mocked store)", () => {
+  function dualWielder(overrides: Partial<Character> = {}): Character {
+    return {
+      ...aria,
+      inventory: [
+        { id: "i1", name: "Shortsword", quantity: 1, slot: "weapon" },
+        { id: "i2", name: "Shortsword", quantity: 1, slot: "offhand" },
+      ],
+      ...overrides,
+    };
+  }
+
+  it("resolves a two-weapon-fighting bonus attack with no damage bonus", async () => {
+    mock.characters.set("ch1", dualWielder());
+    const original = Math.random;
+    Math.random = () => 0.9; // d20 = 19, 1d6 = 6
+    const result = await runTool("bonus_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("wykonuje dodatkowy atak Shortsword");
+    const data = result.data as { attackTotal: number; damageTotal: number };
+    expect(data.attackTotal).toBe(24); // 19 + prof 2 + STR 3 (finesse picks the higher mod)
+    expect(data.damageTotal).toBe(6); // 1d6 (6) + 0, no STR bonus on the off-hand
+    const saved = mock.states.get("c1")!;
+    const ariaCombatant = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(ariaCombatant.bonusActionAvailable).toBe(false);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "bonus-attack",
+        attacker: "Aria",
+        target: "Goblin",
+      }),
+    );
+  });
+
+  it("refuses a second bonus action in the same turn", async () => {
+    mock.characters.set("ch1", dualWielder());
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const first = await runTool("bonus_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(first.ok).toBe(true);
+    const second = await runTool("bonus_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(second.ok).toBe(false);
+    expect(second.message).toContain("akcji dodatkowej");
+  });
+
+  it("refuses when only one weapon is equipped", async () => {
+    mock.characters.set("ch1", {
+      ...aria,
+      inventory: [{ id: "i1", name: "Shortsword", quantity: 1, slot: "weapon" }],
+    });
+    const result = await runTool("bonus_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("dwóch broni");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("refuses when a weapon lacks the light property", async () => {
+    mock.characters.set("ch1", {
+      ...aria,
+      inventory: [
+        { id: "i1", name: "Longsword", quantity: 1, slot: "weapon" },
+        { id: "i2", name: "Dagger", quantity: 1, slot: "offhand" },
+      ],
+    });
+    const result = await runTool("bonus_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("lekkich");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("refuses a monster attacker", async () => {
+    const state = stateWithCombat();
+    state.combat.turnIndex = 1; // Goblin is the current combatant
+    mock.states.set("c1", state);
+    const result = await runTool("bonus_attack", {
+      attackerId: "enemy-1",
+      targetId: "char-ch1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Potwory");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("refuses an off-turn attacker", async () => {
+    mock.characters.set("ch1", dualWielder());
+    const state = stateWithCombat();
+    state.combat.turnIndex = 1;
+    mock.states.set("c1", state);
+    const result = await runTool("bonus_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("tura");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("refuses a dead target", async () => {
+    mock.characters.set("ch1", dualWielder());
+    const state = stateWithCombat();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      currentHp: 0,
+      status: "dead",
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("bonus_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("martwy");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("keeps the action attack intact for the same turn", async () => {
+    mock.characters.set("ch1", dualWielder());
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const bonus = await runTool("bonus_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(bonus.ok).toBe(true);
+    const attack = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(attack.ok).toBe(true);
+    const aria = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(aria.attacksLeft).toBe(0);
+  });
+});
+
 describe("runDmTool opportunity_attack (mocked store)", () => {
   it("resolves an off-turn reaction attack and consumes the attacker's reaction", async () => {
     const state = stateWithCombat();
@@ -1277,7 +1433,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
       targetId: "enemy-1",
     });
     expect(cast.ok).toBe(true);
-    let caster = mock
+    const caster = mock
       .states.get("c1")!
       .combat.combatants.find((c) => c.id === "char-ch2")!;
     expect(caster.attacksLeft).toBe(1);
@@ -1291,6 +1447,114 @@ describe("runDmTool cast_spell (mocked store)", () => {
       .states.get("c1")!
       .combat.combatants.find((c) => c.id === "char-ch2")!;
     expect(caster.attacksLeft).toBe(0);
+  });
+
+  it("a bonus-action spell (Healing Word) consumes the bonus action", async () => {
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Healing Word"] }));
+    const state = clericCombatState();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      attacksLeft: 1,
+    };
+    mock.states.set("c1", state);
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const cast = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Healing Word",
+      targetId: "enemy-1",
+    });
+    expect(cast.ok).toBe(true);
+    const caster = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch2")!;
+    expect(caster.bonusActionAvailable).toBe(false);
+    expect(caster.attacksLeft).toBe(1);
+    const second = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Healing Word",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(second.ok).toBe(false);
+    expect(second.message).toContain("akcji dodatkowej");
+  });
+
+  it("a bonus-action spell (Spiritual Weapon) consumes the bonus action", async () => {
+    mock.characters.set(
+      "ch2",
+      cleric({ spells: [...baseSpells, "Spiritual Weapon"] }),
+    );
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const cast = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Spiritual Weapon",
+      targetId: "enemy-1",
+    });
+    expect(cast.ok).toBe(true);
+    const caster = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch2")!;
+    expect(caster.bonusActionAvailable).toBe(false);
+    const second = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Spiritual Weapon",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(second.ok).toBe(false);
+    expect(second.message).toContain("akcji dodatkowej");
+  });
+
+  it("an attack is still allowed after a bonus-action spell (attacksLeft untouched)", async () => {
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Healing Word"] }));
+    const state = clericCombatState();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      attacksLeft: 1,
+    };
+    mock.states.set("c1", state);
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const cast = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Healing Word",
+      targetId: "enemy-1",
+    });
+    expect(cast.ok).toBe(true);
+    const caster = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch2")!;
+    expect(caster.attacksLeft).toBe(1);
+    const attack = await runTool("attack_combatant", {
+      attackerId: "char-ch2",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(attack.ok).toBe(true);
+    caster = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch2")!;
+    expect(caster.attacksLeft).toBe(0);
+  });
+
+  it("rejects a bonus-action spell without an available bonus action (already used)", async () => {
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Healing Word"] }));
+    const state = clericCombatState();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      bonusActionAvailable: false,
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Healing Word",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("akcji dodatkowej");
+    expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
   });
 
   it("heals a character outside combat", async () => {
@@ -1830,7 +2094,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
       targetId: "enemy-1",
     });
     expect(first.ok).toBe(true);
-    let caster = mock
+    const caster = mock
       .states.get("c1")!
       .combat.combatants.find((c) => c.id === "char-ch2")!;
     expect(caster.concentratingOn).toBe("Spirit Guardians");

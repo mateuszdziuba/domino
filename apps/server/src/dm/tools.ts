@@ -57,6 +57,8 @@ import { EQUIPMENT_SLOTS, isSlotKey } from "../rules/equipment.js";
 import {
   equippedWeaponAttackInput,
   findEquippedWeapon,
+  findOffhandWeapon,
+  weaponAttackStats,
   weaponReach,
 } from "../rules/weapons.js";
 import {
@@ -600,6 +602,88 @@ export async function runDmTool(
         data: result,
       };
     }
+    case "bonus_attack": {
+      const parsed = z
+        .object({
+          attackerId: z.string().min(1),
+          targetId: z.string().min(1),
+          damageNotation: z.string().optional(),
+          attackBonus: z.number().optional(),
+          damageBonus: z.number().optional(),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) return { ok: false, message: "Wymagane są attackerId i targetId." };
+      const state = loadState(campaignId);
+      if (!state.combat.active) return { ok: false, message: "Brak walki w toku." };
+      const attacker = findCombatant(state, parsed.data.attackerId);
+      const target = findCombatant(state, parsed.data.targetId);
+      if (!attacker || !target) return { ok: false, message: "Nie znaleziono kombatanta." };
+      const current = currentTurnCombatant(state);
+      if (!current || current.id !== attacker.id) {
+        return { ok: false, message: "To nie tura tego kombatanta." };
+      }
+      if (attacker.currentHp === 0 || !canAct(attacker)) {
+        return { ok: false, message: "Atakujący jest niezdolny do działania." };
+      }
+      if (target.status === "dead") return { ok: false, message: "Cel jest martwy." };
+      if (attacker.bonusActionAvailable === false) {
+        return { ok: false, message: "Ta tura nie ma już akcji dodatkowej." };
+      }
+      if (!attacker.characterId) {
+        return { ok: false, message: "Potwory nie wykonują ataków dodatkową akcją." };
+      }
+      const character = getCharacterById(attacker.characterId);
+      if (!character) return { ok: false, message: "Nie znaleziono postaci." };
+      const mainWeapon = findEquippedWeapon(character);
+      const offhandWeapon = findOffhandWeapon(character);
+      if (!mainWeapon || !offhandWeapon) {
+        return { ok: false, message: "Walka dwiema broniami wymaga dwóch broni lekkich." };
+      }
+      if (
+        !mainWeapon.properties.includes("light") ||
+        !offhandWeapon.properties.includes("light")
+      ) {
+        return { ok: false, message: "Walka dwiema broniami wymaga dwóch broni lekkich." };
+      }
+      const stats = weaponAttackStats(offhandWeapon, character);
+      const outcome = performAttack(state, attacker.id, target.id, {
+        attackBonus: parsed.data.attackBonus ?? stats.hitBonus,
+        damageNotation: parsed.data.damageNotation ?? offhandWeapon.damageDice,
+        damageBonus: parsed.data.damageBonus ?? 0,
+        reach: weaponReach(offhandWeapon),
+      });
+      if (!outcome.ok) return { ok: false, message: `${outcome.error}.` };
+      if (outcome.target.characterId) {
+        updateCharacterHp(outcome.target.characterId, outcome.target.currentHp);
+      }
+      const updatedAttacker = {
+        ...attacker,
+        bonusActionAvailable: false,
+      };
+      saveState(campaignId, {
+        ...outcome.state,
+        combat: {
+          ...outcome.state.combat,
+          combatants: outcome.state.combat.combatants.map((c) =>
+            c.id === attacker.id ? updatedAttacker : c,
+          ),
+        },
+      });
+      pushEvent(campaignId, "action.resolved", {
+        type: "bonus-attack",
+        attacker: outcome.attacker.name,
+        target: outcome.target.name,
+        ...outcome.result,
+      });
+      const hitMessage = outcome.result.hit
+        ? `${outcome.attacker.name} trafia ${outcome.target.name} za ${outcome.result.damageTotal} obrażeń (atak ${outcome.result.attackTotal} vs AC ${outcome.target.armorClass}).${outcome.result.critical ? " Krytyk!" : ""}`
+        : `${outcome.attacker.name} chybia ${outcome.target.name} (atak ${outcome.result.attackTotal} vs AC ${outcome.target.armorClass}).`;
+      return {
+        ok: true,
+        message: `${outcome.attacker.name} wykonuje dodatkowy atak ${offhandWeapon.name}: ${hitMessage}${outcome.result.fumble ? " — pudło!" : ""}`,
+        data: outcome.result,
+      };
+    }
     case "move_combatant": {
       const parsed = z
         .object({ combatantId: z.string().min(1), feet: z.number().int().min(0).max(500) })
@@ -712,6 +796,12 @@ export async function runDmTool(
           return { ok: false, message: "Rzucający jest obezwładniony i nie może działać." };
         }
         if (
+          def.effect.castingTime === "bonus" &&
+          casterCombatant.bonusActionAvailable === false
+        ) {
+          return { ok: false, message: "Brak akcji dodatkowej w tej turze." };
+        }
+        if (
           def.effect.castingTime !== "bonus" &&
           (casterCombatant.attacksLeft ?? 1) <= 0
         ) {
@@ -790,7 +880,7 @@ export async function runDmTool(
           const combatants = state.combat.combatants.map((combatant) => {
             if (combatant.id === casterCombatant.id) {
               return def.effect.castingTime === "bonus"
-                ? combatant
+                ? { ...combatant, bonusActionAvailable: false }
                 : { ...combatant, attacksLeft: (combatant.attacksLeft ?? 1) - 1 };
             }
             if (!combatant.isPlayer) return combatant;
@@ -884,7 +974,7 @@ export async function runDmTool(
               }
             : {}),
           ...(def.effect.castingTime === "bonus"
-            ? {}
+            ? { bonusActionAvailable: false }
             : { attacksLeft: (casterCombatant.attacksLeft ?? 1) - 1 }),
         };
         let updated: Combatant = {
@@ -939,7 +1029,11 @@ export async function runDmTool(
         const combatants = state.combat.combatants.map((c) => {
           if (c.id === casterCombatant.id) {
             return c.id === targetCombatant.id
-              ? { ...updated, attacksLeft: casterUpdated.attacksLeft }
+              ? {
+                  ...updated,
+                  attacksLeft: casterUpdated.attacksLeft,
+                  bonusActionAvailable: casterUpdated.bonusActionAvailable,
+                }
               : casterUpdated;
           }
           return c.id === targetCombatant.id ? updated : c;
@@ -1855,6 +1949,7 @@ function summarizeState(state: CampaignState) {
               status: c.status ?? "active",
               attacksPerTurn: c.attacksPerTurn ?? 1,
               attacksLeft: c.attacksLeft ?? 1,
+              bonusActionAvailable: c.bonusActionAvailable ?? true,
               traits: c.traits ?? [],
               turn: c.id === currentTurnCombatant(state)?.id,
             };

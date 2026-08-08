@@ -35,6 +35,7 @@ export type InventoryItem = {
   description?: string;
   slot?: string;
   attuned?: boolean;
+  price?: number;
 };
 
 export type EquipmentSlotInfo = {
@@ -48,6 +49,7 @@ export type SrdGearItem = {
   slot?: string;
   weight?: number;
   price?: string;
+  priceGp?: number;
   description?: string;
   attuned?: boolean;
 };
