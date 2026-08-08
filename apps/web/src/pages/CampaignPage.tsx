@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { Map, Send, Users, Dices, Volume2, VolumeX } from "lucide-react";
+import { Map, Send, Users, Dices, Volume2, VolumeX, ScrollText } from "lucide-react";
 import {
   campaignApi,
   characterApi,
@@ -31,6 +31,7 @@ import {
 } from "../components/ui/tooltip";
 import { CombatPanel } from "../components/CombatPanel";
 import { SubclassPicker } from "../components/SubclassPicker";
+import CharacterDrawer from "../components/CharacterDrawer";
 import { subscribeCampaign } from "../lib/stream";
 import { RichMessageText } from "../lib/chat-tooltips";
 import { playDice, playMessage, setSoundEnabled, soundEnabled } from "../lib/sound";
@@ -167,6 +168,8 @@ export default function CampaignPage() {
   const [showGuide, setShowGuide] = useState(() => localStorage.getItem("domino-guide") !== "1");
   const [featuresCatalog, setFeaturesCatalog] = useState<FeaturesCatalog | null>(null);
   const [pendingLevelUp, setPendingLevelUp] = useState<LevelUpInfo | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerCharacterId, setDrawerCharacterId] = useState<string | null>(null);
   const [subclassDialogOpen, setSubclassDialogOpen] = useState(false);
   const [subclassSaving, setSubclassSaving] = useState(false);
   const [levelUpError, setLevelUpError] = useState<string | null>(null);
@@ -523,6 +526,30 @@ export default function CampaignPage() {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+        {member && (
+          <TooltipProvider delayDuration={250}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Karta postaci"
+                    className="h-6 w-6 p-0 text-[#7c6a45] hover:text-[#3a2c17]"
+                    onClick={() => {
+                      setDrawerCharacterId(member.characterId);
+                      setDrawerOpen(true);
+                    }}
+                  >
+                    <ScrollText className="size-4" />
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Karta postaci</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         <Badge
           variant={connState === "live" ? "default" : connState === "offline" ? "destructive" : "secondary"}
           className={connState === "live" ? "text-[#2e7d32]" : undefined}
@@ -1086,6 +1113,12 @@ export default function CampaignPage() {
           </Card>
         </div>
       )}
+
+      <CharacterDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        characterId={drawerCharacterId}
+      />
     </div>
   );
 }
