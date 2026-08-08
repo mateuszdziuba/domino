@@ -21,7 +21,15 @@ export type NewCombatant = {
   exhaustionLevel?: number;
   traits?: string[];
   attacksPerTurn?: number;
+  position?: number;
+  darkvision?: boolean;
 };
+
+export const DARKVISION_RACES = ["Elf", "Dwarf", "Gnome", "Orc", "Tiefling"];
+
+export function raceHasDarkvision(race: string): boolean {
+  return DARKVISION_RACES.some((r) => race.includes(r));
+}
 
 export function rollInitiative(dexterityScore: number): { roll: number; total: number } {
   const roll = d(20, 1)[0]!;
@@ -55,6 +63,9 @@ export function startCombat(
       attacksPerTurn: entry.attacksPerTurn ?? 1,
       attacksLeft: entry.attacksPerTurn ?? 1,
       reactionAvailable: true,
+      bonusActionAvailable: true,
+      position: entry.position ?? 0,
+      darkvision: entry.darkvision ?? false,
     };
   });
   combatants.sort((a, b) => {
@@ -154,6 +165,7 @@ export type AttackInput = {
   damageBonus: number;
   advantage?: boolean;
   disadvantage?: boolean;
+  reach?: number;
 };
 
 export type AttackResult = {
@@ -346,7 +358,15 @@ export function performAttack(
   if (!current || current.id !== attacker.id) {
     return { ok: false, error: "To nie tura tego kombatanta." };
   }
+  const reach = input.reach ?? 5;
+  if (reach < 999 && Math.max(attacker.position ?? 0, target.position ?? 0) > reach) {
+    return { ok: false, error: "Poza zasięgiem — cel jest za daleko." };
+  }
   const mods = attackRollAdvantages(attacker, target);
+  const darkAdvantage =
+    state.combat.lightLevel === "dark" && target.darkvision !== true;
+  const darkDisadvantage =
+    state.combat.lightLevel === "dark" && attacker.darkvision !== true;
   const packTacticsAdvantage =
     (attacker.traits ?? []).includes("pack_tactics") &&
     state.combat.combatants.some(
@@ -354,8 +374,8 @@ export function performAttack(
     );
   const result = resolveAttack(target, {
     ...input,
-    advantage: mods.advantage || input.advantage === true || packTacticsAdvantage,
-    disadvantage: mods.disadvantage || input.disadvantage === true,
+    advantage: mods.advantage || input.advantage === true || packTacticsAdvantage || darkAdvantage,
+    disadvantage: mods.disadvantage || input.disadvantage === true || darkDisadvantage,
   });
   let newTarget: Combatant;
   if (result.hit) {

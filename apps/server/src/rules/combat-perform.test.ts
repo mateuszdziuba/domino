@@ -7,6 +7,7 @@ import {
   extraAttacksForClass,
   findCombatant,
   nextTurn,
+  raceHasDarkvision,
   startCombat,
 } from "./combat.js";
 import { defaultCampaignState } from "./state.js";
@@ -909,6 +910,109 @@ describe("lethal damage at 0 HP and stable status", () => {
   });
 });
 
+describe("performAttack reach and lighting", () => {
+  it("rejects a melee attack when either combatant is beyond 5 ft reach", () => {
+    const state = combatState(0);
+    state.combat.combatants[0] = { ...state.combat.combatants[0]!, position: 10 };
+    state.combat.combatants[1] = { ...state.combat.combatants[1]!, position: 10 };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    expect(outcome).toEqual({ ok: false, error: "Poza zasięgiem — cel jest za daleko." });
+  });
+
+  it("allows a reach weapon (10 ft) attack when the target is 8 ft out", () => {
+    const state = combatState(0);
+    state.combat.combatants[1] = { ...state.combat.combatants[1]!, position: 8 };
+    const original = Math.random;
+    Math.random = () => 0.5; // d20 = 11 (attack 31 >= AC 12) -> hit
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+      reach: 10,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+  });
+
+  it("allows a ranged attack (reach 999) across 60 ft", () => {
+    const state = combatState(0);
+    state.combat.combatants[1] = { ...state.combat.combatants[1]!, position: 60 };
+    const original = Math.random;
+    Math.random = () => 0.5; // d20 = 11 (attack 31 >= AC 12) -> hit
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+      reach: 999,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+  });
+
+  it("in dark lighting an attacker without darkvision rolls with disadvantage", () => {
+    const state = combatState(0);
+    state.combat.lightLevel = "dark";
+    state.combat.combatants[0] = { ...state.combat.combatants[0]!, darkvision: false };
+    state.combat.combatants[1] = { ...state.combat.combatants[1]!, darkvision: true };
+    const seq = [0.9, 0.1]; // d20s: 19, 3 -> disadvantage keeps the lower die
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([19, 3]);
+    expect(outcome.result.attackRoll).toBe(3);
+  });
+
+  it("in dark lighting an attacker with darkvision rolls with advantage vs a blind target", () => {
+    const state = combatState(0);
+    state.combat.lightLevel = "dark";
+    state.combat.combatants[0] = { ...state.combat.combatants[0]!, darkvision: true };
+    state.combat.combatants[1] = { ...state.combat.combatants[1]!, darkvision: false };
+    const seq = [0.1, 0.9]; // d20s: 3, 19 -> advantage keeps the higher die
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([3, 19]);
+    expect(outcome.result.attackRoll).toBe(19);
+  });
+
+  it("bright lighting does not alter attack rolls", () => {
+    const state = combatState(0);
+    state.combat.lightLevel = "bright";
+    state.combat.combatants[0] = { ...state.combat.combatants[0]!, darkvision: false };
+    state.combat.combatants[1] = { ...state.combat.combatants[1]!, darkvision: false };
+    const seq = [0.9, 0.9]; // single d20: 19; 1d8: 8
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([19]);
+  });
+});
+
 describe("monster traits (combat mechanics)", () => {
   function packState(allyAlive: boolean): CampaignState {
     return {
@@ -1301,6 +1405,40 @@ describe("startCombat", () => {
     for (const c of state.combat.combatants) {
       expect(c.reactionAvailable).toBe(true);
     }
+  });
+
+  it("initializes position, darkvision and bonusActionAvailable", () => {
+    const state = startCombat(defaultCampaignState(), [
+      {
+        id: "c1",
+        name: "Aelar",
+        isPlayer: true,
+        maxHp: 10,
+        armorClass: 14,
+        position: 12,
+        darkvision: true,
+      },
+      { id: "c2", name: "Bran", isPlayer: true, maxHp: 10, armorClass: 12 },
+    ]);
+    const byId = Object.fromEntries(state.combat.combatants.map((c) => [c.id, c]));
+    expect(byId.c1!.position).toBe(12);
+    expect(byId.c1!.darkvision).toBe(true);
+    expect(byId.c1!.bonusActionAvailable).toBe(true);
+    expect(byId.c2!.position).toBe(0);
+    expect(byId.c2!.darkvision).toBe(false);
+    expect(byId.c2!.bonusActionAvailable).toBe(true);
+  });
+});
+
+describe("raceHasDarkvision", () => {
+  it("follows the SRD Darkvision races", () => {
+    expect(raceHasDarkvision("Elf")).toBe(true);
+    expect(raceHasDarkvision("Dwarf")).toBe(true);
+    expect(raceHasDarkvision("Gnome")).toBe(true);
+    expect(raceHasDarkvision("Orc")).toBe(true);
+    expect(raceHasDarkvision("Tiefling")).toBe(true);
+    expect(raceHasDarkvision("Human")).toBe(false);
+    expect(raceHasDarkvision("Dragonborn")).toBe(false);
   });
 });
 

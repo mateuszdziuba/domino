@@ -8,6 +8,8 @@ export type DmToolName =
   | "resolve_action"
   | "attack_combatant"
   | "opportunity_attack"
+  | "move_combatant"
+  | "set_lighting"
   | "cast_spell"
   | "resolve_death_save"
   | "advance_turn"
@@ -88,6 +90,21 @@ export const DM_TOOLS: DmTool[] = [
       attackBonus: { type: "number" },
       damageBonus: { type: "number" },
     },
+  },
+  {
+    name: "move_combatant",
+    description:
+      "Move a combatant on the abstract 1-D battle line: position is feet from the melee cluster (0 = in melee). Updates the authoritative combat state.",
+    parameters: {
+      combatantId: { type: "string" },
+      feet: { type: "number" },
+    },
+  },
+  {
+    name: "set_lighting",
+    description:
+      "Set the combat's light level (bright, dim or dark). In darkness, attackers without darkvision attack with disadvantage and targets without darkvision are attacked with advantage (SRD heavily obscured).",
+    parameters: { level: { type: "string" } },
   },
   {
     name: "cast_spell",

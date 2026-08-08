@@ -439,6 +439,17 @@ export function findWeapon(name: string): WeaponDef | undefined {
   );
 }
 
+export function weaponReach(weapon: WeaponDef): number {
+  if (
+    weapon.range === "ranged" ||
+    weapon.properties.includes("ammunition") ||
+    weapon.properties.includes("thrown")
+  ) {
+    return 999;
+  }
+  return weapon.properties.includes("reach") ? 10 : 5;
+}
+
 export type WeaponAttackStats = {
   hitBonus: number;
   damageNotation: string;

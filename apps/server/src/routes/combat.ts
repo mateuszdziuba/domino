@@ -21,9 +21,14 @@ import {
   findCombatant,
   characterAttackInput,
   extraAttacksForClass,
+  raceHasDarkvision,
 } from "../rules/combat.js";
 import { buildEncounter } from "../rules/monsters.js";
-import { equippedWeaponAttackInput } from "../rules/weapons.js";
+import {
+  equippedWeaponAttackInput,
+  findEquippedWeapon,
+  weaponReach,
+} from "../rules/weapons.js";
 import { xpAwardForDeadEnemies } from "../rules/advancement.js";
 import type { Character } from "@domino/shared";
 
@@ -82,6 +87,7 @@ combatRoutes.post("/start", requireAuth, async (c) => {
       dexterity: ch.abilityScores.dexterity,
       exhaustionLevel: ch.exhaustion ?? 0,
       attacksPerTurn: extraAttacksForClass(ch.className, ch.level),
+      darkvision: raceHasDarkvision(ch.race),
     }));
   const enemies = parsed.data.enemies.map((e) => ({
     id: e.id ?? `enemy-${crypto.randomUUID()}`,
@@ -139,6 +145,7 @@ combatRoutes.post("/generate", requireAuth, async (c) => {
     dexterity: ch.abilityScores.dexterity,
     exhaustionLevel: ch.exhaustion ?? 0,
     attacksPerTurn: extraAttacksForClass(ch.className, ch.level),
+    darkvision: raceHasDarkvision(ch.race),
   }));
 
   let state = startCombat(state0, [...combatants, ...monsters]);
@@ -242,6 +249,7 @@ combatRoutes.post("/attack", requireAuth, async (c) => {
   let attackBonus = parsed.data.attackBonus;
   let damageBonus = parsed.data.damageBonus;
   let damageNotation = parsed.data.damageNotation;
+  let reach = 5;
   if (attacker.characterId) {
     const character = getCharacterById(attacker.characterId);
     if (character) {
@@ -251,6 +259,8 @@ combatRoutes.post("/attack", requireAuth, async (c) => {
       attackBonus ??= defaults.attackBonus;
       damageBonus ??= defaults.damageBonus;
       damageNotation ??= defaults.damageNotation;
+      const weapon = findEquippedWeapon(character);
+      if (weapon) reach = weaponReach(weapon);
     }
   }
   if (attackBonus === undefined) attackBonus = 0;
@@ -263,6 +273,7 @@ combatRoutes.post("/attack", requireAuth, async (c) => {
     damageBonus,
     advantage: parsed.data.advantage,
     disadvantage: parsed.data.disadvantage,
+    reach,
   });
   if (!outcome.ok) return c.json({ error: outcome.error }, 400);
 

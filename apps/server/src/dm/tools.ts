@@ -39,6 +39,7 @@ import {
   performDeathSave,
   characterAttackInput,
   extraAttacksForClass,
+  raceHasDarkvision,
 } from "../rules/combat.js";
 import { abilityModifier, proficiencyBonus } from "../rules/abilities.js";
 import { buildCharacterFeatures } from "../rules/features.js";
@@ -53,7 +54,11 @@ import {
 } from "../rules/spells.js";
 import { buildEncounter, randomEncounter } from "../rules/monsters.js";
 import { EQUIPMENT_SLOTS, isSlotKey } from "../rules/equipment.js";
-import { equippedWeaponAttackInput } from "../rules/weapons.js";
+import {
+  equippedWeaponAttackInput,
+  findEquippedWeapon,
+  weaponReach,
+} from "../rules/weapons.js";
 import {
   ADVENTURES,
   buildAdventureState,
@@ -343,6 +348,7 @@ export async function runDmTool(
         dexterity: ch.abilityScores.dexterity,
         exhaustionLevel: ch.exhaustion ?? 0,
         attacksPerTurn: extraAttacksForClass(ch.className, ch.level),
+        darkvision: raceHasDarkvision(ch.race),
       }));
       let state = startCombat(state0, [...combatants, ...monsters]);
       state = saveState(campaignId, state);
@@ -390,6 +396,7 @@ export async function runDmTool(
         dexterity: ch.abilityScores.dexterity,
         exhaustionLevel: ch.exhaustion ?? 0,
         attacksPerTurn: extraAttacksForClass(ch.className, ch.level),
+        darkvision: raceHasDarkvision(ch.race),
       }));
       let state = startCombat(state0, [...combatants, ...monsters]);
       state = saveState(campaignId, state);
@@ -433,6 +440,7 @@ export async function runDmTool(
       const inspirationUsed =
         parsed.data.useInspiration === true && attackerCharacter?.inspiration === true;
       let { attackBonus, damageNotation, damageBonus } = parsed.data;
+      let reach = 5;
       if (attacker.characterId) {
         const character = getCharacterById(attacker.characterId);
         if (character) {
@@ -442,6 +450,8 @@ export async function runDmTool(
           attackBonus ??= defaults.attackBonus;
           damageNotation ??= defaults.damageNotation;
           damageBonus ??= defaults.damageBonus;
+          const weapon = findEquippedWeapon(character);
+          if (weapon) reach = weaponReach(weapon);
         }
       }
       const outcome = performAttack(state, parsed.data.attackerId, parsed.data.targetId, {
@@ -450,6 +460,7 @@ export async function runDmTool(
         damageBonus: damageBonus ?? 0,
         advantage: parsed.data.advantage || inspirationUsed,
         disadvantage: parsed.data.disadvantage,
+        reach,
       });
       if (!outcome.ok) return { ok: false, message: `${outcome.error}.` };
       if (outcome.target.characterId) {
@@ -522,6 +533,7 @@ export async function runDmTool(
       }
       if (target.status === "dead") return { ok: false, message: "Cel jest martwy." };
       let { attackBonus, damageNotation, damageBonus } = parsed.data;
+      let reach = 5;
       if (attacker.characterId) {
         const character = getCharacterById(attacker.characterId);
         if (character) {
@@ -531,7 +543,12 @@ export async function runDmTool(
           attackBonus ??= defaults.attackBonus;
           damageNotation ??= defaults.damageNotation;
           damageBonus ??= defaults.damageBonus;
+          const weapon = findEquippedWeapon(character);
+          if (weapon) reach = weaponReach(weapon);
         }
+      }
+      if ((target.position ?? 0) > reach) {
+        return { ok: false, message: "Cel jest poza zasięgiem ataku okazyjnego." };
       }
       const mods = attackRollAdvantages(attacker, target);
       const result = resolveAttack(target, {
@@ -582,6 +599,69 @@ export async function runDmTool(
         message: `${reactionMessage}${result.fumble ? " — pudło!" : ""}`,
         data: result,
       };
+    }
+    case "move_combatant": {
+      const parsed = z
+        .object({ combatantId: z.string().min(1), feet: z.number().int().min(0).max(500) })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "Wymagane są combatantId i feet (0–500 stóp)." };
+      }
+      const state = loadState(campaignId);
+      if (!state.combat.active) return { ok: false, message: "Brak walki w toku." };
+      const combatant = findCombatant(state, parsed.data.combatantId);
+      if (!combatant) return { ok: false, message: "Nie znaleziono kombatanta." };
+      const updated: Combatant = { ...combatant, position: parsed.data.feet };
+      const nextState: CampaignState = {
+        ...state,
+        combat: {
+          ...state.combat,
+          combatants: state.combat.combatants.map((c) =>
+            c.id === combatant.id ? updated : c,
+          ),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      saveState(campaignId, nextState);
+      pushEvent(campaignId, "action.resolved", {
+        type: "move",
+        combatant: combatant.name,
+        position: parsed.data.feet,
+      });
+      const message =
+        parsed.data.feet === 0
+          ? `${combatant.name} przesuwa się w sam środek walki w zwarciu.`
+          : `${combatant.name} przesuwa się na pozycję ${parsed.data.feet} stóp od walki w zwarciu.`;
+      return { ok: true, message, data: summarizeState(nextState) };
+    }
+    case "set_lighting": {
+      const parsed = z
+        .object({ level: z.enum(["bright", "dim", "dark"]) })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          message: "Wymagany jest poziom oświetlenia (bright, dim lub dark).",
+        };
+      }
+      const state = loadState(campaignId);
+      const nextState: CampaignState = {
+        ...state,
+        combat: { ...state.combat, lightLevel: parsed.data.level },
+        updatedAt: new Date().toISOString(),
+      };
+      saveState(campaignId, nextState);
+      pushEvent(campaignId, "action.resolved", {
+        type: "lighting",
+        level: parsed.data.level,
+      });
+      const message =
+        parsed.data.level === "bright"
+          ? "Walka toczy się w jasnym świetle."
+          : parsed.data.level === "dim"
+            ? "Walka toczy się w przyćmionym świetle — postacie bez ciemnowidzenia mają utrudnienie."
+            : "Walka toczy się w ciemności — tylko ciemnowidzący walczą bez utrudnienia.";
+      return { ok: true, message, data: summarizeState(nextState) };
     }
     case "cast_spell": {
       const parsed = z
@@ -781,9 +861,13 @@ export async function runDmTool(
       }
       if (state.combat.active && casterCombatant && targetCombatant) {
         const mods = attackRollAdvantages(casterCombatant, targetCombatant);
+        const darkAdvantage =
+          state.combat.lightLevel === "dark" && targetCombatant.darkvision !== true;
+        const darkDisadvantage =
+          state.combat.lightLevel === "dark" && casterCombatant.darkvision !== true;
         const result = resolveSpellCast(def, stats, targetCombatant, {
-          advantage: mods.advantage || parsed.data.advantage,
-          disadvantage: mods.disadvantage || parsed.data.disadvantage,
+          advantage: mods.advantage || parsed.data.advantage || darkAdvantage,
+          disadvantage: mods.disadvantage || parsed.data.disadvantage || darkDisadvantage,
           restoreMode: parsed.data.restoreMode,
         });
         const concentrationApplied =

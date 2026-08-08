@@ -556,6 +556,26 @@ describe("runDmTool encounter generation (mocked store)", () => {
     expect(byId.get("char-ch1")!.attacksLeft).toBe(2);
   });
 
+  it("generate_encounter gives PCs darkvision by race (Elf true, Human false)", async () => {
+    mock.characters.set("ch1", { ...aria, race: "Elf" });
+    let result = await runTool("generate_encounter", {
+      description: "goblins in a cave",
+    });
+    expect(result.ok).toBe(true);
+    let saved = mock.states.get("c1")!;
+    let elf = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(elf.darkvision).toBe(true);
+    mock.characters.set("ch1", { ...aria, race: "Human" });
+    mock.states.set("c1", mock.defaultState());
+    result = await runTool("generate_encounter", {
+      description: "goblins in a cave",
+    });
+    expect(result.ok).toBe(true);
+    saved = mock.states.get("c1")!;
+    const human = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(human.darkvision).toBe(false);
+  });
+
   it("random_encounter starts combat with monsters and pushes an encounter.started event", async () => {
     const result = await runTool("random_encounter", {});
     expect(result.ok).toBe(true);
@@ -838,6 +858,50 @@ describe("runDmTool opportunity_attack (mocked store)", () => {
     expect(result.message).toContain("martwy");
   });
 
+  it("refuses when the target is beyond the attacker's weapon reach", async () => {
+    const state = stateWithCombat();
+    state.combat.turnIndex = 1;
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      reactionAvailable: true,
+    };
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      position: 12,
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("opportunity_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("poza zasięgiem ataku okazyjnego");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("resolves when the target is within the attacker's weapon reach", async () => {
+    const state = stateWithCombat();
+    state.combat.turnIndex = 1;
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      reactionAvailable: true,
+    };
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      position: 4,
+    };
+    mock.states.set("c1", state);
+    const original = Math.random;
+    Math.random = () => 0.9; // d20 = 19, 1d8 = 8
+    const result = await runTool("opportunity_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("atak okazyjny");
+  });
+
   it("restores the attacker's reaction at the start of its next turn", async () => {
     const state = stateWithCombat();
     state.combat.turnIndex = 1;
@@ -864,6 +928,99 @@ describe("runDmTool opportunity_attack (mocked store)", () => {
     expect(
       saved.combat.combatants.find((c) => c.id === "char-ch1")!.reactionAvailable,
     ).toBe(true);
+  });
+});
+
+describe("runDmTool move_combatant (mocked store)", () => {
+  it("sets the combatant's position and emits a move event", async () => {
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      feet: 30,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("30 stóp");
+    const saved = mock.states.get("c1")!;
+    expect(
+      saved.combat.combatants.find((c) => c.id === "enemy-1")!.position,
+    ).toBe(30);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "move", combatant: "Goblin", position: 30 }),
+    );
+  });
+
+  it("uses the melee wording for position 0", async () => {
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      feet: 0,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("w sam środek walki w zwarciu");
+    const saved = mock.states.get("c1")!;
+    expect(
+      saved.combat.combatants.find((c) => c.id === "enemy-1")!.position,
+    ).toBe(0);
+  });
+
+  it("rejects without active combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      feet: 10,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Brak walki");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown combatant", async () => {
+    const result = await runTool("move_combatant", {
+      combatantId: "ghost",
+      feet: 10,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Nie znaleziono kombatanta");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects feet outside the 0-500 range", async () => {
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      feet: 501,
+    });
+    expect(result.ok).toBe(false);
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("runDmTool set_lighting (mocked store)", () => {
+  it("persists the light level and emits a lighting event", async () => {
+    const result = await runTool("set_lighting", { level: "dark" });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("ciemności");
+    const saved = mock.states.get("c1")!;
+    expect(saved.combat.lightLevel).toBe("dark");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "lighting", level: "dark" }),
+    );
+  });
+
+  it("narrates bright and dim levels", async () => {
+    const bright = await runTool("set_lighting", { level: "bright" });
+    expect(bright.ok).toBe(true);
+    expect(bright.message).toContain("jasnym świetle");
+    const dim = await runTool("set_lighting", { level: "dim" });
+    expect(dim.ok).toBe(true);
+    expect(dim.message).toContain("przyćmionym świetle");
+  });
+
+  it("rejects an invalid level", async () => {
+    const result = await runTool("set_lighting", { level: "neon" });
+    expect(result.ok).toBe(false);
+    expect(mock.pushEvent).not.toHaveBeenCalled();
   });
 });
 
@@ -964,6 +1121,32 @@ describe("runDmTool cast_spell (mocked store)", () => {
         target: "Goblin",
       }),
     );
+  });
+
+  it("applies disadvantage to an attack-roll spell in dark lighting for a caster without darkvision", async () => {
+    const state = clericCombatState();
+    state.combat.lightLevel = "dark";
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      darkvision: false,
+    };
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      darkvision: true,
+    };
+    mock.states.set("c1", state);
+    const seq = [0.9, 0.1, 0.5]; // d20s: 19, 3 -> disadvantage keeps the lower die
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const data = result.data as { attackRolls: number[] };
+    expect(data.attackRolls).toEqual([19, 3]);
   });
 
   it("casts a known spell given its Polish name (findSpellByName)", async () => {

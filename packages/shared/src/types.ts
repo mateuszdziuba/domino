@@ -109,6 +109,9 @@ export type Combatant = {
   attacksPerTurn?: number;
   attacksLeft?: number;
   reactionAvailable?: boolean;
+  bonusActionAvailable?: boolean;
+  position?: number;
+  darkvision?: boolean;
   status?: CombatantStatus;
   conditions?: string[];
   deathSaveSuccesses?: number;
@@ -120,6 +123,7 @@ export type CombatState = {
   combatants: Combatant[];
   turnIndex: number;
   round: number;
+  lightLevel?: "bright" | "dim" | "dark";
 };
 
 export type CampaignState = {
