@@ -127,6 +127,8 @@ export type AttackResult = {
   damageRolls: number[];
   targetCurrentHp: number;
   targetStatus: Combatant["status"];
+  concentrationBroken?: boolean;
+  concentrationSave?: { roll: number; dc: number };
 };
 
 export function resolveAttack(
@@ -316,6 +318,22 @@ export function performAttack(
         ...newTarget,
         conditions: (target.conditions ?? []).filter((c) => c !== GUIDING_BOLT_MARKER),
       };
+    }
+    if (target.concentratingOn && result.damageTotal > 0) {
+      if (newTarget.currentHp === 0) {
+        result.concentrationBroken = true;
+        newTarget = { ...newTarget, concentratingOn: undefined };
+      } else {
+        const dc = Math.max(10, Math.floor(result.damageTotal / 2));
+        const saveRoll = d(20, 1)[0]! + (target.conSaveMod ?? 0);
+        result.concentrationSave = { roll: saveRoll, dc };
+        if (saveRoll < dc) {
+          result.concentrationBroken = true;
+          newTarget = { ...newTarget, concentratingOn: undefined };
+        } else {
+          result.concentrationBroken = false;
+        }
+      }
     }
     result.targetStatus = newTarget.status;
   } else {

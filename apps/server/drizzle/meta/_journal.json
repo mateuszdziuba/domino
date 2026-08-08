@@ -57,6 +57,13 @@
       "when": 1786194171426,
       "tag": "0007_ambitious_sunspot",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1786196967378,
+      "tag": "0008_low_princess_powerful",
+      "breakpoints": true
     }
   ]
 }

@@ -165,6 +165,21 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                           </TooltipContent>
                         </Tooltip>
                       ))}
+                    {c.concentratingOn && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="rounded-sm border border-[#a97e1f]/60 bg-[#dcc89a]/50 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em] text-[#5c4018]">
+                            ✦ {c.concentratingOn}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <span className="text-[11px] text-[#f6ead0]">
+                            Koncentruje się na: {c.concentratingOn} — obrażenia mogą przerwać
+                            koncentrację (rzut obronny na Kondycję).
+                          </span>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </span>
                   <span className="flex items-center gap-2">
                     {c.isPlayer ? (

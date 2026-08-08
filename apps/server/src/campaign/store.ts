@@ -146,6 +146,13 @@ export function updateCharacterExhaustion(characterId: string, level: number): v
     .run();
 }
 
+export function updateCharacterInspiration(characterId: string, has: boolean): void {
+  db.update(characters)
+    .set({ inspiration: has ? 1 : 0, updatedAt: isoNow() })
+    .where(eq(characters.id, characterId))
+    .run();
+}
+
 export function grantLoot(
   characterId: string,
   gold: number,
@@ -261,6 +268,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     hitDiceUsed: row.hitDiceUsed ?? 0,
     gold: row.gold ?? 0,
     exhaustion: row.exhaustion ?? 0,
+    inspiration: Boolean(row.inspiration),
     xp: row.xp ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

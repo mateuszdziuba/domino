@@ -633,6 +633,135 @@ describe("performAttack", () => {
   });
 });
 
+describe("performAttack — concentration", () => {
+  function concentratingTarget(overrides: Partial<Combatant> = {}): Combatant {
+    return {
+      ...enemy(combatState(0)),
+      currentHp: 40,
+      maxHp: 40,
+      concentratingOn: "Spirit Guardians",
+      conSaveMod: 0,
+      ...overrides,
+    };
+  }
+
+  it("rolls a CON save (DC 10) and keeps concentration on a high roll", () => {
+    const seq = [0.5, 0.5, 0.99]; // d20 attack: 11 (hit), 1d1: 1 (+5 = 6 dmg), CON save: 20
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[1] = concentratingTarget();
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d1",
+      damageBonus: 5,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.damageTotal).toBe(6);
+    expect(outcome.result.concentrationSave).toEqual({ roll: 20, dc: 10 });
+    expect(outcome.result.concentrationBroken).toBe(false);
+    expect(enemy(outcome.state).concentratingOn).toBe("Spirit Guardians");
+  });
+
+  it("breaks concentration when the CON save fails", () => {
+    const seq = [0.5, 0.5, 0.01]; // CON save: 1 -> 1 < 10
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[1] = concentratingTarget();
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d1",
+      damageBonus: 5,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.concentrationSave).toEqual({ roll: 1, dc: 10 });
+    expect(outcome.result.concentrationBroken).toBe(true);
+    expect(enemy(outcome.state).concentratingOn).toBeUndefined();
+  });
+
+  it("uses half the damage as the save DC when it exceeds 10", () => {
+    const seq = [0.5, 0.5, 0.99]; // 1d1 + 29 = 30 dmg -> DC 15, save 20 succeeds
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[1] = concentratingTarget();
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d1",
+      damageBonus: 29,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.damageTotal).toBe(30);
+    expect(outcome.result.concentrationSave).toEqual({ roll: 20, dc: 15 });
+    expect(outcome.result.concentrationBroken).toBe(false);
+  });
+
+  it("breaks concentration without a save when damage reduces the target to 0 HP", () => {
+    const seq = [0.5, 0.5]; // d20 attack: 11 (hit), 1d1: 1 (+99 = 100 dmg)
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[1] = concentratingTarget({ currentHp: 5, maxHp: 5 });
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d1",
+      damageBonus: 99,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(enemy(outcome.state).currentHp).toBe(0);
+    expect(enemy(outcome.state).status).toBe("downed");
+    expect(outcome.result.concentrationBroken).toBe(true);
+    expect(outcome.result.concentrationSave).toBeUndefined();
+    expect(enemy(outcome.state).concentratingOn).toBeUndefined();
+  });
+
+  it("records no concentration fields when the target was not concentrating", () => {
+    const seq = [0.5, 0.5]; // d20 attack: 11 (hit), 1d1: 1 (+5 = 6 dmg)
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d1",
+      damageBonus: 5,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.concentrationBroken).toBeUndefined();
+    expect(outcome.result.concentrationSave).toBeUndefined();
+  });
+
+  it("records no concentration fields when the attack misses", () => {
+    const seq = [0.0]; // d20: 1 -> fumble
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[1] = concentratingTarget();
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d8",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.hit).toBe(false);
+    expect(outcome.result.concentrationBroken).toBeUndefined();
+    expect(outcome.result.concentrationSave).toBeUndefined();
+    expect(enemy(outcome.state).concentratingOn).toBe("Spirit Guardians");
+  });
+});
+
 describe("lethal damage at 0 HP and stable status", () => {
   function downedTarget(overrides: Partial<Combatant> = {}): Combatant {
     return {

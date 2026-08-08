@@ -14,6 +14,7 @@ export type SpellEffect =
       duration: string;
       castingTime: "action" | "bonus";
       rider?: "advantage_next_attack";
+      concentration?: boolean;
     }
   | {
       kind: "heal";
@@ -33,6 +34,7 @@ export type SpellEffect =
       castingTime: "action";
       castingTimeMinutes?: number;
       flat?: number;
+      concentration?: boolean;
     }
   | {
       kind: "condition_apply";
@@ -41,6 +43,7 @@ export type SpellEffect =
       range: string;
       duration: string;
       castingTime: "action";
+      concentration?: boolean;
     }
   | {
       kind: "condition_remove";
@@ -239,6 +242,7 @@ export const SPELLS: Record<string, SpellDef> = {
       range: "60 ft",
       duration: "1 min",
       castingTime: "action",
+      concentration: true,
     },
   },
   "Blindness/Deafness": {
@@ -255,6 +259,7 @@ export const SPELLS: Record<string, SpellDef> = {
       range: "30 ft",
       duration: "1 min",
       castingTime: "action",
+      concentration: true,
     },
   },
   "Revivify": {
@@ -287,6 +292,7 @@ export const SPELLS: Record<string, SpellDef> = {
       range: "Self (15 ft)",
       duration: "10 min",
       castingTime: "action",
+      concentration: true,
     },
   },
   "Guardian of Faith": {
@@ -321,6 +327,7 @@ export const SPELLS: Record<string, SpellDef> = {
       range: "60 ft",
       duration: "1 min",
       castingTime: "action",
+      concentration: true,
     },
   },
   "Greater Restoration": {
@@ -370,6 +377,7 @@ export const SPELLS: Record<string, SpellDef> = {
       range: "90 ft",
       duration: "10 min",
       castingTime: "action",
+      concentration: true,
     },
   },
   "Resurrection": {

@@ -76,6 +76,7 @@ export type Character = {
   hitDiceUsed?: number;
   gold?: number;
   exhaustion?: number;
+  inspiration?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -100,6 +101,8 @@ export type Combatant = {
   armorClass: number;
   cr?: number;
   exhaustionLevel?: number;
+  concentratingOn?: string;
+  conSaveMod?: number;
   status?: CombatantStatus;
   conditions?: string[];
   deathSaveSuccesses?: number;

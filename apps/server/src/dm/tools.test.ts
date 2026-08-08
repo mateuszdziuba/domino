@@ -22,6 +22,7 @@ const mock = vi.hoisted(() => {
     updateCharacterSpellSlots: vi.fn(),
     updateCharacterHitDice: vi.fn(),
     updateCharacterExhaustion: vi.fn(),
+    updateCharacterInspiration: vi.fn(),
     grantXp: vi.fn(),
     grantLoot: vi.fn(),
     members: vi.fn(() => [] as { characterId: string }[]),
@@ -40,6 +41,7 @@ vi.mock("../campaign/store.js", () => ({
   updateCharacterSpellSlots: mock.updateCharacterSpellSlots,
   updateCharacterHitDice: mock.updateCharacterHitDice,
   updateCharacterExhaustion: mock.updateCharacterExhaustion,
+  updateCharacterInspiration: mock.updateCharacterInspiration,
   grantXp: (id: string, amount: number) => mock.grantXp(id, amount),
   grantLoot: (id: string, gold: number, items: unknown[]) => mock.grantLoot(id, gold, items),
   getCharacterById: (id: string) => mock.characters.get(id),
@@ -127,6 +129,7 @@ beforeEach(() => {
   mock.updateCharacterSpellSlots.mockReset();
   mock.updateCharacterHitDice.mockReset();
   mock.updateCharacterExhaustion.mockReset();
+  mock.updateCharacterInspiration.mockReset();
   mock.grantXp.mockReset();
   mock.grantXp.mockImplementation((id: string, amount: number) => {
     const ch = mock.characters.get(id);
@@ -1084,6 +1087,81 @@ describe("runDmTool cast_spell (mocked store)", () => {
     expect(mock.updateCharacterSpellSlots).not.toHaveBeenCalled();
     expect(mock.updateCharacterExhaustion).not.toHaveBeenCalled();
   });
+
+  it("starts concentration when casting a concentration spell", async () => {
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Hold Person"] }));
+    const original = Math.random;
+    Math.random = () => 0; // failed save -> paralyzed
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Hold Person",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const caster = saved.combat.combatants.find((c) => c.id === "char-ch2")!;
+    expect(caster.concentratingOn).toBe("Hold Person");
+    expect(caster.conSaveMod).toBe(1); // CON 13 -> +1
+    expect(result.message).toContain("zaczyna koncentrować");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "spell",
+        spell: "Hold Person",
+        concentration: true,
+      }),
+    );
+  });
+
+  it("ends the previous concentration spell when casting another concentration spell", async () => {
+    mock.characters.set(
+      "ch2",
+      cleric({ level: 5, spells: [...baseSpells, "Spirit Guardians", "Hold Person"] }),
+    );
+    const original = Math.random;
+    Math.random = () => 0.9; // successful saves — the spell still starts concentration
+    const first = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Spirit Guardians",
+      targetId: "enemy-1",
+    });
+    expect(first.ok).toBe(true);
+    let caster = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch2")!;
+    expect(caster.concentratingOn).toBe("Spirit Guardians");
+    const second = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Hold Person",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(second.ok).toBe(true);
+    caster = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch2")!;
+    expect(caster.concentratingOn).toBe("Hold Person");
+    expect(second.message).toContain("kończy koncentrację na Spirit Guardians");
+  });
+
+  it("does not start concentration for non-concentration spells", async () => {
+    mock.characters.set("ch2", cleric({ spells: [...baseSpells, "Guiding Bolt"] }));
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Guiding Bolt",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const caster = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch2")!;
+    expect(caster.concentratingOn).toBeUndefined();
+  });
 });
 
 describe("runDmTool take_long_rest (mocked store)", () => {
@@ -1313,6 +1391,44 @@ describe("runDmTool conditions (mocked store)", () => {
     const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
     expect(goblin.conditions).toEqual([]);
   });
+
+  it("apply_condition with an incapacitating condition clears concentration", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      concentratingOn: "Hold Person",
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("apply_condition", {
+      combatantId: "char-ch1",
+      condition: "paralyzed",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Koncentracja zostaje przerwana");
+    const saved = mock.states.get("c1")!;
+    const caster = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(caster.conditions).toEqual(["paralyzed"]);
+    expect(caster.concentratingOn).toBeUndefined();
+  });
+
+  it("apply_condition with a harmless condition keeps concentration", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      concentratingOn: "Hold Person",
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("apply_condition", {
+      combatantId: "char-ch1",
+      condition: "prone",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).not.toContain("koncentracj");
+    const caster = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(caster.concentratingOn).toBe("Hold Person");
+  });
 });
 
 describe("runDmTool set_exhaustion (mocked store)", () => {
@@ -1354,6 +1470,142 @@ describe("runDmTool set_exhaustion (mocked store)", () => {
     expect(result.ok).toBe(false);
     expect(result.message).toBe("Nie znaleziono postaci.");
     expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("runDmTool stop_concentration (mocked store)", () => {
+  it("clears concentration and pushes a concentration event", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      concentratingOn: "Spirit Guardians",
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("stop_concentration", { combatantId: "char-ch1" });
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe("Aria przerywa koncentrację na zaklęciu Spirit Guardians.");
+    const saved = mock.states.get("c1")!;
+    const caster = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(caster.concentratingOn).toBeUndefined();
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "concentration",
+        action: "stop",
+        combatant: "Aria",
+        spell: "Spirit Guardians",
+      }),
+    );
+  });
+
+  it("rejects a combatant that is not concentrating", async () => {
+    const result = await runTool("stop_concentration", { combatantId: "char-ch1" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Aria nie koncentruje się na żadnym zaklęciu.");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown combatant", async () => {
+    const result = await runTool("stop_concentration", { combatantId: "ghost" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Nie znaleziono kombatanta.");
+  });
+
+  it("rejects without active combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    const result = await runTool("stop_concentration", { combatantId: "char-ch1" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Brak walki");
+  });
+});
+
+describe("runDmTool set_inspiration (mocked store)", () => {
+  it("grants inspiration and pushes an inspiration event", async () => {
+    const result = await runTool("set_inspiration", { characterId: "ch1", has: true });
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe(
+      "Aria otrzymuje inspirację! (może uzyskać przewagę na jeden rzut)",
+    );
+    expect(mock.updateCharacterInspiration).toHaveBeenCalledWith("ch1", true);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "inspiration", characterId: "ch1", has: true }),
+    );
+  });
+
+  it("revokes inspiration", async () => {
+    const result = await runTool("set_inspiration", { characterId: "ch1", has: false });
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe("Inspiracja Aria wygasa.");
+    expect(mock.updateCharacterInspiration).toHaveBeenCalledWith("ch1", false);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "inspiration", characterId: "ch1", has: false }),
+    );
+  });
+
+  it("rejects an unknown character", async () => {
+    const result = await runTool("set_inspiration", { characterId: "ghost", has: true });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Nie znaleziono postaci.");
+    expect(mock.updateCharacterInspiration).not.toHaveBeenCalled();
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing boolean flag", async () => {
+    const result = await runTool("set_inspiration", { characterId: "ch1" });
+    expect(result.ok).toBe(false);
+    expect(mock.updateCharacterInspiration).not.toHaveBeenCalled();
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("runDmTool attack_combatant inspiration (mocked store)", () => {
+  it("spends inspiration to force advantage and clears it", async () => {
+    mock.characters.set("ch1", { ...aria, inspiration: true });
+    const seq = [0.2, 0.9, 0.9]; // d20s: 5, 19; 1d8: 8
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+      useInspiration: true,
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const data = result.data as { attackRolls: number[]; attackRoll: number };
+    expect(data.attackRolls).toEqual([5, 19]);
+    expect(data.attackRoll).toBe(19);
+    expect(mock.updateCharacterInspiration).toHaveBeenCalledWith("ch1", false);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "attack", inspirationUsed: true }),
+    );
+  });
+
+  it("does not force advantage or clear inspiration without it", async () => {
+    const seq = [0.5, 0.5]; // single d20: 11; 1d8: 5
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+      useInspiration: true,
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const data = result.data as { attackRolls: number[] };
+    expect(data.attackRolls).toEqual([11]);
+    expect(mock.updateCharacterInspiration).not.toHaveBeenCalled();
+    expect(mock.pushEvent).not.toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ inspirationUsed: true }),
+    );
   });
 });
 

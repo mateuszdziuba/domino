@@ -4,6 +4,12 @@ import type { CharacterSheet } from "@domino/shared";
 import { characterApi } from "../lib/api-client";
 import { Badge } from "./ui/badge";
 import { cn } from "../lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
 import { SKILL_ALIASES } from "../lib/chat-tooltips";
 
 const ABILITY_LABELS_PL: Record<string, string> = {
@@ -181,6 +187,22 @@ function DrawerContent({ sheet, onClose }: { sheet: CharacterSheet; onClose: () 
           <span>Złoto {character.gold ?? 0}</span>
           <span>·</span>
           <span>XP {character.xp ?? 0}</span>
+          {character.inspiration && (
+            <TooltipProvider delayDuration={250}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#a97e1f]">
+                    ✦ Inspiracja
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                    Inspiracja daje przewagę na jeden rzut. DM przyznaje ją za wybitną grę.
+                  </span>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </header>
 

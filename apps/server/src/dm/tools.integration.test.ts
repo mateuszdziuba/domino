@@ -126,8 +126,8 @@ beforeAll(async () => {
   ({ runDmTool } = await import("./tools.js"));
 
   db.insert(users).values({ id: "u1", username: "tester", passwordHash: "x" }).run();
-  db.insert(characters).values({ ...aria, userId: "u1" }).run();
-  db.insert(characters).values({ ...cleric, userId: "u1" }).run();
+  db.insert(characters).values({ ...aria, userId: "u1", inspiration: 0 }).run();
+  db.insert(characters).values({ ...cleric, userId: "u1", inspiration: 0 }).run();
   db.insert(campaigns).values({ id: "c1", name: "T", ownerId: "u1" }).run();
   db.insert(campaignMembers)
     .values({ campaignId: "c1", userId: "u1", characterId: "ch1" })

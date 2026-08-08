@@ -16,6 +16,8 @@ export type DmToolName =
   | "apply_condition"
   | "remove_condition"
   | "set_exhaustion"
+  | "stop_concentration"
+  | "set_inspiration"
   | "award_xp"
   | "grant_loot"
   | "update_world_state"
@@ -65,12 +67,15 @@ export const DM_TOOLS: DmTool[] = [
       damageNotation: { type: "string" },
       attackBonus: { type: "number" },
       damageBonus: { type: "number" },
+      advantage: { type: "boolean" },
+      disadvantage: { type: "boolean" },
+      useInspiration: { type: "boolean" },
     },
   },
   {
     name: "cast_spell",
     description:
-      "Cast a known spell through the rules engine. In combat the caster must be the current combatant; the target is a combatant id. Outside combat only healing/stabilizing cantrips and spells are allowed, and the target is a character id. Consumes a spell slot (cantrips are free). Spells are resolved by the engine — never invent damage or healing.",
+      "Cast a known spell through the rules engine. In combat the caster must be the current combatant; the target is a combatant id. Outside combat only healing/stabilizing cantrips and spells are allowed, and the target is a character id. Consumes a spell slot (cantrips are free). Concentration spells (Hold Person, Blindness/Deafness, Spirit Guardians, Banishment, Blade Barrier) start concentration and replace any spell the caster was already concentrating on. Spells are resolved by the engine — never invent damage or healing.",
     parameters: {
       characterId: { type: "string" },
       spellName: { type: "string" },
@@ -123,6 +128,18 @@ export const DM_TOOLS: DmTool[] = [
     description:
       "Set a character's exhaustion level (0-6, SRD). Long rests reduce it by 1; hazards may increase it.",
     parameters: { characterId: { type: "string" }, level: { type: "number" } },
+  },
+  {
+    name: "stop_concentration",
+    description:
+      "End a combatant's concentration on a spell (SRD): concentration also ends when the caster casts another concentration spell, takes damage and fails a CON save (DC 10 or half damage, whichever is higher), or is incapacitated or reduced to 0 HP.",
+    parameters: { combatantId: { type: "string" } },
+  },
+  {
+    name: "set_inspiration",
+    description:
+      "Grant or remove a character's inspiration (SRD): with inspiration, the player may spend it to gain advantage on one roll.",
+    parameters: { characterId: { type: "string" }, has: { type: "boolean" } },
   },
   {
     name: "award_xp",

@@ -399,6 +399,20 @@ export default function CharacterSheetPage() {
                   </span>
                 </TooltipContent>
               </Tooltip>
+              {character.inspiration && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#a97e1f]">
+                      ✦ Inspiracja
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                      Inspiracja daje przewagę na jeden rzut. DM przyznaje ją za wybitną grę.
+                    </span>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </TooltipProvider>
           </div>
         </div>

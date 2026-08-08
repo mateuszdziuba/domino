@@ -11,6 +11,7 @@ import {
   updateCharacterSpellSlots,
   updateCharacterHitDice,
   updateCharacterExhaustion,
+  updateCharacterInspiration,
   grantXp,
   grantLoot,
 } from "../campaign/store.js";
@@ -305,12 +306,18 @@ export async function runDmTool(
           damageBonus: z.number().optional(),
           advantage: z.boolean().optional(),
           disadvantage: z.boolean().optional(),
+          useInspiration: z.boolean().optional(),
         })
         .safeParse(rawArgs);
       if (!parsed.success) return { ok: false, message: "Wymagane są attackerId i targetId." };
       const state = loadState(campaignId);
       const attacker = findCombatant(state, parsed.data.attackerId);
       if (!attacker) return { ok: false, message: "Nie znaleziono kombatanta." };
+      const attackerCharacter = attacker.characterId
+        ? getCharacterById(attacker.characterId)
+        : undefined;
+      const inspirationUsed =
+        parsed.data.useInspiration === true && attackerCharacter?.inspiration === true;
       let { attackBonus, damageNotation, damageBonus } = parsed.data;
       if (attacker.characterId) {
         const character = getCharacterById(attacker.characterId);
@@ -327,12 +334,15 @@ export async function runDmTool(
         attackBonus: attackBonus ?? 0,
         damageNotation: damageNotation ?? "1d6",
         damageBonus: damageBonus ?? 0,
-        advantage: parsed.data.advantage,
+        advantage: parsed.data.advantage || inspirationUsed,
         disadvantage: parsed.data.disadvantage,
       });
       if (!outcome.ok) return { ok: false, message: `${outcome.error}.` };
       if (outcome.target.characterId) {
         updateCharacterHp(outcome.target.characterId, outcome.target.currentHp);
+      }
+      if (inspirationUsed && attacker.characterId) {
+        updateCharacterInspiration(attacker.characterId, false);
       }
       saveState(campaignId, outcome.state);
       pushEvent(campaignId, "action.resolved", {
@@ -340,6 +350,7 @@ export async function runDmTool(
         attacker: outcome.attacker.name,
         target: outcome.target.name,
         ...outcome.result,
+        ...(inspirationUsed ? { inspirationUsed: true } : {}),
       });
       const hitMessage = outcome.result.hit
         ? `${outcome.attacker.name} trafia ${outcome.target.name} za ${outcome.result.damageTotal} obrażeń (atak ${outcome.result.attackTotal} vs AC ${outcome.target.armorClass}).${outcome.result.critical ? " Krytyk!" : ""}`
@@ -542,6 +553,18 @@ export async function runDmTool(
           disadvantage: mods.disadvantage || parsed.data.disadvantage,
           restoreMode: parsed.data.restoreMode,
         });
+        const concentrationApplied =
+          "concentration" in def.effect && def.effect.concentration === true;
+        const previousSpell = concentrationApplied
+          ? casterCombatant.concentratingOn
+          : undefined;
+        const casterUpdated: Combatant | undefined = concentrationApplied
+          ? {
+              ...casterCombatant,
+              concentratingOn: def.name,
+              conSaveMod: abilityModifier(character.abilityScores.constitution),
+            }
+          : undefined;
         let updated: Combatant = {
           ...targetCombatant,
           currentHp: result.targetCurrentHp,
@@ -592,7 +615,11 @@ export async function runDmTool(
           }
         }
         const combatants = state.combat.combatants.map((c) =>
-          c.id === targetCombatant.id ? updated : c,
+          c.id === targetCombatant.id
+            ? updated
+            : c.id === casterCombatant.id && casterUpdated
+              ? casterUpdated
+              : c,
         );
         saveState(campaignId, {
           ...state,
@@ -617,6 +644,7 @@ export async function runDmTool(
           caster: casterCombatant.name,
           target: targetCombatant.name,
           ...result,
+          ...(concentrationApplied ? { concentration: true } : {}),
         });
         const message = spellNarration(
           def,
@@ -624,7 +652,12 @@ export async function runDmTool(
           targetCombatant,
           result,
         );
-        return { ok: true, message, data: result };
+        const concentrationNote = concentrationApplied
+          ? previousSpell
+            ? ` ${casterCombatant.name} kończy koncentrację na ${previousSpell} i zaczyna koncentrować się na ${def.name}.`
+            : ` ${casterCombatant.name} zaczyna koncentrować się na zaklęciu ${def.name}.`
+          : "";
+        return { ok: true, message: `${message}${concentrationNote}`, data: result };
       }
       if (targetCharacter) {
         const synthetic: Combatant = {
@@ -816,12 +849,20 @@ export async function runDmTool(
       const updated: Combatant = existing.includes(condition)
         ? combatant
         : { ...combatant, conditions: [...existing, condition] };
+      const preventsActing =
+        CONDITIONS.find((c) => c.key === condition)?.canAct === false;
+      let finalUpdated = updated;
+      let concentrationNote = "";
+      if (preventsActing && updated.concentratingOn) {
+        finalUpdated = { ...updated, concentratingOn: undefined };
+        concentrationNote = " Koncentracja zostaje przerwana.";
+      }
       const nextState: CampaignState = {
         ...state,
         combat: {
           ...state.combat,
           combatants: state.combat.combatants.map((c) =>
-            c.id === combatant.id ? updated : c,
+            c.id === combatant.id ? finalUpdated : c,
           ),
         },
         updatedAt: new Date().toISOString(),
@@ -836,7 +877,7 @@ export async function runDmTool(
       const label = CONDITIONS.find((c) => c.key === condition)!.label;
       return {
         ok: true,
-        message: `${combatant.name} otrzymuje stan: ${label}.`,
+        message: `${combatant.name} otrzymuje stan: ${label}.${concentrationNote}`,
         data: summarizeState(nextState),
       };
     }
@@ -908,6 +949,63 @@ export async function runDmTool(
         parsed.data.level === 0
           ? `${character.name} odzyskuje pełnię sił (brak wyczerpania).`
           : `${character.name} ma teraz ${parsed.data.level} poziom(y) wyczerpania.`;
+      return { ok: true, message };
+    }
+    case "stop_concentration": {
+      const parsed = z.object({ combatantId: z.string().min(1) }).safeParse(rawArgs);
+      if (!parsed.success) return { ok: false, message: "Wymagany jest combatantId." };
+      const state = loadState(campaignId);
+      if (!state.combat.active) return { ok: false, message: "Brak walki w toku." };
+      const combatant = findCombatant(state, parsed.data.combatantId);
+      if (!combatant) return { ok: false, message: "Nie znaleziono kombatanta." };
+      if (!combatant.concentratingOn) {
+        return {
+          ok: false,
+          message: `${combatant.name} nie koncentruje się na żadnym zaklęciu.`,
+        };
+      }
+      const spell = combatant.concentratingOn;
+      const updated: Combatant = { ...combatant, concentratingOn: undefined };
+      const nextState: CampaignState = {
+        ...state,
+        combat: {
+          ...state.combat,
+          combatants: state.combat.combatants.map((c) =>
+            c.id === combatant.id ? updated : c,
+          ),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      saveState(campaignId, nextState);
+      pushEvent(campaignId, "action.resolved", {
+        type: "concentration",
+        action: "stop",
+        combatant: combatant.name,
+        spell,
+      });
+      return {
+        ok: true,
+        message: `${combatant.name} przerywa koncentrację na zaklęciu ${spell}.`,
+      };
+    }
+    case "set_inspiration": {
+      const parsed = z
+        .object({ characterId: z.string().min(1), has: z.boolean() })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "Wymagane są characterId i has (boolean)." };
+      }
+      const character = getCharacterById(parsed.data.characterId);
+      if (!character) return { ok: false, message: "Nie znaleziono postaci." };
+      updateCharacterInspiration(character.id, parsed.data.has);
+      pushEvent(campaignId, "action.resolved", {
+        type: "inspiration",
+        characterId: character.id,
+        has: parsed.data.has,
+      });
+      const message = parsed.data.has
+        ? `${character.name} otrzymuje inspirację! (może uzyskać przewagę na jeden rzut)`
+        : `Inspiracja ${character.name} wygasa.`;
       return { ok: true, message };
     }
     case "end_combat": {

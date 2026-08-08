@@ -406,6 +406,31 @@ describe("SPELLS — 6th to 9th level spells", () => {
   });
 });
 
+describe("SPELLS — concentration", () => {
+  const CONCENTRATION_SPELLS = [
+    "Spirit Guardians",
+    "Hold Person",
+    "Blindness/Deafness",
+    "Banishment",
+    "Blade Barrier",
+  ];
+
+  it("marks the five SRD concentration spells", () => {
+    for (const name of CONCENTRATION_SPELLS) {
+      expect(
+        "concentration" in SPELLS[name]!.effect ? SPELLS[name]!.effect.concentration : undefined,
+      ).toBe(true);
+    }
+  });
+
+  it("leaves every other spell without a concentration flag", () => {
+    for (const [name, def] of Object.entries(SPELLS)) {
+      if (CONCENTRATION_SPELLS.includes(name)) continue;
+      expect("concentration" in def.effect ? def.effect.concentration : undefined, name).toBeUndefined();
+    }
+  });
+});
+
 describe("spellSlotsForLevel", () => {
   it("follows the SRD Cleric slot table for 1st-9th level spells", () => {
     expect(spellSlotsForLevel(1)).toEqual([2, 0, 0, 0, 0, 0, 0, 0, 0]);

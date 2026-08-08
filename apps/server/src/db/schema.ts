@@ -63,6 +63,7 @@ export const characters = sqliteTable(
     hitDiceUsed: integer("hit_dice_used").notNull().default(0),
     gold: integer("gold").notNull().default(0),
     exhaustion: integer("exhaustion").notNull().default(0),
+    inspiration: integer("inspiration").notNull().default(0),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(datetime('now'))`),
