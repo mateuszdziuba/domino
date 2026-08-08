@@ -400,7 +400,11 @@ export async function runDmTool(
         }
         targetCombatant = findCombatant(state, parsed.data.targetId);
         if (!targetCombatant) return { ok: false, message: "Nie znaleziono celu w walce." };
-        if (targetCombatant.status === "dead" && def.effect.kind !== "revive") {
+        if (def.effect.kind === "revive") {
+          if (targetCombatant.status !== "dead") {
+            return { ok: false, message: "Cel nie jest martwy." };
+          }
+        } else if (targetCombatant.status === "dead") {
           return { ok: false, message: "Cel jest martwy." };
         }
       } else {
@@ -591,6 +595,15 @@ export async function runDmTool(
         });
         if (targetCombatant.characterId) {
           updateCharacterHp(targetCombatant.characterId, result.targetCurrentHp);
+          if (def.effect.kind === "restore" && result.restoredExhaustion) {
+            const targetCharacter = getCharacterById(targetCombatant.characterId);
+            if (targetCharacter) {
+              updateCharacterExhaustion(
+                targetCharacter.id,
+                Math.max(0, (targetCharacter.exhaustion ?? 0) - 1),
+              );
+            }
+          }
         }
         pushEvent(campaignId, "action.resolved", {
           type: "spell",
@@ -622,7 +635,13 @@ export async function runDmTool(
           restoreMode: parsed.data.restoreMode,
         });
         if (def.effect.kind === "revive") {
-          updateCharacterHp(targetCharacter.id, 1);
+          if (targetCharacter.currentHp > 0) {
+            return { ok: false, message: "Cel nie jest martwy." };
+          }
+          updateCharacterHp(
+            targetCharacter.id,
+            def.effect.fullHp ? targetCharacter.maxHp : 1,
+          );
         } else if (def.effect.kind === "heal") {
           updateCharacterHp(targetCharacter.id, result.targetCurrentHp);
         } else if (def.effect.kind === "restore") {
@@ -640,7 +659,7 @@ export async function runDmTool(
         });
         const message =
           def.effect.kind === "revive"
-            ? `${character.name} rzuca ${def.name} na ${targetCharacter.name} — ${targetCharacter.name} wraca do życia z 1 punktem życia.`
+            ? `${character.name} rzuca ${def.name} na ${targetCharacter.name} — ${targetCharacter.name} wraca do życia z ${def.effect.fullHp ? "pełnym" : "1"} punktem życia.`
             : def.effect.kind === "condition_remove"
               ? `${character.name} rzuca ${def.name} na ${targetCharacter.name} — usuwa jeden stan (ślepota, głuchota, paraliż, trucizna itp.).`
               : def.effect.kind === "restore"
@@ -1112,7 +1131,7 @@ function spellNarration(
     return `${casterName} rzuca ${def.name} na ${target.name} — cel nie ma żadnych stanów do usunięcia.`;
   }
   if (def.effect.kind === "revive") {
-    return `${casterName} rzuca ${def.name} na ${target.name} — ${target.name} wraca do życia z 1 punktem życia.`;
+    return `${casterName} rzuca ${def.name} na ${target.name} — ${target.name} wraca do życia z ${def.effect.fullHp ? "pełnym" : "1"} punktem życia.`;
   }
   if (def.effect.kind === "restore") {
     if (result.restoredExhaustion) {

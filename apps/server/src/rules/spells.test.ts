@@ -346,7 +346,7 @@ describe("SPELLS — 6th to 9th level spells", () => {
     });
   });
 
-  it("defines Blade Barrier as a 6th-level radiant wall", () => {
+  it("defines Blade Barrier as a 6th-level slashing wall", () => {
     expect(SPELLS["Blade Barrier"]).toMatchObject({
       name: "Blade Barrier",
       level: 6,
@@ -354,8 +354,8 @@ describe("SPELLS — 6th to 9th level spells", () => {
       components: "V, S",
       effect: {
         kind: "damage",
-        dice: "5d10",
-        damageType: "radiant",
+        dice: "6d10",
+        damageType: "slashing",
         attack: false,
         save: "dexterity",
         range: "90 ft",
@@ -956,7 +956,7 @@ describe("summarizeSpells", () => {
     });
     expect(byName["Blade Barrier"]).toMatchObject({
       level: 6,
-      effect: { kind: "damage", save: "dexterity", dice: "5d10", damageType: "radiant" },
+      effect: { kind: "damage", save: "dexterity", dice: "6d10", damageType: "slashing" },
     });
     expect(byName["Resurrection"]).toMatchObject({
       level: 7,

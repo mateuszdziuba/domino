@@ -451,9 +451,9 @@ describe("performAttack", () => {
     expect(outcome).toEqual({ ok: false, error: "Attacker is incapacitated" });
   });
 
-  it("auto-crits an attack against a paralyzed target even on a low roll", () => {
+  it("auto-crits a HIT against a paralyzed target", () => {
     const original = Math.random;
-    Math.random = () => 0.1; // d20 = 3 (attack total 3 < AC 12) -> paralyzed forces a critical
+    Math.random = () => 0.5; // d20 = 11 (attack total 11 < AC 12) — still a miss: NO auto-crit
     const state = combatState(0);
     state.combat.combatants[1] = {
       ...state.combat.combatants[1]!,
@@ -467,16 +467,59 @@ describe("performAttack", () => {
     Math.random = original;
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
-    expect(outcome.result.attackTotal).toBe(3);
+    expect(outcome.result.attackTotal).toBe(11);
+    expect(outcome.result.critical).toBe(false);
+    expect(outcome.result.hit).toBe(false);
+  });
+
+  it("auto-crits a HIT against a paralyzed target (roll above AC)", () => {
+    const original = Math.random;
+    Math.random = () => 0.7; // d20 = 15 (attack total 15 >= AC 12) -> hit -> auto-crit
+    const state = combatState(0);
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["paralyzed"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackTotal).toBe(15);
     expect(outcome.result.critical).toBe(true);
     expect(outcome.result.hit).toBe(true);
     expect(outcome.result.damageRolls).toHaveLength(2);
-    expect(enemy(outcome.state).currentHp).toBe(6);
   });
 
-  it("auto-crits an attack against an unconscious target", () => {
+  it("a natural 1 always misses even against a paralyzed target", () => {
     const original = Math.random;
-    Math.random = () => 0.1; // d20 = 3 -> unconscious forces a critical
+    Math.random = () => 0.01; // d20 = 1 -> fumble
+    const state = combatState(0);
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["paralyzed"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.hit).toBe(false);
+    expect(outcome.result.critical).toBe(false);
+    expect(outcome.result.fumble).toBe(true);
+    expect(outcome.result.damageRolls).toHaveLength(0);
+    expect(enemy(outcome.state).currentHp).toBe(7);
+  });
+
+  it("auto-crits a HIT against an unconscious target", () => {
+    const original = Math.random;
+    Math.random = () => 0.7; // d20 = 15 (attack total 15 >= AC 12) -> hit -> auto-crit
     const state = combatState(0);
     state.combat.combatants[1] = {
       ...state.combat.combatants[1]!,
@@ -513,7 +556,7 @@ describe("performAttack", () => {
 
   it("adds two death-save failures on a critical hit against an unconscious downed target", () => {
     const original = Math.random;
-    Math.random = () => 0.1; // d20 = 3 -> auto-crit, 1d1 twice = 2 damage
+    Math.random = () => 0.5; // d20 = 11; with attackBonus 99 -> hit (110 >= AC 12) -> auto-crit, 1d1 twice = 2 damage
     const state = combatState(0);
     state.combat.combatants[1] = {
       ...state.combat.combatants[1]!,

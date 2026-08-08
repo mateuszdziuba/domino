@@ -145,12 +145,15 @@ export function resolveAttack(
     attackRoll = d(20, 1)[0]!;
     attackRolls = [attackRoll];
   }
-  const critical =
-    attackRoll === 20 ||
-    (target.conditions ?? []).some((c) => c === "paralyzed" || c === "unconscious");
   const fumble = attackRoll === 1;
   const attackTotal = attackRoll + input.attackBonus;
-  const hit = critical || attackTotal >= target.armorClass;
+  const naturalHit = attackTotal >= target.armorClass;
+  const helplessTarget = (target.conditions ?? []).some(
+    (c) => c === "paralyzed" || c === "unconscious",
+  );
+  const critical =
+    attackRoll === 20 || (fumble ? false : naturalHit && helplessTarget);
+  const hit = fumble ? false : critical || naturalHit;
 
   if (!hit) {
     return {

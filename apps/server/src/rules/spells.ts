@@ -360,11 +360,11 @@ export const SPELLS: Record<string, SpellDef> = {
     school: "Evocation",
     components: "V, S",
     description:
-      "Wirująca ściana ostrzy wyrasta w wybranym miejscu; każdy wróg przechodzący przez nią (uproszczenie: cel przy rzuceniu) wykonuje rzut obronny na Zręczność — nieudany oznacza 5k10 obrażeń promienistych.",
+      "Wirująca ściana ostrzy wyrasta w wybranym miejscu; każdy wróg przechodzący przez nią (uproszczenie: cel przy rzuceniu) wykonuje rzut obronny na Zręczność — nieudany oznacza 6k10 obrażeń tnących.",
     effect: {
       kind: "damage",
-      dice: "5d10",
-      damageType: "radiant",
+      dice: "6d10",
+      damageType: "slashing",
       attack: false,
       save: "dexterity",
       range: "90 ft",

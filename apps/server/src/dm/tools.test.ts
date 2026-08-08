@@ -726,6 +726,40 @@ describe("runDmTool cast_spell (mocked store)", () => {
     expect(result.message).toContain("wraca do życia");
   });
 
+  it("Resurrection revives a dead character outside combat with FULL HP", async () => {
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set(
+      "ch2",
+      cleric({ level: 13, spells: [...baseSpells, "Resurrection"] }),
+    );
+    mock.characters.set("ch1", { ...aria, currentHp: 0 });
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Resurrection",
+      targetId: "ch1",
+    });
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", aria.maxHp);
+    expect(result.message).toContain("pełnym punktem życia");
+  });
+
+  it("rejects reviving a LIVING character outside combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set(
+      "ch2",
+      cleric({ level: 5, spells: [...baseSpells, "Revivify"] }),
+    );
+    mock.characters.set("ch1", { ...aria, currentHp: 8 });
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Revivify",
+      targetId: "ch1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("nie jest martwy");
+    expect(mock.updateCharacterHp).not.toHaveBeenCalled();
+  });
+
   it("Heal restores exactly 70 HP outside combat without dice", async () => {
     mock.states.set("c1", mock.defaultState());
     mock.characters.set(
