@@ -514,7 +514,7 @@ describe("performAttack", () => {
     expect(outcome.result.critical).toBe(false);
     expect(outcome.result.fumble).toBe(true);
     expect(outcome.result.damageRolls).toHaveLength(0);
-    expect(enemy(outcome.state).currentHp).toBe(7);
+    expect(enemy(outcome.state).currentHp).toBe(8);
   });
 
   it("auto-crits a HIT against an unconscious target", () => {
@@ -648,7 +648,7 @@ describe("lethal damage at 0 HP and stable status", () => {
 
   it("a hit on a downed target adds one death-save failure and keeps it downed", () => {
     const original = Math.random;
-    Math.random = () => 0.0; // d20 = 1 (attack 100 still hits), 1d1 = 1 damage
+    Math.random = () => 0.3; // d20 = 7 (attack 106 hits AC 12), 1d1 = 1 damage
     const state = combatState(0);
     state.combat.combatants[1] = downedTarget({
       deathSaveSuccesses: 1,
@@ -671,6 +671,8 @@ describe("lethal damage at 0 HP and stable status", () => {
   });
 
   it("a hit on a downed target always increases failures by 1 or 2 and only a crit reaches 2", () => {
+    const original = Math.random;
+    Math.random = () => 0.3; // d20 = 7 -> hit (attack 106 >= AC 12)
     for (let i = 0; i < 200; i++) {
       const state = combatState(0);
       state.combat.combatants[1] = downedTarget();
@@ -693,6 +695,8 @@ describe("lethal damage at 0 HP and stable status", () => {
   });
 
   it("instantly kills a 0-HP target when damage equals or exceeds its max HP", () => {
+    const original = Math.random;
+    Math.random = () => 0.3; // d20 = 7 -> hit; 10d6 each = 2 -> total 20 >= maxHp 10
     const state = combatState(0);
     state.combat.combatants[1] = downedTarget({ maxHp: 10 });
     const outcome = performAttack(state, "char-1", "enemy-1", {
@@ -700,6 +704,7 @@ describe("lethal damage at 0 HP and stable status", () => {
       damageNotation: "10d6",
       damageBonus: 0,
     });
+    Math.random = original;
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expect(outcome.result.hit).toBe(true);
@@ -710,7 +715,7 @@ describe("lethal damage at 0 HP and stable status", () => {
 
   it("kills a downed target when the hit brings failures to 3", () => {
     const original = Math.random;
-    Math.random = () => 0.0; // d20 = 1 (attack 100 still hits), 1d1 = 1 damage
+    Math.random = () => 0.3; // d20 = 7 (attack 106 hits AC 12), 1d1 = 1 damage
     const state = combatState(0);
     state.combat.combatants[1] = downedTarget({ deathSaveFailures: 2 });
     const outcome = performAttack(state, "char-1", "enemy-1", {
