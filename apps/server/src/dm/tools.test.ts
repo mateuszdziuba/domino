@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CampaignState, Character } from "@domino/shared";
 import { applyLevelUp } from "../rules/advancement.js";
+import { MONSTERS } from "../rules/monsters.js";
 
 const mock = vi.hoisted(() => {
   function defaultState(): CampaignState {
@@ -389,6 +390,141 @@ describe("runDmTool combat tools (mocked store)", () => {
     mock.states.set("c1", mock.defaultState());
     const result = await runTool("end_combat");
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("runDmTool encounter generation (mocked store)", () => {
+  beforeEach(() => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    mock.states.set("c1", mock.defaultState());
+  });
+
+  it("generate_encounter carries monster traits onto the saved combatants", async () => {
+    const result = await runTool("generate_encounter", {
+      description: "a troll blocks the bridge",
+    });
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const troll = saved.combat.combatants.find((c) => c.id === "troll-0");
+    expect(troll).toBeDefined();
+    expect(troll!.traits).toContain("regeneration");
+  });
+
+  it("random_encounter starts combat with monsters and pushes an encounter.started event", async () => {
+    const result = await runTool("random_encounter", {});
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Losowe spotkanie");
+    const saved = mock.states.get("c1")!;
+    expect(saved.combat.active).toBe(true);
+    expect(saved.combat.combatants.some((c) => !c.isPlayer)).toBe(true);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "encounter.started",
+      expect.objectContaining({ generated: true, random: true }),
+    );
+  });
+
+  it("random_encounter filters kinds by terrain", async () => {
+    const result = await runTool("random_encounter", { terrain: "cave" });
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const caveKinds = MONSTERS.filter((m) => m.tags.includes("cave"));
+    for (const c of saved.combat.combatants.filter((c) => !c.isPlayer)) {
+      const kind = MONSTERS.find((m) => c.id.startsWith(`${m.key}-`));
+      expect(kind, c.id).toBeDefined();
+      expect(caveKinds.some((m) => m.key === kind!.key), c.id).toBe(true);
+    }
+  });
+
+  it("random_encounter uses the description as the encounter label", async () => {
+    const result = await runTool("random_encounter", {
+      description: "Szmer w ciemności",
+    });
+    expect(result.ok).toBe(true);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "encounter.started",
+      expect.objectContaining({ description: "Szmer w ciemności" }),
+    );
+  });
+
+  it("advance_turn reports regenerated HP for a troll", async () => {
+    mock.states.set("c1", {
+      ...mock.defaultState(),
+      phase: "combat",
+      combat: {
+        active: true,
+        round: 1,
+        turnIndex: 0,
+        combatants: [
+          {
+            id: "char-ch1",
+            name: "Aria",
+            characterId: "ch1",
+            isPlayer: true,
+            initiative: 18,
+            currentHp: 10,
+            maxHp: 10,
+            armorClass: 15,
+            status: "active",
+          },
+          {
+            id: "troll-0",
+            name: "Troll",
+            isPlayer: false,
+            initiative: 5,
+            currentHp: 10,
+            maxHp: 84,
+            armorClass: 15,
+            status: "active",
+            traits: ["regeneration"],
+          },
+        ],
+      },
+    });
+    const result = await runTool("advance_turn");
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const troll = saved.combat.combatants.find((c) => c.id === "troll-0")!;
+    expect(troll.currentHp).toBe(20);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "turn.advanced",
+      expect.objectContaining({ regenerated: 10, turnOf: { id: "troll-0", name: "Troll" } }),
+    );
+  });
+
+  it("summarizeState includes the combatants' traits", async () => {
+    mock.states.set("c1", {
+      ...mock.defaultState(),
+      phase: "combat",
+      combat: {
+        active: true,
+        round: 1,
+        turnIndex: 0,
+        combatants: [
+          {
+            id: "troll-0",
+            name: "Troll",
+            isPlayer: false,
+            initiative: 15,
+            currentHp: 84,
+            maxHp: 84,
+            armorClass: 15,
+            status: "active",
+            traits: ["regeneration", "keen_senses"],
+          },
+        ],
+      },
+    });
+    const result = await runTool("get_campaign_state");
+    expect(result.ok).toBe(true);
+    const data = result.data as {
+      combat: { combatants: { id: string; traits: string[] }[] };
+    };
+    const troll = data.combat.combatants.find((c) => c.id === "troll-0")!;
+    expect(troll.traits).toEqual(["regeneration", "keen_senses"]);
   });
 });
 

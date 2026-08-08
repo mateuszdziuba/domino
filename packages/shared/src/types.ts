@@ -105,6 +105,7 @@ export type Combatant = {
   exhaustionLevel?: number;
   concentratingOn?: string;
   conSaveMod?: number;
+  traits?: string[];
   status?: CombatantStatus;
   conditions?: string[];
   deathSaveSuccesses?: number;

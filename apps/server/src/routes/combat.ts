@@ -156,13 +156,21 @@ combatRoutes.post("/advance", requireAuth, async (c) => {
   if (!requireCampaign(c, campaignId)) return c.json({ error: "Campaign not found" }, 404);
   let state = loadState(campaignId);
   if (!state.combat.active) return c.json({ error: "No combat in progress" }, 400);
+  const before = new Map(
+    state.combat.combatants.map((c) => [c.id, c.currentHp]),
+  );
   state = nextTurn(state);
   saveState(campaignId, state);
   const current = currentTurnCombatant(state);
+  const regenerated =
+    current && before.has(current.id)
+      ? Math.max(0, current.currentHp - before.get(current.id)!)
+      : 0;
   pushEvent(campaignId, "turn.advanced", {
     turnIndex: state.combat.turnIndex,
     round: state.combat.round,
     turnOf: current ? { id: current.id, name: current.name } : null,
+    ...(regenerated > 0 ? { regenerated } : {}),
   });
   return c.json({ state });
 });

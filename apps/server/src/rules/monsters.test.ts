@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { MONSTERS, buildEncounter, matchMonsters } from "./monsters.js";
+import {
+  MONSTERS,
+  buildEncounter,
+  matchMonsters,
+  randomEncounter,
+} from "./monsters.js";
 
 describe("monster catalog", () => {
   it("has SRD monsters with sane stats", () => {
@@ -31,6 +36,38 @@ describe("monster catalog", () => {
   it("goblin attacks once per turn", () => {
     const goblin = MONSTERS.find((m) => m.key === "goblin")!;
     expect(goblin.attacks).toBe(1);
+  });
+
+  it("gives every monster a traits array", () => {
+    for (const m of MONSTERS) {
+      expect(Array.isArray(m.traits), m.key).toBe(true);
+    }
+  });
+
+  it("carries the SRD traits on the right monsters", () => {
+    const byKey = new Map(MONSTERS.map((m) => [m.key, m]));
+    expect(byKey.get("wolf")!.traits).toContain("pack_tactics");
+    expect(byKey.get("dire-wolf")!.traits).toContain("pack_tactics");
+    expect(byKey.get("zombie")!.traits).toContain("undead_fortitude");
+    expect(byKey.get("troll")!.traits).toContain("regeneration");
+    expect(byKey.get("ghoul")!.traits).toContain("paralyzing_touch");
+    expect(byKey.get("giant-spider")!.traits).toContain("web");
+    expect(byKey.get("giant-rat")!.traits).toContain("keen_smell");
+    expect(byKey.get("goblin")!.traits).toContain("nimble_escape");
+    for (const key of [
+      "skeleton",
+      "bandit",
+      "cultist",
+      "hobgoblin",
+      "orc",
+      "worg",
+      "bugbear",
+      "specter",
+      "ogre",
+      "hill-giant",
+    ]) {
+      expect(byKey.get(key)!.traits, key).toEqual([]);
+    }
   });
 });
 
@@ -95,5 +132,56 @@ describe("buildEncounter", () => {
       expect(e.isPlayer).toBe(false);
       expect(e.maxHp).toBeGreaterThan(0);
     }
+  });
+
+  it("carries the monster traits onto the combatants", () => {
+    const encounter = buildEncounter("a troll blocks the bridge", 1);
+    expect(encounter[0]!.traits).toContain("regeneration");
+  });
+});
+
+describe("randomEncounter", () => {
+  it("returns at least one monster within the CR budget", () => {
+    const encounter = randomEncounter(3, 4);
+    expect(encounter.length).toBeGreaterThanOrEqual(1);
+    expect(encounter.length).toBeLessThanOrEqual(6);
+    const totalCr = encounter.reduce((sum, e) => sum + (e.cr ?? 0), 0);
+    const budget = Math.max(1, Math.ceil((3 * 4) / 4));
+    expect(totalCr).toBeLessThanOrEqual(budget * 2);
+    for (const e of encounter) {
+      expect(e.isPlayer).toBe(false);
+      expect(e.maxHp).toBeGreaterThan(0);
+    }
+  });
+
+  it("respects the terrain filter or falls back to the whole catalog", () => {
+    const encounter = randomEncounter(3, 4, "cave");
+    expect(encounter.length).toBeGreaterThanOrEqual(1);
+    const caveKinds = MONSTERS.filter((m) => m.tags.includes("cave"));
+    if (caveKinds.length > 0) {
+      const keys = new Set(caveKinds.map((m) => m.key));
+      for (const e of encounter) {
+        const kind = MONSTERS.find((m) => e.id.startsWith(`${m.key}-`));
+        expect(kind, e.id).toBeDefined();
+        expect(keys.has(kind!.key), e.id).toBe(true);
+      }
+    }
+  });
+
+  it("stays under the budget for a high-level party too", () => {
+    const encounter = randomEncounter(5, 4);
+    const totalCr = encounter.reduce((sum, e) => sum + (e.cr ?? 0), 0);
+    const budget = Math.max(1, Math.ceil((5 * 4) / 4));
+    expect(totalCr).toBeLessThanOrEqual(budget * 2);
+    expect(encounter.length).toBeLessThanOrEqual(6);
+  });
+
+  it("is deterministic with Math.random stubbed", () => {
+    const original = Math.random;
+    Math.random = () => 0.5;
+    const first = randomEncounter(2, 3);
+    const second = randomEncounter(2, 3);
+    Math.random = original;
+    expect(first).toEqual(second);
   });
 });

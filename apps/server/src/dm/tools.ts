@@ -47,7 +47,7 @@ import {
   type SpellDef,
   type SpellCastResult,
 } from "../rules/spells.js";
-import { buildEncounter, MONSTERS } from "../rules/monsters.js";
+import { buildEncounter, MONSTERS, randomEncounter } from "../rules/monsters.js";
 import { EQUIPMENT_SLOTS, isSlotKey } from "../rules/equipment.js";
 import { equippedWeaponAttackInput } from "../rules/weapons.js";
 import {
@@ -165,13 +165,21 @@ export async function runDmTool(
       if (!state.combat.active) {
         return { ok: false, message: "Brak walki w toku; nie ma czego przesunąć." };
       }
+      const before = new Map(
+        state.combat.combatants.map((c) => [c.id, c.currentHp]),
+      );
       state = nextTurn(state);
       saveState(campaignId, state);
       const current = currentTurnCombatant(state);
+      const regenerated =
+        current && before.has(current.id)
+          ? Math.max(0, current.currentHp - before.get(current.id)!)
+          : 0;
       pushEvent(campaignId, "turn.advanced", {
         turnIndex: state.combat.turnIndex,
         round: state.combat.round,
         turnOf: current ? { id: current.id, name: current.name } : null,
+        ...(regenerated > 0 ? { regenerated } : {}),
       });
       return {
         ok: true,
@@ -293,6 +301,55 @@ export async function runDmTool(
       return {
         ok: true,
         message: `Walka rozpoczęta: ${monsters.map((m) => m.name).join(", ")}. Inicjatywa ustalona; opisz scenę i oddaj turę pierwszemu kombatantowi.`,
+        data: summarizeState(state),
+      };
+    }
+    case "random_encounter": {
+      const parsed = z
+        .object({
+          terrain: z.string().max(32).optional(),
+          description: z.string().max(100).optional(),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "terrain i description muszą być krótkimi tekstami." };
+      }
+      const state0 = loadState(campaignId);
+      if (state0.combat.active) {
+        return { ok: false, message: "Walka już trwa." };
+      }
+      const party = getCampaignMembers(campaignId)
+        .map((m) => getCharacterById(m.characterId))
+        .filter((ch): ch is Character => Boolean(ch));
+      if (party.length === 0) {
+        return { ok: false, message: "Kampania nie ma jeszcze postaci." };
+      }
+      const level = Math.max(...party.map((ch) => ch.level));
+      const monsters = randomEncounter(level, party.length, parsed.data.terrain);
+      const combatants = party.map((ch) => ({
+        id: `char-${ch.id}`,
+        name: ch.name,
+        characterId: ch.id,
+        isPlayer: true,
+        maxHp: ch.maxHp,
+        currentHp: ch.currentHp,
+        armorClass: ch.armorClass,
+        dexterity: ch.abilityScores.dexterity,
+        exhaustionLevel: ch.exhaustion ?? 0,
+      }));
+      let state = startCombat(state0, [...combatants, ...monsters]);
+      state = saveState(campaignId, state);
+      const description =
+        parsed.data.description?.trim() || monsters.map((m) => m.name).join(", ");
+      pushEvent(campaignId, "encounter.started", {
+        generated: true,
+        random: true,
+        description,
+        combatants: state.combat.combatants.map((m) => ({ id: m.id, name: m.name, initiative: m.initiative })),
+      });
+      return {
+        ok: true,
+        message: `Losowe spotkanie: ${monsters.map((m) => m.name).join(", ")} — walka się zaczyna.`,
         data: summarizeState(state),
       };
     }
@@ -1270,6 +1327,7 @@ function summarizeState(state: CampaignState) {
               hp: `${c.currentHp}/${c.maxHp}`,
               status: c.status ?? "active",
               attacks: monster?.attacks ?? 1,
+              traits: c.traits ?? [],
               turn: c.id === currentTurnCombatant(state)?.id,
             };
           }),

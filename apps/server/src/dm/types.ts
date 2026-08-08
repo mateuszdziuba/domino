@@ -23,7 +23,8 @@ export type DmToolName =
   | "update_world_state"
   | "start_adventure"
   | "create_adventure"
-  | "generate_encounter";
+  | "generate_encounter"
+  | "random_encounter";
 
 export type DmTool = {
   name: DmToolName;
@@ -179,6 +180,12 @@ export const DM_TOOLS: DmTool[] = [
     description:
       "Generate and start a combat encounter from a short description. The rules engine picks SRD monsters matching the description, scaled to the party; the AI never invents stat blocks or HP.",
     parameters: { description: { type: "string" } },
+  },
+  {
+    name: "random_encounter",
+    description:
+      "Generate a random SRD encounter weighted to the party's level (optional terrain filter) and start combat.",
+    parameters: { terrain: { type: "string" }, description: { type: "string" } },
   },
 ];
 

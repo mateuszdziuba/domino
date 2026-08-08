@@ -19,6 +19,7 @@ export type NewCombatant = {
   dexterity?: number;
   cr?: number;
   exhaustionLevel?: number;
+  traits?: string[];
 };
 
 export function rollInitiative(dexterityScore: number): { roll: number; total: number } {
@@ -49,6 +50,7 @@ export function startCombat(
       deathSaveSuccesses: 0,
       deathSaveFailures: 0,
       exhaustionLevel: entry.exhaustionLevel ?? 0,
+      traits: entry.traits ?? [],
     };
   });
   combatants.sort((a, b) => {
@@ -88,10 +90,25 @@ export function nextTurn(state: CampaignState): CampaignState {
     scanned++;
   }
   if (scanned >= n) return state;
+  const nextCombatant = combat.combatants[nextIndex]!;
+  const regenerated =
+    (nextCombatant.traits ?? []).includes("regeneration") &&
+    nextCombatant.currentHp < nextCombatant.maxHp
+      ? Math.min(nextCombatant.maxHp, nextCombatant.currentHp + 10) -
+        nextCombatant.currentHp
+      : 0;
   return {
     ...state,
     combat: {
       ...combat,
+      combatants:
+        regenerated > 0
+          ? combat.combatants.map((c) =>
+              c.id === nextCombatant.id
+                ? { ...c, currentHp: c.currentHp + regenerated }
+                : c,
+            )
+          : combat.combatants,
       turnIndex: nextIndex,
       round: crossedZero ? combat.round + 1 : combat.round,
     },
@@ -129,6 +146,8 @@ export type AttackResult = {
   targetStatus: Combatant["status"];
   concentrationBroken?: boolean;
   concentrationSave?: { roll: number; dc: number };
+  conditionApplied?: string;
+  undeadFortitudeSaved?: boolean;
 };
 
 export function resolveAttack(
@@ -305,14 +324,46 @@ export function performAttack(
     return { ok: false, error: "Not this combatant's turn" };
   }
   const mods = attackRollAdvantages(attacker, target);
+  const packTacticsAdvantage =
+    (attacker.traits ?? []).includes("pack_tactics") &&
+    state.combat.combatants.some(
+      (c) => c.id !== attacker.id && !c.isPlayer && c.currentHp > 0,
+    );
   const result = resolveAttack(target, {
     ...input,
-    advantage: mods.advantage || input.advantage === true,
+    advantage: mods.advantage || input.advantage === true || packTacticsAdvantage,
     disadvantage: mods.disadvantage || input.disadvantage === true,
   });
   let newTarget: Combatant;
   if (result.hit) {
     newTarget = applyHitToTarget(target, result.damageTotal, result.critical);
+    if (
+      newTarget.currentHp === 0 &&
+      (target.traits ?? []).includes("undead_fortitude")
+    ) {
+      const dc = 5 + result.damageTotal;
+      const saveRoll = d(20, 1)[0]! + (target.conSaveMod ?? 0);
+      if (saveRoll >= dc) {
+        result.undeadFortitudeSaved = true;
+        newTarget = { ...newTarget, currentHp: 1, status: "active" };
+      }
+    }
+    const attackerTraits = attacker.traits ?? [];
+    const traitCondition = attackerTraits.includes("paralyzing_touch")
+      ? "paralyzed"
+      : attackerTraits.includes("web")
+        ? "restrained"
+        : undefined;
+    if (traitCondition) {
+      const saveRoll = d(20, 1)[0]! + (target.conSaveMod ?? 0);
+      if (saveRoll < 11) {
+        const existing = newTarget.conditions ?? [];
+        if (!existing.includes(traitCondition)) {
+          newTarget = { ...newTarget, conditions: [...existing, traitCondition] };
+        }
+        result.conditionApplied = traitCondition;
+      }
+    }
     if ((target.conditions ?? []).includes(GUIDING_BOLT_MARKER)) {
       newTarget = {
         ...newTarget,
@@ -336,6 +387,7 @@ export function performAttack(
       }
     }
     result.targetStatus = newTarget.status;
+    result.targetCurrentHp = newTarget.currentHp;
   } else {
     newTarget = { ...target, currentHp: result.targetCurrentHp, status: result.targetStatus };
   }

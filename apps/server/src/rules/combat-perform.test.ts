@@ -908,6 +908,215 @@ describe("lethal damage at 0 HP and stable status", () => {
   });
 });
 
+describe("monster traits (combat mechanics)", () => {
+  function packState(allyAlive: boolean): CampaignState {
+    return {
+      ...defaultCampaignState(),
+      phase: "combat",
+      combat: {
+        active: true,
+        round: 1,
+        turnIndex: 0,
+        combatants: [
+          {
+            id: "wolf-0",
+            name: "Wolf",
+            isPlayer: false,
+            initiative: 18,
+            currentHp: 11,
+            maxHp: 11,
+            armorClass: 13,
+            status: "active",
+            traits: ["keen_senses", "pack_tactics"],
+          },
+          {
+            id: "goblin-0",
+            name: "Goblin",
+            isPlayer: false,
+            initiative: 12,
+            currentHp: allyAlive ? 7 : 0,
+            maxHp: 7,
+            armorClass: 12,
+            status: allyAlive ? "active" : "dead",
+            traits: ["nimble_escape"],
+          },
+          {
+            id: "char-1",
+            name: "Aelar",
+            characterId: "ch1",
+            isPlayer: true,
+            initiative: 5,
+            currentHp: 10,
+            maxHp: 10,
+            armorClass: 14,
+            status: "active",
+          },
+        ],
+      },
+    };
+  }
+
+  it("gains advantage from pack tactics when a non-player ally is alive", () => {
+    const seq = [0.2, 0.85, 0.0]; // d20s: 5, 18; damage 1d1: 1
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(packState(true), "wolf-0", "char-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([5, 18]);
+    expect(outcome.result.attackRoll).toBe(18);
+    expect(outcome.result.hit).toBe(true);
+  });
+
+  it("does not gain advantage from pack tactics without a living ally", () => {
+    const seq = [0.5, 0.0]; // single d20: 11; damage 1d1: 1
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(packState(false), "wolf-0", "char-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([11]);
+    expect(outcome.result.attackRoll).toBe(11);
+  });
+
+  it("merges pack tactics with condition disadvantage into a normal roll", () => {
+    const seq = [0.5]; // single d20: 11
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = packState(true);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      conditions: ["blinded"],
+    };
+    const outcome = performAttack(state, "wolf-0", "char-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([11]);
+  });
+
+  it("undead fortitude saves against DC 5 + damage and leaves the zombie at 1 HP", () => {
+    const seq = [0.5, 0.5, 0.95]; // d20: 11 (hit), 1d1: 1 (+4 = 5 dmg), CON save: 20
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[1] = {
+      ...enemy(state),
+      maxHp: 22,
+      currentHp: 5,
+      armorClass: 8,
+      status: "active",
+      traits: ["undead_fortitude"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 4,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.damageTotal).toBe(5);
+    expect(outcome.result.undeadFortitudeSaved).toBe(true);
+    expect(enemy(outcome.state).currentHp).toBe(1);
+    expect(enemy(outcome.state).status).toBe("active");
+  });
+
+  it("undead fortitude falls at a failed CON save and the zombie drops to 0 HP", () => {
+    const seq = [0.5, 0.5, 0.01]; // CON save: 1 < DC 10
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[1] = {
+      ...enemy(state),
+      maxHp: 22,
+      currentHp: 5,
+      armorClass: 8,
+      status: "active",
+      traits: ["undead_fortitude"],
+    };
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 4,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.undeadFortitudeSaved).toBeUndefined();
+    expect(enemy(outcome.state).currentHp).toBe(0);
+    expect(enemy(outcome.state).status).toBe("downed");
+  });
+
+  it("paralyzing touch paralyzes on a failed CON save (DC 11)", () => {
+    const seq = [0.5, 0.5, 0.01]; // d20: 11 (+5 = 16 hit), 1d1: 1 (+2 = 3 dmg), CON save: 1
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      id: "ghoul-0",
+      isPlayer: false,
+      maxHp: 22,
+      currentHp: 22,
+      armorClass: 12,
+      status: "active",
+      traits: ["paralyzing_touch"],
+    };
+    const outcome = performAttack(state, "ghoul-0", "enemy-1", {
+      attackBonus: 5,
+      damageNotation: "1d1",
+      damageBonus: 2,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.conditionApplied).toBe("paralyzed");
+    expect(enemy(outcome.state).conditions).toEqual(["paralyzed"]);
+  });
+
+  it("web restrains on a failed CON save (DC 11)", () => {
+    const seq = [0.5, 0.5, 0.01]; // d20: 11 (+5 = 16 hit), 1d1: 1 (+3 = 4 dmg), CON save: 1
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const state = combatState(0);
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      id: "spider-0",
+      isPlayer: false,
+      maxHp: 26,
+      currentHp: 26,
+      armorClass: 14,
+      status: "active",
+      traits: ["web"],
+    };
+    const outcome = performAttack(state, "spider-0", "enemy-1", {
+      attackBonus: 5,
+      damageNotation: "1d1",
+      damageBonus: 3,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.conditionApplied).toBe("restrained");
+    expect(enemy(outcome.state).conditions).toEqual(["restrained"]);
+  });
+});
+
 describe("nextTurn", () => {
   function turnState(
     combatants: Combatant[],
@@ -963,6 +1172,42 @@ describe("nextTurn", () => {
     const next = nextTurn(state);
     expect(next.combat.turnIndex).toBe(1);
     expect(next.combat.round).toBe(1);
+  });
+
+  function troll(overrides: Partial<Combatant> = {}): Combatant {
+    return {
+      id: "troll-0",
+      name: "Troll",
+      isPlayer: false,
+      initiative: 5,
+      currentHp: 10,
+      maxHp: 84,
+      armorClass: 15,
+      status: "active",
+      traits: ["regeneration", "keen_senses"],
+      ...overrides,
+    };
+  }
+
+  it("regenerates 10 HP at the start of the troll's turn", () => {
+    const state = turnState([fighter("a"), troll()], 0);
+    const next = nextTurn(state);
+    const regenerated = next.combat.combatants.find((c) => c.id === "troll-0")!;
+    expect(regenerated.currentHp).toBe(20);
+    expect(next.combat.turnIndex).toBe(1);
+  });
+
+  it("caps regeneration at the troll's max HP", () => {
+    const state = turnState([fighter("a"), troll({ currentHp: 80 })], 0);
+    const next = nextTurn(state);
+    const regenerated = next.combat.combatants.find((c) => c.id === "troll-0")!;
+    expect(regenerated.currentHp).toBe(84);
+  });
+
+  it("does not heal a combatant without regeneration", () => {
+    const state = turnState([fighter("a"), fighter("b")], 0);
+    const next = nextTurn(state);
+    expect(next.combat.combatants[1]!.currentHp).toBe(10);
   });
 });
 
