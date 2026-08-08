@@ -24,6 +24,7 @@ const mock = vi.hoisted(() => {
     updateCharacterHitDice: vi.fn(),
     updateCharacterExhaustion: vi.fn(),
     updateCharacterInspiration: vi.fn(),
+    updateCharacterInventory: vi.fn(),
     grantXp: vi.fn(),
     grantLoot: vi.fn(),
     members: vi.fn(() => [] as { characterId: string }[]),
@@ -43,6 +44,8 @@ vi.mock("../campaign/store.js", () => ({
   updateCharacterHitDice: mock.updateCharacterHitDice,
   updateCharacterExhaustion: mock.updateCharacterExhaustion,
   updateCharacterInspiration: mock.updateCharacterInspiration,
+  updateCharacterInventory: (id: string, inventory: unknown[]) =>
+    mock.updateCharacterInventory(id, inventory),
   grantXp: (id: string, amount: number) => mock.grantXp(id, amount),
   grantLoot: (id: string, gold: number, items: unknown[]) => mock.grantLoot(id, gold, items),
   getCharacterById: (id: string) => mock.characters.get(id),
@@ -131,6 +134,7 @@ beforeEach(() => {
   mock.updateCharacterHitDice.mockReset();
   mock.updateCharacterExhaustion.mockReset();
   mock.updateCharacterInspiration.mockReset();
+  mock.updateCharacterInventory.mockReset();
   mock.grantXp.mockReset();
   mock.grantXp.mockImplementation((id: string, amount: number) => {
     const ch = mock.characters.get(id);
@@ -2110,6 +2114,401 @@ describe("runDmTool grant_loot (mocked store)", () => {
     expect(result.message).toContain("Nieznany slot ekwipunku: teleport");
     expect(result.message).toContain("Głowa (head)");
     expect(result.message).toContain("Buty (boots)");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("runDmTool skill_check (mocked store)", () => {
+  beforeEach(() => {
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch1", {
+      ...aria,
+      skills: { perception: true, acrobatics: false },
+    });
+  });
+
+  it("resolves a successful check with the proficiency bonus and pushes the event", async () => {
+    const original = Math.random;
+    Math.random = () => 0.7; // d20 = 15
+    const result = await runTool("skill_check", {
+      characterId: "ch1",
+      skill: "perception",
+      dc: 15,
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe(
+      "Aria testuje Percepcja: rzut 15 + 2 = 17 vs DC 15 — sukces!",
+    );
+    expect(result.data).toEqual({
+      type: "skill-check",
+      characterId: "ch1",
+      character: "Aria",
+      skill: "perception",
+      roll: 15,
+      rolls: [15],
+      mod: 2,
+      dc: 15,
+      total: 17,
+      success: true,
+      advantage: false,
+      disadvantage: false,
+    });
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "skill-check",
+        characterId: "ch1",
+        character: "Aria",
+        skill: "perception",
+        roll: 15,
+        rolls: [15],
+        mod: 2,
+        dc: 15,
+        total: 17,
+        success: true,
+      }),
+    );
+  });
+
+  it("reports a failure against a high DC", async () => {
+    const original = Math.random;
+    Math.random = () => 0.7; // d20 = 15
+    const result = await runTool("skill_check", {
+      characterId: "ch1",
+      skill: "perception",
+      dc: 20,
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe(
+      "Aria testuje Percepcja: rzut 15 + 2 = 17 vs DC 20 — porażka.",
+    );
+    const data = result.data as { success: boolean };
+    expect(data.success).toBe(false);
+  });
+
+  it("uses the ability modifier alone without proficiency", async () => {
+    mock.characters.set("ch1", { ...aria, skills: {} });
+    const original = Math.random;
+    Math.random = () => 0.7; // d20 = 15
+    const result = await runTool("skill_check", {
+      characterId: "ch1",
+      skill: "athletics",
+      dc: 10,
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe(
+      "Aria testuje Atletyka: rzut 15 + 3 = 18 vs DC 10 — sukces!",
+    );
+  });
+
+  it("rolls twice and takes the higher die with advantage", async () => {
+    const seq = [0.2, 0.9]; // d20s: 5, 19
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const result = await runTool("skill_check", {
+      characterId: "ch1",
+      skill: "acrobatics",
+      dc: 15,
+      advantage: true,
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const data = result.data as { roll: number; rolls: number[]; advantage: boolean };
+    expect(data.rolls).toEqual([5, 19]);
+    expect(data.roll).toBe(19);
+    expect(data.advantage).toBe(true);
+  });
+
+  it("rolls twice and takes the lower die with disadvantage", async () => {
+    const seq = [0.2, 0.9]; // d20s: 5, 19
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const result = await runTool("skill_check", {
+      characterId: "ch1",
+      skill: "acrobatics",
+      dc: 15,
+      disadvantage: true,
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const data = result.data as { roll: number; rolls: number[]; disadvantage: boolean };
+    expect(data.rolls).toEqual([5, 19]);
+    expect(data.roll).toBe(5);
+    expect(data.disadvantage).toBe(true);
+  });
+
+  it("rolls a single die when both advantage and disadvantage are set", async () => {
+    const seq = [0.2, 0.9];
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const result = await runTool("skill_check", {
+      characterId: "ch1",
+      skill: "acrobatics",
+      dc: 15,
+      advantage: true,
+      disadvantage: true,
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const data = result.data as { roll: number; rolls: number[] };
+    expect(data.rolls).toEqual([5]);
+  });
+
+  it("rejects an unknown skill and lists the available ones", async () => {
+    const result = await runTool("skill_check", {
+      characterId: "ch1",
+      skill: "cooking",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Nieznana umiejętność: cooking");
+    expect(result.message).toContain("Dostępne:");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("spends inspiration to force advantage and clears it", async () => {
+    mock.characters.set("ch1", {
+      ...aria,
+      inspiration: true,
+      skills: { perception: true },
+    });
+    const seq = [0.2, 0.9]; // d20s: 5, 19
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const result = await runTool("skill_check", {
+      characterId: "ch1",
+      skill: "perception",
+      dc: 10,
+      useInspiration: true,
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const data = result.data as {
+      roll: number;
+      rolls: number[];
+      advantage: boolean;
+      inspirationUsed: boolean;
+    };
+    expect(data.rolls).toEqual([5, 19]);
+    expect(data.roll).toBe(19);
+    expect(data.advantage).toBe(true);
+    expect(data.inspirationUsed).toBe(true);
+    expect(mock.updateCharacterInspiration).toHaveBeenCalledWith("ch1", false);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "skill-check", inspirationUsed: true }),
+    );
+  });
+
+  it("does not spend inspiration when the character has none", async () => {
+    const original = Math.random;
+    Math.random = () => 0.7;
+    const result = await runTool("skill_check", {
+      characterId: "ch1",
+      skill: "perception",
+      dc: 10,
+      useInspiration: true,
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterInspiration).not.toHaveBeenCalled();
+    const data = result.data as { advantage: boolean; inspirationUsed?: boolean };
+    expect(data.advantage).toBe(false);
+    expect(data.inspirationUsed).toBeUndefined();
+  });
+
+  it("appends the reason to the message and the event", async () => {
+    const original = Math.random;
+    Math.random = () => 0.7;
+    const result = await runTool("skill_check", {
+      characterId: "ch1",
+      skill: "perception",
+      dc: 10,
+      reason: "szukając śladów",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("(szukając śladów)");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "skill-check", reason: "szukając śladów" }),
+    );
+  });
+
+  it("rejects an unknown character", async () => {
+    const result = await runTool("skill_check", { characterId: "ghost", skill: "perception" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Nie znaleziono postaci.");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("runDmTool use_item (mocked store)", () => {
+  beforeEach(() => {
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch1", {
+      ...aria,
+      currentHp: 5,
+      maxHp: 10,
+      inventory: [{ id: "pot1", name: "Potion of Healing", quantity: 2 }],
+    });
+  });
+
+  it("consumes a potion, removes it at quantity 1 and heals the character", async () => {
+    mock.characters.set("ch1", {
+      ...aria,
+      currentHp: 5,
+      maxHp: 10,
+      inventory: [{ id: "pot1", name: "Potion of Healing", quantity: 1 }],
+    });
+    const original = Math.random;
+    Math.random = () => 0.95; // 2d4: 4, 4 -> +2 = 10
+    const result = await runTool("use_item", { characterId: "ch1", itemId: "pot1" });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe(
+      "Aria pije Potion of Healing — odzyskuje 10 punktów życia.",
+    );
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 10);
+    expect(mock.updateCharacterInventory).toHaveBeenCalledWith("ch1", []);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "item-use",
+        item: "Potion of Healing",
+        character: "Aria",
+        target: "Aria",
+        healed: 10,
+        rolls: [4, 4],
+      }),
+    );
+    expect(result.data).toEqual({
+      type: "item-use",
+      item: "Potion of Healing",
+      character: "Aria",
+      target: "Aria",
+      healed: 10,
+      rolls: [4, 4],
+    });
+  });
+
+  it("decrements quantity instead of removing when more remain", async () => {
+    mock.characters.set("ch1", {
+      ...aria,
+      currentHp: 5,
+      maxHp: 10,
+      inventory: [
+        { id: "pot1", name: "Potion of Healing", quantity: 3 },
+        { id: "rope1", name: "Rope", quantity: 1 },
+      ],
+    });
+    const original = Math.random;
+    Math.random = () => 0.95;
+    const result = await runTool("use_item", { characterId: "ch1", itemId: "pot1" });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterInventory).toHaveBeenCalledWith("ch1", [
+      { id: "pot1", name: "Potion of Healing", quantity: 2 },
+      { id: "rope1", name: "Rope", quantity: 1 },
+    ]);
+  });
+
+  it("heals the target character in combat and saves the combatant state", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants[0] = { ...state.combat.combatants[0]!, currentHp: 3 };
+    mock.states.set("c1", state);
+    mock.characters.set("ch1", {
+      ...aria,
+      currentHp: 3,
+      inventory: [{ id: "pot1", name: "Potion of Healing", quantity: 1 }],
+    });
+    const original = Math.random;
+    Math.random = () => 0.95; // 2d4+2 = 10
+    const result = await runTool("use_item", {
+      characterId: "ch1",
+      itemId: "pot1",
+      targetId: "char-ch1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const ariaCombatant = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(ariaCombatant.currentHp).toBe(10);
+    expect(ariaCombatant.status).toBe("active");
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 10);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "item-use", target: "Aria", healed: 10 }),
+    );
+  });
+
+  it("defaults the in-combat target to the item's owner", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants[0] = { ...state.combat.combatants[0]!, currentHp: 3 };
+    mock.states.set("c1", state);
+    mock.characters.set("ch1", {
+      ...aria,
+      inventory: [{ id: "pot1", name: "Potion of Healing", quantity: 1 }],
+    });
+    const original = Math.random;
+    Math.random = () => 0.95;
+    const result = await runTool("use_item", { characterId: "ch1", itemId: "pot1" });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const ariaCombatant = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(ariaCombatant.currentHp).toBe(10);
+  });
+
+  it("rejects an item the character does not have", async () => {
+    const result = await runTool("use_item", { characterId: "ch1", itemId: "ghost" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Postać nie posiada tego przedmiotu.");
+    expect(mock.updateCharacterHp).not.toHaveBeenCalled();
+    expect(mock.updateCharacterInventory).not.toHaveBeenCalled();
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-healing-potion items with a mechanics message", async () => {
+    mock.characters.set("ch1", {
+      ...aria,
+      inventory: [{ id: "rope1", name: "Rope", quantity: 1 }],
+    });
+    const result = await runTool("use_item", { characterId: "ch1", itemId: "rope1" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Ten przedmiot nie ma jeszcze mechaniki użycia.");
+    expect(mock.updateCharacterHp).not.toHaveBeenCalled();
+    expect(mock.updateCharacterInventory).not.toHaveBeenCalled();
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("uses the right dice for a Greater Potion of Healing", async () => {
+    mock.characters.set("ch1", {
+      ...aria,
+      currentHp: 1,
+      maxHp: 30,
+      inventory: [{ id: "pot2", name: "Greater Potion of Healing", quantity: 1 }],
+    });
+    const original = Math.random;
+    Math.random = () => 0.95; // 4d4: 4,4,4,4 -> +4 = 20
+    const result = await runTool("use_item", { characterId: "ch1", itemId: "pot2" });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 21);
+    expect(result.message).toContain("odzyskuje 20 punktów życia");
+  });
+
+  it("rejects an unknown character", async () => {
+    const result = await runTool("use_item", { characterId: "ghost", itemId: "pot1" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Nie znaleziono postaci.");
     expect(mock.pushEvent).not.toHaveBeenCalled();
   });
 });

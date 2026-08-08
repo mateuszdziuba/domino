@@ -153,6 +153,16 @@ export function updateCharacterInspiration(characterId: string, has: boolean): v
     .run();
 }
 
+export function updateCharacterInventory(
+  characterId: string,
+  inventory: NonNullable<Character["inventory"]>,
+): void {
+  db.update(characters)
+    .set({ inventory, updatedAt: isoNow() })
+    .where(eq(characters.id, characterId))
+    .run();
+}
+
 export function grantLoot(
   characterId: string,
   gold: number,

@@ -41,8 +41,10 @@ describe("SRD_GEAR catalog", () => {
     expect(SRD_GEAR.length).toBeGreaterThanOrEqual(40);
   });
 
-  it("marks every magic item as attuned with a known body slot", () => {
-    const magic = SRD_GEAR.filter((g) => g.category === "magic");
+  it("marks every attunable magic item as attuned with a known body slot", () => {
+    const magic = SRD_GEAR.filter(
+      (g) => g.category === "magic" && !g.name.includes("Potion of Healing"),
+    );
     expect(magic.length).toBeGreaterThan(0);
     for (const item of magic) {
       expect(item.attuned).toBe(true);
@@ -60,5 +62,33 @@ describe("SRD_GEAR catalog", () => {
 
   it("enforces the SRD attunement limit of three magic items", () => {
     expect(ATTUNEMENT_LIMIT).toBe(3);
+  });
+});
+
+describe("SRD_GEAR healing potions", () => {
+  const potions = [
+    { name: "Potion of Healing", price: "50 gp", dice: "2k4+2" },
+    { name: "Greater Potion of Healing", price: "150 gp", dice: "4k4+4" },
+    { name: "Superior Potion of Healing", price: "450 gp", dice: "8k4+8" },
+    { name: "Supreme Potion of Healing", price: "1350 gp", dice: "10k4+20" },
+  ];
+
+  it("lists all four healing potions in the magic category with no slot", () => {
+    for (const p of potions) {
+      const item = SRD_GEAR.find((g) => g.name === p.name);
+      expect(item, p.name).toBeDefined();
+      expect(item!.category).toBe("magic");
+      expect(item!.slot).toBeUndefined();
+      expect(item!.price).toBe(p.price);
+      expect(item!.description).toContain(p.dice);
+    }
+  });
+
+  it("does not mark healing potions as attuned", () => {
+    for (const p of potions) {
+      const item = SRD_GEAR.find((g) => g.name === p.name)!;
+      expect(item.attuned).toBeFalsy();
+      expect(item.weight).toBe(0.5);
+    }
   });
 });

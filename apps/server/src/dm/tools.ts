@@ -12,11 +12,12 @@ import {
   updateCharacterHitDice,
   updateCharacterExhaustion,
   updateCharacterInspiration,
+  updateCharacterInventory,
   grantXp,
   grantLoot,
 } from "../campaign/store.js";
 import { buildDmSuggestion, getAvailableActions } from "../rules/actions.js";
-import { rollDiceNotation } from "../rules/dice.js";
+import { d, rollD20, rollDiceNotation } from "../rules/dice.js";
 import { xpAwardForDeadEnemies, hitDieForClass } from "../rules/advancement.js";
 import {
   CONDITIONS,
@@ -36,7 +37,7 @@ import {
   performDeathSave,
   characterAttackInput,
 } from "../rules/combat.js";
-import { abilityModifier } from "../rules/abilities.js";
+import { abilityModifier, proficiencyBonus } from "../rules/abilities.js";
 import { buildCharacterFeatures } from "../rules/features.js";
 import {
   SPELLS,
@@ -57,10 +58,12 @@ import {
 } from "../rules/adventures.js";
 import type { DmToolName } from "./types.js";
 import {
+  SKILLS,
   spellcastingAbility,
   type CampaignState,
   type Character,
   type Combatant,
+  type SkillName,
 } from "@domino/shared";
 
 const rollSchema = z.object({
@@ -79,6 +82,50 @@ const worldPatchSchema = z.object({
   worldProgress: z.array(z.string().max(256)).max(64).optional(),
   notes: z.string().max(2000).optional(),
 });
+
+const skillCheckSchema = z.object({
+  characterId: z.string().min(1),
+  skill: z.string().min(1),
+  dc: z.number().int().min(1).max(40).optional(),
+  advantage: z.boolean().optional(),
+  disadvantage: z.boolean().optional(),
+  useInspiration: z.boolean().optional(),
+  reason: z.string().max(100).optional(),
+});
+
+const useItemSchema = z.object({
+  characterId: z.string().min(1),
+  itemId: z.string().min(1),
+  targetId: z.string().optional(),
+});
+
+const SKILL_LABELS: Record<SkillName, string> = {
+  acrobatics: "Akrobatyka",
+  animalHandling: "Obsługa zwierząt",
+  arcana: "Tajemnice",
+  athletics: "Atletyka",
+  deception: "Oszustwo",
+  history: "Historia",
+  insight: "Intuicja",
+  intimidation: "Zastraszanie",
+  investigation: "Śledztwo",
+  medicine: "Medycyna",
+  nature: "Natura",
+  perception: "Percepcja",
+  performance: "Występy",
+  persuasion: "Perswazja",
+  religion: "Religia",
+  sleightOfHand: "Zwinne dłonie",
+  stealth: "Skradanie",
+  survival: "Przetrwanie",
+};
+
+const HEALING_POTION_DICE: Record<string, string> = {
+  "Potion of Healing": "2d4+2",
+  "Greater Potion of Healing": "4d4+4",
+  "Superior Potion of Healing": "8d4+8",
+  "Supreme Potion of Healing": "10d4+20",
+};
 
 export type ToolResult = {
   ok: boolean;
@@ -1064,6 +1111,154 @@ export async function runDmTool(
         ? `${character.name} otrzymuje inspirację! (może uzyskać przewagę na jeden rzut)`
         : `Inspiracja ${character.name} wygasa.`;
       return { ok: true, message };
+    }
+    case "skill_check": {
+      const parsed = skillCheckSchema.safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "Wymagane są characterId i skill." };
+      }
+      const character = getCharacterById(parsed.data.characterId);
+      if (!character) return { ok: false, message: "Nie znaleziono postaci." };
+      const skill = parsed.data.skill as SkillName;
+      if (!SKILLS.some((s) => s.key === skill)) {
+        return {
+          ok: false,
+          message: `Nieznana umiejętność: ${parsed.data.skill}. Dostępne: ${SKILLS.map(
+            (s) => s.key,
+          ).join(", ")}.`,
+        };
+      }
+      const skillInfo = SKILLS.find((s) => s.key === skill)!;
+      const mod =
+        abilityModifier(character.abilityScores[skillInfo.ability]) +
+        (character.skills?.[skill] ? proficiencyBonus(character.level) : 0);
+      const inspirationUsed =
+        parsed.data.useInspiration === true && character.inspiration === true;
+      const advantage = parsed.data.advantage === true || inspirationUsed;
+      const disadvantage = parsed.data.disadvantage === true;
+      let roll: number;
+      let rolls: number[];
+      if (advantage && !disadvantage) {
+        rolls = d(20, 2);
+        roll = Math.max(rolls[0]!, rolls[1]!);
+      } else if (disadvantage && !advantage) {
+        rolls = d(20, 2);
+        roll = Math.min(rolls[0]!, rolls[1]!);
+      } else {
+        roll = rollD20();
+        rolls = [roll];
+      }
+      const dc = parsed.data.dc ?? 10;
+      const total = roll + mod;
+      const success = total >= dc;
+      if (inspirationUsed) {
+        updateCharacterInspiration(character.id, false);
+      }
+      const result = {
+        type: "skill-check" as const,
+        characterId: character.id,
+        character: character.name,
+        skill,
+        roll,
+        rolls,
+        mod,
+        dc,
+        total,
+        success,
+        advantage,
+        disadvantage,
+        ...(inspirationUsed ? { inspirationUsed: true } : {}),
+        ...(parsed.data.reason ? { reason: parsed.data.reason } : {}),
+      };
+      pushEvent(campaignId, "action.resolved", result);
+      return {
+        ok: true,
+        message: `${character.name} testuje ${SKILL_LABELS[skill]}: rzut ${roll} + ${mod} = ${total} vs DC ${dc} — ${success ? "sukces!" : "porażka."}${
+          parsed.data.reason ? ` (${parsed.data.reason})` : ""
+        }`,
+        data: result,
+      };
+    }
+    case "use_item": {
+      const parsed = useItemSchema.safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "Wymagane są characterId i itemId." };
+      }
+      const character = getCharacterById(parsed.data.characterId);
+      if (!character) return { ok: false, message: "Nie znaleziono postaci." };
+      const item = (character.inventory ?? []).find((i) => i.id === parsed.data.itemId);
+      if (!item) return { ok: false, message: "Postać nie posiada tego przedmiotu." };
+      if (!item.name.includes("Potion of Healing")) {
+        return { ok: false, message: "Ten przedmiot nie ma jeszcze mechaniki użycia." };
+      }
+      const roll = rollDiceNotation(HEALING_POTION_DICE[item.name] ?? "2d4+2");
+      const state = loadState(campaignId);
+      let targetName: string;
+      if (state.combat.active) {
+        const targetCombatant = parsed.data.targetId
+          ? findCombatant(state, parsed.data.targetId)
+          : combatantByCharacter(state, character.id);
+        if (!targetCombatant) {
+          return { ok: false, message: "Nie znaleziono celu w walce." };
+        }
+        const targetHp = Math.min(
+          targetCombatant.maxHp,
+          targetCombatant.currentHp + roll.total,
+        );
+        const combatants = state.combat.combatants.map((c) =>
+          c.id === targetCombatant.id
+            ? {
+                ...c,
+                currentHp: targetHp,
+                status: targetHp > 0 ? "active" : c.status ?? "downed",
+              }
+            : c,
+        );
+        saveState(campaignId, {
+          ...state,
+          combat: { ...state.combat, combatants },
+          updatedAt: new Date().toISOString(),
+        });
+        if (targetCombatant.characterId) {
+          updateCharacterHp(targetCombatant.characterId, targetHp);
+        }
+        targetName = targetCombatant.name;
+      } else {
+        const targetCharacter = parsed.data.targetId
+          ? getCharacterById(parsed.data.targetId)
+          : character;
+        if (!targetCharacter) return { ok: false, message: "Nie znaleziono postaci-celu." };
+        const targetHp = Math.min(
+          targetCharacter.maxHp,
+          targetCharacter.currentHp + roll.total,
+        );
+        updateCharacterHp(targetCharacter.id, targetHp);
+        targetName = targetCharacter.name;
+      }
+      const updatedInventory = (character.inventory ?? [])
+        .map((i) => (i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i))
+        .filter((i) => i.quantity > 0);
+      updateCharacterInventory(character.id, updatedInventory);
+      pushEvent(campaignId, "action.resolved", {
+        type: "item-use",
+        item: item.name,
+        character: character.name,
+        target: targetName,
+        healed: roll.total,
+        rolls: roll.rolls,
+      });
+      return {
+        ok: true,
+        message: `${character.name} pije ${item.name} — odzyskuje ${roll.total} punktów życia.`,
+        data: {
+          type: "item-use",
+          item: item.name,
+          character: character.name,
+          target: targetName,
+          healed: roll.total,
+          rolls: roll.rolls,
+        },
+      };
     }
     case "end_combat": {
       let state = loadState(campaignId);

@@ -448,6 +448,34 @@ export const SRD_GEAR: SrdGearItem[] = [
     description: "7 pocisków, przywraca 1k6+1 na świcie.",
     attuned: true,
   },
+  {
+    name: "Potion of Healing",
+    category: "magic",
+    weight: 0.5,
+    price: "50 gp",
+    description: "Mikstura leczenia: akcja — odzyskujesz 2k4+2 punktów życia. Jednorazowa.",
+  },
+  {
+    name: "Greater Potion of Healing",
+    category: "magic",
+    weight: 0.5,
+    price: "150 gp",
+    description: "Mikstura leczenia: akcja — odzyskujesz 4k4+4 punktów życia. Jednorazowa.",
+  },
+  {
+    name: "Superior Potion of Healing",
+    category: "magic",
+    weight: 0.5,
+    price: "450 gp",
+    description: "Mikstura leczenia: akcja — odzyskujesz 8k4+8 punktów życia. Jednorazowa.",
+  },
+  {
+    name: "Supreme Potion of Healing",
+    category: "magic",
+    weight: 0.5,
+    price: "1350 gp",
+    description: "Mikstura leczenia: akcja — odzyskujesz 10k4+20 punktów życia. Jednorazowa.",
+  },
 ];
 
 export const ATTUNEMENT_LIMIT = 3;

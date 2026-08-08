@@ -24,7 +24,9 @@ export type DmToolName =
   | "start_adventure"
   | "create_adventure"
   | "generate_encounter"
-  | "random_encounter";
+  | "random_encounter"
+  | "skill_check"
+  | "use_item";
 
 export type DmTool = {
   name: DmToolName;
@@ -186,6 +188,30 @@ export const DM_TOOLS: DmTool[] = [
     description:
       "Generate a random SRD encounter weighted to the party's level (optional terrain filter) and start combat.",
     parameters: { terrain: { type: "string" }, description: { type: "string" } },
+  },
+  {
+    name: "skill_check",
+    description:
+      "Resolve a skill check for a character against a DC through the rules engine (optional advantage/disadvantage; useInspiration spends inspiration for advantage).",
+    parameters: {
+      characterId: { type: "string" },
+      skill: { type: "string" },
+      dc: { type: "number" },
+      advantage: { type: "boolean" },
+      disadvantage: { type: "boolean" },
+      useInspiration: { type: "boolean" },
+      reason: { type: "string" },
+    },
+  },
+  {
+    name: "use_item",
+    description:
+      "Use an item from a character's inventory (v1: healing potions — consume and heal 2k4+2 / 4k4+4 / 8k4+8 / 10k4+20).",
+    parameters: {
+      characterId: { type: "string" },
+      itemId: { type: "string" },
+      targetId: { type: "string" },
+    },
   },
 ];
 

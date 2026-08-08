@@ -38,7 +38,7 @@ import { playDice, playMessage, setSoundEnabled, soundEnabled } from "../lib/sou
 
 type RollEntry = {
   id: string;
-  kind: "attack" | "death-save" | "spell";
+  kind: "attack" | "death-save" | "spell" | "skill" | "item";
   label: string;
   detail: string;
   createdAt: string;
@@ -69,6 +69,27 @@ const ACTION_PROMPTS: Record<string, string> = {
   negotiate: "Próbuję wynegocjować pokój.",
   interact: "Interaguję ze światem: ",
   rest: "Odpoczywamy przy ognisku.",
+};
+
+const SKILL_LABELS_PL: Record<string, string> = {
+  acrobatics: "Akrobatyka",
+  animalHandling: "Obsługa zwierząt",
+  arcana: "Tajemnice",
+  athletics: "Atletyka",
+  deception: "Oszustwo",
+  history: "Historia",
+  insight: "Intuicja",
+  intimidation: "Zastraszanie",
+  investigation: "Śledztwo",
+  medicine: "Medycyna",
+  nature: "Natura",
+  perception: "Percepcja",
+  performance: "Występy",
+  persuasion: "Perswazja",
+  religion: "Religia",
+  sleightOfHand: "Zwinne dłonie",
+  stealth: "Skradanie",
+  survival: "Przetrwanie",
 };
 
 function spellEffectSummary(meta: SpellMeta): string {
@@ -363,12 +384,20 @@ export default function CampaignPage() {
   const legalActions = (suggestion?.availableActions.filter((a) => a.legal) ?? []).slice(0, 6);
 
   function mapRollPayload(payload: Record<string, unknown>): {
-    kind: "attack" | "death-save" | "spell";
+    kind: "attack" | "death-save" | "spell" | "skill" | "item";
     label: string;
     detail: string;
   } | null {
     const type = payload.type;
-    if (type !== "attack" && type !== "death-save" && type !== "spell") return null;
+    if (
+      type !== "attack" &&
+      type !== "death-save" &&
+      type !== "spell" &&
+      type !== "skill-check" &&
+      type !== "item-use"
+    ) {
+      return null;
+    }
     let label = "";
     let detail = "";
     if (type === "attack") {
@@ -383,7 +412,7 @@ export default function CampaignPage() {
       detail = `${Number(payload.successes ?? 0)} sukces / ${Number(payload.failures ?? 0)} porażki`;
       if (payload.stable) detail += " — Stabilizacja!";
       if (payload.dead) detail += " — Śmierć!";
-    } else {
+    } else if (type === "spell") {
       label = `Zaklęcie: ${String(payload.spell ?? "?")}`;
       const saved =
         typeof payload.saveTotal === "number" && typeof payload.saveDc === "number"
@@ -401,8 +430,25 @@ export default function CampaignPage() {
       const healed = Number(payload.healed ?? 0);
       if (healed > 0) label += ` · Leczenie: ${healed}`;
       else if (damage > 0) label += ` · Obrażenia: ${damage}`;
+    } else if (type === "skill-check") {
+      const skillKey = String(payload.skill ?? "?");
+      const skill = SKILL_LABELS_PL[skillKey] ?? skillKey;
+      const roll = Number(payload.roll ?? 0);
+      const mod = Number(payload.mod ?? 0);
+      const total = Number(payload.total ?? 0);
+      const dc = Number(payload.dc ?? 0);
+      const success = Boolean(payload.success);
+      label = `Test umiejętności: ${skill}`;
+      detail = `rzut ${roll} + ${mod} = ${total} vs DC ${dc} — ${success ? "sukces!" : "porażka"}`;
+      if (payload.advantage) detail += " · przewaga";
+      if (payload.disadvantage) detail += " · utrudnienie";
+      if (payload.inspirationUsed) detail += " · inspiracja";
+    } else if (type === "item-use") {
+      label = `Przedmiot: ${String(payload.item ?? "?")}`;
+      detail = `${String(payload.character ?? "?")} odzyskuje ${Number(payload.healed ?? 0)} punktów życia`;
     }
-    return { kind: type, label, detail };
+    const kind = type === "skill-check" ? "skill" : type === "item-use" ? "item" : type;
+    return { kind, label, detail };
   }
 
   function hashPayload(payload: Record<string, unknown>): string {
