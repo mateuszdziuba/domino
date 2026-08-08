@@ -7,7 +7,9 @@ import type {
   CharacterSummary,
   ChatMessage,
   DmSuggestion,
+  EquipmentSlotInfo,
   GameEvent,
+  SrdGearItem,
 } from "@domino/shared";
 import { api } from "./api";
 export type AuthUser = { id: string; username: string };
@@ -87,6 +89,16 @@ export type FeaturesCatalog = {
 
 export const featuresApi = {
   get: () => api<FeaturesCatalog>("/features"),
+};
+
+export type EquipmentCatalog = {
+  slots: EquipmentSlotInfo[];
+  gear: SrdGearItem[];
+  attunementLimit: number;
+};
+
+export const equipmentApi = {
+  get: () => api<EquipmentCatalog>("/equipment"),
 };
 
 export type AttackResultPayload = {

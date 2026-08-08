@@ -7,6 +7,7 @@ import { characterRoutes } from "./routes/characters.js";
 import { campaignRoutes } from "./routes/campaigns.js";
 import { spellRoutes } from "./routes/spells.js";
 import { featureRoutes } from "./routes/features.js";
+import { equipmentRoutes } from "./routes/equipment.js";
 
 const app = new Hono();
 
@@ -26,6 +27,7 @@ app.route("/api/characters", characterRoutes);
 app.route("/api/campaigns", campaignRoutes);
 app.route("/api/spells", spellRoutes);
 app.route("/api/features", featureRoutes);
+app.route("/api/equipment", equipmentRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 

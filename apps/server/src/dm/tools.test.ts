@@ -156,6 +156,8 @@ beforeEach(() => {
         quantity: number;
         weight?: number;
         description?: string;
+        slot?: string;
+        attuned?: boolean;
       }[],
     ) => {
       const ch = mock.characters.get(id);
@@ -176,6 +178,8 @@ beforeEach(() => {
             quantity: item.quantity,
             weight: item.weight,
             description: item.description,
+            slot: item.slot,
+            attuned: item.attuned,
           });
         }
       }
@@ -1537,5 +1541,35 @@ describe("runDmTool grant_loot (mocked store)", () => {
     const result = await runTool("grant_loot", { characterId: "ghost", gold: 10 });
     expect(result.ok).toBe(false);
     expect(result.message).toBe("Nie znaleziono postaci.");
+  });
+
+  it("stores slot and attuned fields on granted items", async () => {
+    const result = await runTool("grant_loot", {
+      characterId: "ch1",
+      gold: 0,
+      items: [{ name: "Ring of Protection", quantity: 1, slot: "ring", attuned: true }],
+    });
+    expect(result.ok).toBe(true);
+    const ch = mock.characters.get("ch1")!;
+    expect(ch.inventory).toContainEqual(
+      expect.objectContaining({
+        name: "Ring of Protection",
+        slot: "ring",
+        attuned: true,
+      }),
+    );
+  });
+
+  it("rejects an unknown slot and lists the available slots", async () => {
+    const result = await runTool("grant_loot", {
+      characterId: "ch1",
+      gold: 0,
+      items: [{ name: "Mystery Item", quantity: 1, slot: "teleport" }],
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Nieznany slot ekwipunku: teleport");
+    expect(result.message).toContain("Głowa (head)");
+    expect(result.message).toContain("Buty (boots)");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
   });
 });

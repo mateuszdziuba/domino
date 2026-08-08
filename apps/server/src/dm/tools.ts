@@ -47,6 +47,7 @@ import {
   type SpellCastResult,
 } from "../rules/spells.js";
 import { buildEncounter, MONSTERS } from "../rules/monsters.js";
+import { EQUIPMENT_SLOTS, isSlotKey } from "../rules/equipment.js";
 import {
   ADVENTURES,
   buildAdventureState,
@@ -994,6 +995,8 @@ export async function runDmTool(
                 quantity: z.number().int().min(1).max(1000).default(1),
                 weight: z.number().min(0).optional(),
                 description: z.string().max(300).optional(),
+                slot: z.string().optional(),
+                attuned: z.boolean().optional(),
               }),
             )
             .max(20)
@@ -1006,6 +1009,16 @@ export async function runDmTool(
       const { characterId, gold = 0, items = [] } = parsed.data;
       if (gold <= 0 && items.length === 0) {
         return { ok: false, message: "grant_loot wymaga złota (gold) lub przedmiotów (items)." };
+      }
+      for (const item of items) {
+        if (item.slot !== undefined && !isSlotKey(item.slot)) {
+          return {
+            ok: false,
+            message: `Nieznany slot ekwipunku: ${item.slot}. Dostępne sloty: ${EQUIPMENT_SLOTS.map(
+              (s) => `${s.label} (${s.key})`,
+            ).join(", ")}.`,
+          };
+        }
       }
       const members = getCampaignMembers(campaignId)
         .map((m) => getCharacterById(m.characterId))

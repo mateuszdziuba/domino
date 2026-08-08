@@ -1,17 +1,15 @@
 # Cel
 
-SRD combat depth — przewaga/utrudnienie, stany, krótki odpoczynek:
+Ekwipunek z widokiem slotów na części ciała (typowe dla gier UX) + katalog przedmiotów SRD:
 
-1. **Advantage/disadvantage** (SRD): `rollD20(adv/disadv)` w resolveAttack + rzuty czarów (ataki i save'y); flagi w AttackInput i rzutach zaklęć; REST + DM tools przekazują opcjonalnie; rider Guiding Bolt (przewaga na następny atak) — flaga na combatancie.
-2. **Stany (conditions, SRD 5.2.1)**: mechaniczne podzbiór — blinded, frightened, poisoned, prone, restrained, paralyzed, unconscious (+ incapacitated/stunned/petrified jako "nie może działać"); `Combatant.conditions: string[]`; `rules/conditions.ts` (definicje PL + modyfikatory ataku: przewaga przeciw prone/restrained/blinded..., utrudnienie ataków przy blinded/poisoned/frightened/prone/restrained, brak akcji przy incapacitated family); narzędzia DM `apply_condition`/`remove_condition`; badge w CombatPanel.
-3. **Krótki odpoczynek / Hit Dice** (SRD): `Character.hitDiceUsed` (migracja 0005), `take_short_rest { hitDice? }` (leczenie = HD spędzone × kość klasy + CON mod, max = level − used), long rest przywraca połowę HD (min 1), sheet pokazuje dostępne HD, preview trigger.
+1. **Sloty ekwipunku** (warstwa prezentacji nad typami przedmiotów SRD): głowa, szyja, płaszcz, zbroja, rękawice, pas, pierścień ×2, broń, tarcza, buty; UI nie ogranicza liczby noszonych przedmiotów poza SRD (atunement max 3 magiczne przedmioty — licznik w UI).
+2. **`InventoryItem.slot`/`attuned`** (JSON, bez migracji); `rules/equipment.ts`: EQUIPMENT_SLOTS (PL) + SRD_GEAR (kuratorowany katalog: zbroje, bronie, sprzęt podróżny, magiczne przedmioty z atunementem); `GET /api/equipment`.
+3. **UI (CharacterSheetPage)**: siatka kafelków slotów (ekwipowane przedmioty / puste), zarządzanie: equip z listy (dropdown slotów), unequip z kafelka, atunement (0-3, blokada powyżej), badge slotu na liście ekwipunku, picker "Dodaj przedmiot z SRD" (PATCH inventory).
+4. **grant_loot**: itemy z opcjonalnym slotem (walidacja) i attuned.
 
 ## Kryteria ukończenia
 
-1. Przewaga/utrudnienie działają w atakach i czarach (testy deterministyczne z injekcją rzutów).
-2. Stany wpływają na walkę (ataki/przewaga/blokada akcji), narzędzia DM walidują nazwy wg SRD, UI pokazuje badge.
-3. Short rest leczy wg HD (SRD), long rest resetuje połowę; sheet + preview działają.
+1. Siatka slotów działa (equip/unequip/atunement przez PATCH inventory).
+2. Katalog SRD dostępny w UI i po API; grant_loot przyjmuje slot/attuned.
+3. Nota w UI: sloty to grupowanie — SRD nie ogranicza liczby, atunement max 3.
 4. Bramki zielone.
-
-## Poza zakresem (kolejne rundy)
-- Więcej zaklęć (poziomy 2-3), łupy/skarb, widok drużyny (HP sojuszników), onboarding.

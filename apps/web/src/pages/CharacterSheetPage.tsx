@@ -3,12 +3,14 @@ import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft, ScrollText, Shield, Sparkles, Swords, Wand2 } from "lucide-react";
 import {
   characterApi,
+  equipmentApi,
   featuresApi,
   spellbookApi,
+  type EquipmentCatalog,
   type FeaturesCatalog,
   type SpellMeta,
 } from "../lib/api-client";
-import type { CharacterSheet } from "@domino/shared";
+import type { CharacterSheet, EquipmentSlotInfo, InventoryItem, SrdGearItem } from "@domino/shared";
 import { Badge } from "../components/ui/badge";
 import {
   Card,
@@ -17,6 +19,8 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Select } from "../components/ui/select";
 import { cn } from "../lib/utils";
 import {
   Tooltip,
@@ -38,8 +42,32 @@ const ABILITY_LABELS: Record<string, string> = {
 
 const XP_BY_LEVEL = [
   300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000,
-  140000, 165000, 195000, 225000, 265000, 305000, 355000,
+  140000, 165000, 195000, 265000, 305000, 355000,
 ];
+
+const SLOT_FALLBACK: EquipmentSlotInfo[] = [
+  { key: "head", label: "Głowa" },
+  { key: "neck", label: "Szyja" },
+  { key: "back", label: "Plecy" },
+  { key: "body", label: "Zbroja" },
+  { key: "belt", label: "Pas" },
+  { key: "hands", label: "Dłonie" },
+  { key: "feet", label: "Stopy" },
+  { key: "ring", label: "Pierścień" },
+  { key: "ring", label: "Pierścień" },
+  { key: "weapon", label: "Broń" },
+];
+
+const GEAR_CATEGORY_LABELS: Record<SrdGearItem["category"], string> = {
+  armor: "Zbroje",
+  weapon: "Bronie",
+  gear: "Sprzęt",
+  magic: "Magiczne przedmioty",
+};
+
+const GEAR_CATEGORY_ORDER: SrdGearItem["category"][] = ["armor", "weapon", "gear", "magic"];
+
+const ATTUNEMENT_LIMIT_DEFAULT = 3;
 
 function spellEffectSummary(meta: SpellMeta): string {
   const effect = meta.effect as Omit<SpellMeta["effect"], "kind"> & {
@@ -92,12 +120,17 @@ export default function CharacterSheetPage() {
   const [error, setError] = useState<string | null>(null);
   const [registry, setRegistry] = useState<SpellMeta[] | null>(null);
   const [featuresCatalog, setFeaturesCatalog] = useState<FeaturesCatalog | null>(null);
+  const [equipment, setEquipment] = useState<EquipmentCatalog | null>(null);
+  const [pendingSlots, setPendingSlots] = useState<Record<string, string>>({});
+  const [pendingGear, setPendingGear] = useState("");
+  const [attuneError, setAttuneError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     spellbookApi.list().then((r) => setRegistry(r.spells)).catch(() => {});
     featuresApi.get().then(setFeaturesCatalog).catch(() => {});
+    equipmentApi.get().then(setEquipment).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -151,6 +184,112 @@ export default function CharacterSheetPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  const inventory = character.inventory ?? [];
+  const attunementLimit = equipment?.attunementLimit ?? ATTUNEMENT_LIMIT_DEFAULT;
+  const attunedCount = inventory.filter((item) => item.attuned).length;
+  const catalogSlots = equipment?.slots ?? SLOT_FALLBACK;
+  const slotTiles: EquipmentSlotInfo[] = (() => {
+    const rest = catalogSlots.filter((s) => s.key !== "ring");
+    const rings = catalogSlots.filter((s) => s.key === "ring");
+    if (rings.length === 0) {
+      return [...rest, { key: "ring", label: "Pierścień" }, { key: "ring", label: "Pierścień" }];
+    }
+    if (rings.length === 1) {
+      return [...rest, rings[0]!, { key: "ring", label: rings[0]!.label }];
+    }
+    return catalogSlots;
+  })();
+  const slotOptions = catalogSlots.filter(
+    (s, i, arr) => arr.findIndex((x) => x.key === s.key) === i,
+  );
+  const gearByName = new Map(
+    (equipment?.gear ?? []).map((gear) => [gear.name.toLowerCase(), gear]),
+  );
+  const gearGroups = GEAR_CATEGORY_ORDER.map((category) => ({
+    category,
+    label: GEAR_CATEGORY_LABELS[category],
+    items: (equipment?.gear ?? []).filter((g) => g.category === category),
+  })).filter((group) => group.items.length > 0);
+
+  function suggestedSlotFor(item: InventoryItem): string {
+    return gearByName.get(item.name.toLowerCase())?.slot ?? "";
+  }
+
+  async function patchInventory(next: InventoryItem[]) {
+    if (saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { character: updated } = await characterApi.update(character.id, { inventory: next });
+      setSheet((prev) => (prev ? { ...prev, character: updated } : prev));
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Nie udało się zapisać");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function equipItem(id: string, slot: string) {
+    if (!slot || slot === "") return;
+    setAttuneError(null);
+    patchInventory(inventory.map((item) => (item.id === id ? { ...item, slot } : item)));
+  }
+
+  function unequipItem(id: string) {
+    if (saving) return;
+    setAttuneError(null);
+    patchInventory(
+      inventory.map((item) => {
+        if (item.id !== id) return item;
+        const { slot: _slot, ...rest } = item;
+        return rest;
+      }),
+    );
+  }
+
+  function toggleAttune(id: string) {
+    if (saving) return;
+    const item = inventory.find((i) => i.id === id);
+    if (!item) return;
+    const nextAttuned = !item.attuned;
+    if (nextAttuned && attunedCount >= attunementLimit) {
+      setAttuneError("Maksymalnie 3 atunementy (SRD).");
+      return;
+    }
+    setAttuneError(null);
+    patchInventory(
+      inventory.map((i) => (i.id === id ? { ...i, attuned: nextAttuned } : i)),
+    );
+  }
+
+  function addGear(gear: SrdGearItem) {
+    if (saving) return;
+    const attuned = gear.attuned ?? false;
+    if (attuned && attunedCount >= attunementLimit) {
+      setAttuneError("Maksymalnie 3 atunementy (SRD).");
+      return;
+    }
+    setAttuneError(null);
+    setPendingGear("");
+    const next: InventoryItem[] = [
+      ...inventory,
+      {
+        id: crypto.randomUUID(),
+        name: gear.name,
+        quantity: 1,
+        weight: gear.weight,
+        description: gear.description,
+        slot: gear.slot,
+        attuned,
+      },
+    ];
+    patchInventory(next);
+  }
+
+  function slotLabelFor(slot?: string): string | undefined {
+    return slotOptions.find((s) => s.key === slot)?.label;
   }
 
   const xp = character.xp ?? 0;
@@ -536,37 +675,241 @@ export default function CharacterSheetPage() {
             <CardHeader className="pb-2">
               <SectionTitle icon={Shield}>Ekwipunek</SectionTitle>
             </CardHeader>
-            <CardContent>
-              {character.inventory && character.inventory.length > 0 ? (
-                <div className="flex flex-col gap-1 text-sm">
-                  <TooltipProvider delayDuration={250}>
-                    {character.inventory.map((item) =>
-                      item.description ? (
-                        <Tooltip key={item.id}>
-                          <TooltipTrigger asChild>
-                            <div className="flex justify-between border-b border-dotted border-[#c8b184] pb-1">
-                              <span>{item.name}</span>
-                              <span className="italic text-[#7c6a45]">×{item.quantity}</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <span className="text-[11px] leading-relaxed text-[#f6ead0]">
-                              {item.description}
-                            </span>
-                          </TooltipContent>
-                        </Tooltip>
-                      ) : (
-                        <div key={item.id} className="flex justify-between border-b border-dotted border-[#c8b184] pb-1">
-                          <span>{item.name}</span>
-                          <span className="italic text-[#7c6a45]">×{item.quantity}</span>
-                        </div>
-                      ),
-                    )}
-                  </TooltipProvider>
+            <CardContent className={cn("flex flex-col gap-3", saving && "pointer-events-none opacity-60")}>
+              <TooltipProvider delayDuration={250}>
+                <div className="flex items-center justify-between">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className={cn(
+                          "font-display text-[11px] uppercase tracking-[0.14em]",
+                          attunedCount > attunementLimit ? "text-[#8f1d1d]" : "text-[#a97e1f]",
+                        )}
+                      >
+                        Atunement: {attunedCount}/{attunementLimit}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                        SRD: maksymalnie 3 magiczne przedmioty z atunementem.
+                      </span>
+                    </TooltipContent>
+                  </Tooltip>
+                  {attuneError && <span className="text-xs text-[#8f1d1d]">{attuneError}</span>}
                 </div>
-              ) : (
-                <p className="text-sm text-[#7c6a45]">Pusto.</p>
-              )}
+
+                <div className="grid grid-cols-3 gap-2">
+                  {slotTiles.map((slot, index) => {
+                    const ringIndex =
+                      slot.key === "ring"
+                        ? slotTiles.filter((t, j) => t.key === "ring" && j < index).length
+                        : 0;
+                    const slotItems = inventory.filter((item) => item.slot === slot.key);
+                    const equipped =
+                      slot.key === "ring" ? slotItems[ringIndex] : slotItems[0];
+                    return (
+                      <div
+                        key={`${slot.key}-${index}`}
+                        onClick={equipped ? () => unequipItem(equipped.id) : undefined}
+                        title={equipped ? "Kliknij, aby zdjąć" : undefined}
+                        className={cn(
+                          "group relative rounded-sm border px-2 py-1.5 shadow-[inset_0_1px_3px_rgba(90,60,20,0.1)]",
+                          equipped
+                            ? "cursor-pointer border-[#a97e1f] bg-[#e8d3a0]/60 hover:border-[#8f1d1d]/70 hover:bg-[#f0dbb0]"
+                            : "border-[#b99f6b] bg-[#fbf3dd]/70",
+                        )}
+                      >
+                        <div className="truncate font-display text-[9px] uppercase tracking-[0.12em] text-[#7c6a45]">
+                          {slot.label}
+                        </div>
+                        {equipped ? (
+                          <>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="truncate font-display text-xs text-[#2e2113]">
+                                {equipped.name}
+                                {equipped.attuned && (
+                                  <span className="ml-0.5 text-[#a97e1f]">✦</span>
+                                )}
+                              </span>
+                              <button
+                                type="button"
+                                aria-label={`Zdejmij ${equipped.name}`}
+                                disabled={saving}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  unequipItem(equipped.id);
+                                }}
+                                className="shrink-0 text-[10px] text-[#7c6a45] opacity-0 transition-opacity group-hover:opacity-100 hover:text-[#8f1d1d]"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                            {equipped.weight != null && (
+                              <div className="text-[9px] text-[#a08b5c]">
+                                {equipped.weight} {equipped.weight === 1 ? "funt" : "funtów"}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-xs text-[#a08b5c]">—</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col gap-1 text-sm">
+                  {inventory.length > 0 ? (
+                    inventory.map((item) => {
+                      const equipped = !!item.slot;
+                      const slotLabel = slotLabelFor(item.slot);
+                      const rowSlotValue = pendingSlots[item.id] ?? suggestedSlotFor(item);
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex flex-col gap-1.5 border-b border-dotted border-[#c8b184] py-2 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            {item.description ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="truncate text-sm text-[#2e2113]">
+                                    {item.name}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                                    {item.description}
+                                  </span>
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <span className="truncate text-sm text-[#2e2113]">
+                                {item.name}
+                              </span>
+                            )}
+                            {item.quantity > 1 && (
+                              <span className="shrink-0 italic text-xs text-[#7c6a45]">
+                                ×{item.quantity}
+                              </span>
+                            )}
+                            {equipped && slotLabel && (
+                              <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[9px]">
+                                {slotLabel}
+                              </Badge>
+                            )}
+                            {item.attuned && (
+                              <span className="shrink-0 text-xs text-[#a97e1f]" title="Atunowany">
+                                ✦
+                              </span>
+                            )}
+                            {item.weight != null && (
+                              <span className="shrink-0 text-xs text-[#a08b5c]">
+                                {item.weight} {item.weight === 1 ? "funt" : "funtów"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {equipped ? (
+                              <>
+                                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[#3a2c17]">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!item.attuned}
+                                    disabled={saving}
+                                    onChange={() => toggleAttune(item.id)}
+                                    className="accent-[#7a4b1d]"
+                                  />
+                                  Atunuj
+                                </label>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={saving}
+                                  onClick={() => unequipItem(item.id)}
+                                >
+                                  Zdejmij
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Select
+                                  value={rowSlotValue}
+                                  disabled={saving}
+                                  onChange={(e) =>
+                                    setPendingSlots((prev) => ({
+                                      ...prev,
+                                      [item.id]: e.target.value,
+                                    }))
+                                  }
+                                  className="h-8 w-36"
+                                >
+                                  <option value="">—</option>
+                                  {slotOptions.map((s) => (
+                                    <option key={s.key} value={s.key}>
+                                      {s.label}
+                                    </option>
+                                  ))}
+                                </Select>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={saving || !rowSlotValue}
+                                  onClick={() => equipItem(item.id, rowSlotValue)}
+                                >
+                                  Ekwipuj
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-[#7c6a45]">Pusto.</p>
+                  )}
+                </div>
+
+                <div className="mt-1 border-t border-dotted border-[#c8b184] pt-3">
+                  <div className="mb-1.5 font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
+                    Dodaj z katalogu SRD
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={pendingGear}
+                      disabled={saving || (equipment?.gear ?? []).length === 0}
+                      onChange={(e) => setPendingGear(e.target.value)}
+                      className="h-8"
+                    >
+                      <option value="">— wybierz przedmiot —</option>
+                      {gearGroups.map((group) => (
+                        <optgroup key={group.category} label={group.label}>
+                          {group.items.map((gear) => (
+                            <option key={gear.name} value={gear.name}>
+                              {gear.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </Select>
+                    <Button
+                      size="sm"
+                      disabled={saving || !pendingGear}
+                      onClick={() => {
+                        const gear = gearByName.get(pendingGear.toLowerCase());
+                        if (gear) addGear(gear);
+                      }}
+                    >
+                      Dodaj
+                    </Button>
+                  </div>
+                </div>
+
+                <p className="text-[10px] italic text-[#a08b5c]">
+                  Sloty to wygodne grupowanie — SRD nie ogranicza liczby noszonych przedmiotów;
+                  atunement: maks. 3 magiczne przedmioty.
+                </p>
+              </TooltipProvider>
             </CardContent>
           </Card>
         </div>

@@ -149,7 +149,14 @@ export function updateCharacterExhaustion(characterId: string, level: number): v
 export function grantLoot(
   characterId: string,
   gold: number,
-  items: { name: string; quantity: number; weight?: number; description?: string }[],
+  items: {
+    name: string;
+    quantity: number;
+    weight?: number;
+    description?: string;
+    slot?: string;
+    attuned?: boolean;
+  }[],
 ): void {
   const row = db.select().from(characters).where(eq(characters.id, characterId)).get();
   if (!row) return;
@@ -169,6 +176,8 @@ export function grantLoot(
         quantity: item.quantity,
         weight: item.weight,
         description: item.description,
+        slot: item.slot,
+        attuned: item.attuned,
       });
     }
   }

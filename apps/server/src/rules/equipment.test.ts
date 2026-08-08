@@ -1,0 +1,64 @@
+import { describe, expect, it } from "vitest";
+import {
+  ATTUNEMENT_LIMIT,
+  EQUIPMENT_SLOTS,
+  isSlotKey,
+  slotLabel,
+  SRD_GEAR,
+} from "./equipment.js";
+
+describe("EQUIPMENT_SLOTS", () => {
+  it("defines the ten body slots with Polish labels", () => {
+    expect(EQUIPMENT_SLOTS).toEqual([
+      { key: "head", label: "Głowa" },
+      { key: "neck", label: "Szyja" },
+      { key: "cloak", label: "Płaszcz" },
+      { key: "armor", label: "Zbroja" },
+      { key: "gloves", label: "Rękawice" },
+      { key: "belt", label: "Pas" },
+      { key: "ring", label: "Pierścień" },
+      { key: "weapon", label: "Broń" },
+      { key: "shield", label: "Tarcza" },
+      { key: "boots", label: "Buty" },
+    ]);
+  });
+
+  it("isSlotKey accepts known slots and rejects unknown ones", () => {
+    expect(isSlotKey("ring")).toBe(true);
+    expect(isSlotKey("head")).toBe(true);
+    expect(isSlotKey("teleport")).toBe(false);
+  });
+
+  it("slotLabel returns the Polish label for a known slot", () => {
+    expect(slotLabel("ring")).toBe("Pierścień");
+    expect(slotLabel("boots")).toBe("Buty");
+    expect(slotLabel("teleport")).toBeUndefined();
+  });
+});
+
+describe("SRD_GEAR catalog", () => {
+  it("curates at least 40 SRD items", () => {
+    expect(SRD_GEAR.length).toBeGreaterThanOrEqual(40);
+  });
+
+  it("marks every magic item as attuned with a known body slot", () => {
+    const magic = SRD_GEAR.filter((g) => g.category === "magic");
+    expect(magic.length).toBeGreaterThan(0);
+    for (const item of magic) {
+      expect(item.attuned).toBe(true);
+      expect(isSlotKey(item.slot ?? "")).toBe(true);
+    }
+  });
+
+  it("gives every armor item the armor slot (shields use the shield slot)", () => {
+    const armor = SRD_GEAR.filter((g) => g.category === "armor");
+    expect(armor.length).toBeGreaterThan(0);
+    for (const item of armor) {
+      expect(item.slot).toBe(item.name === "Shield" ? "shield" : "armor");
+    }
+  });
+
+  it("enforces the SRD attunement limit of three magic items", () => {
+    expect(ATTUNEMENT_LIMIT).toBe(3);
+  });
+});

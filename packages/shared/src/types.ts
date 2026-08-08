@@ -33,6 +33,23 @@ export type InventoryItem = {
   quantity: number;
   weight?: number;
   description?: string;
+  slot?: string;
+  attuned?: boolean;
+};
+
+export type EquipmentSlotInfo = {
+  key: string;
+  label: string;
+};
+
+export type SrdGearItem = {
+  name: string;
+  category: "armor" | "weapon" | "gear" | "magic";
+  slot?: string;
+  weight?: number;
+  price?: string;
+  description?: string;
+  attuned?: boolean;
 };
 
 export type Character = {
