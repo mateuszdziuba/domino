@@ -2,6 +2,10 @@ import type { CampaignState, Character, Combatant, CombatState } from "@domino/s
 import { abilityModifier } from "./abilities.js";
 import {
   GUIDING_BOLT_MARKER,
+  HAMSTRING_MARKER,
+  SAPPED_MARKER,
+  SLOWED_MARKER,
+  VEXED_MARKER,
   attackRollAdvantages,
   canAct,
 } from "./conditions.js";
@@ -23,6 +27,7 @@ export type NewCombatant = {
   attacksPerTurn?: number;
   position?: number;
   darkvision?: boolean;
+  speed?: number;
 };
 
 export const DARKVISION_RACES = ["Elf", "Dwarf", "Gnome", "Orc", "Tiefling"];
@@ -66,6 +71,8 @@ export function startCombat(
       bonusActionAvailable: true,
       position: entry.position ?? 0,
       darkvision: entry.darkvision ?? false,
+      speed: entry.speed ?? 30,
+      movementLeft: entry.speed ?? 30,
     };
   });
   combatants.sort((a, b) => {
@@ -125,6 +132,7 @@ export function nextTurn(state: CampaignState): CampaignState {
               attacksLeft: c.attacksPerTurn ?? 1,
               reactionAvailable: true,
               bonusActionAvailable: true,
+              movementLeft: c.speed ?? 30,
             }
           : c,
       ),
@@ -167,6 +175,10 @@ export type AttackInput = {
   advantage?: boolean;
   disadvantage?: boolean;
   reach?: number;
+  // Weapon Mastery (SRD 5.2.1) of the weapon used for this attack.
+  mastery?: string;
+  // Name of the weapon the mastery came from (for messages/events).
+  masteryWeapon?: string;
 };
 
 export type AttackResult = {
@@ -184,6 +196,9 @@ export type AttackResult = {
   concentrationSave?: { roll: number; dc: number };
   conditionApplied?: string;
   undeadFortitudeSaved?: boolean;
+  masteryApplied?: string;
+  grazeDamage?: number;
+  pushedDistance?: number;
 };
 
 export function resolveAttack(
@@ -315,6 +330,32 @@ export function combatantByCharacter(
   return state.combat.combatants.find((c) => c.characterId === characterId);
 }
 
+/**
+ * SRD 5.2.1 exhaustion effects on speed: level 2-4 halves it (rounded down),
+ * level 5+ sets it to 0. Callers compute the combatant's starting speed at
+ * build time (PC sites) with this helper.
+ */
+export function exhaustedSpeed(speed: number, exhaustion: number): number {
+  if (exhaustion >= 5) return 0;
+  if (exhaustion >= 2) return Math.floor(speed / 2);
+  return speed;
+}
+
+/**
+ * Movement budget currently available to a combatant this turn. The "slowed"
+ * mastery marker halves it (rounded down); the "hamstring" marker sets it to 0.
+ */
+export function effectiveMovement(combatant: {
+  conditions?: string[];
+  movementLeft?: number;
+  speed?: number;
+}): number {
+  const conditions = new Set(combatant.conditions ?? []);
+  if (conditions.has(HAMSTRING_MARKER)) return 0;
+  const base = combatant.movementLeft ?? combatant.speed ?? 30;
+  return conditions.has(SLOWED_MARKER) ? Math.floor(base / 2) : base;
+}
+
 export function applyHitToTarget(
   target: Combatant,
   damageTotal: number,
@@ -322,7 +363,13 @@ export function applyHitToTarget(
 ): Combatant {
   if (target.currentHp === 0 && damageTotal > 0) {
     const failures = (target.deathSaveFailures ?? 0) + (critical ? 2 : 1);
-    const dead = damageTotal >= target.maxHp || failures >= 3;
+    // SRD: exhaustion level 4 halves max HP, so the instant-death threshold
+    // (damage >= max HP at 0 HP) uses half the max HP.
+    const effectiveMaxHp =
+      (target.exhaustionLevel ?? 0) >= 4
+        ? Math.floor(target.maxHp / 2)
+        : target.maxHp;
+    const dead = damageTotal >= effectiveMaxHp || failures >= 3;
     const status: Combatant["status"] = dead
       ? "dead"
       : target.status === "stable"
@@ -334,6 +381,77 @@ export function applyHitToTarget(
   const status: Combatant["status"] =
     currentHp === 0 ? "downed" : target.status ?? "active";
   return { ...target, currentHp, status };
+}
+
+function appendCondition(target: Combatant, key: string): Combatant {
+  const existing = target.conditions ?? [];
+  return existing.includes(key)
+    ? target
+    : { ...target, conditions: [...existing, key] };
+}
+
+/**
+ * Apply the Weapon Mastery rider (SRD 5.2.1) to a resolved attack.
+ * - topple: STR save (conSaveMod used as a stand-in — combatants carry no
+ *   STR save modifier) vs DC 12; on a fail the target falls prone.
+ * - push: the target is pushed 10 ft along the battle line (clamped to 500).
+ * - vex: internal "vexed" marker grants advantage on the next attack against
+ *   the target (consumed like guiding_bolt on the next hit).
+ * - graze: a miss still deals damage equal to the attacker's damage bonus.
+ * - sap: internal "sapped" marker gives the target disadvantage on its next
+ *   attack (consumed after that attack resolves).
+ * - slow: internal "slowed" marker halves the target's movement (Part B).
+ * - hamstring: internal "hamstring" marker zeroes the target's movement.
+ * - cleave: data + narration only — the DM chains a second attack.
+ * - nick: handled by the tools (off-hand attack costs no bonus action).
+ */
+export function applyAttackMastery(
+  target: Combatant,
+  result: AttackResult,
+  input: Pick<AttackInput, "mastery" | "damageBonus">,
+): Combatant {
+  if (result.hit) {
+    switch (input.mastery) {
+      case "topple": {
+        const saveRoll = d(20, 1)[0]! + (target.conSaveMod ?? 0);
+        if (saveRoll < 12) {
+          result.masteryApplied = "topple";
+          return appendCondition(target, "prone");
+        }
+        return target;
+      }
+      case "push": {
+        result.masteryApplied = "push";
+        result.pushedDistance = 10;
+        return { ...target, position: Math.min(500, (target.position ?? 0) + 10) };
+      }
+      case "vex": {
+        result.masteryApplied = "vex";
+        return appendCondition(target, VEXED_MARKER);
+      }
+      case "sap": {
+        result.masteryApplied = "sap";
+        return appendCondition(target, SAPPED_MARKER);
+      }
+      case "slow": {
+        result.masteryApplied = "slow";
+        return appendCondition(target, SLOWED_MARKER);
+      }
+      case "hamstring": {
+        result.masteryApplied = "hamstring";
+        return appendCondition(target, HAMSTRING_MARKER);
+      }
+      default:
+        return target;
+    }
+  }
+  if (input.mastery === "graze" && (input.damageBonus ?? 0) > 0) {
+    const grazeDamage = Math.max(0, input.damageBonus ?? 0);
+    result.masteryApplied = "graze";
+    result.grazeDamage = grazeDamage;
+    return applyHitToTarget(target, grazeDamage, false);
+  }
+  return target;
 }
 
 export type AttackOutcome =
@@ -364,6 +482,7 @@ export function performAttack(
     return { ok: false, error: "Poza zasięgiem — cel jest za daleko." };
   }
   const mods = attackRollAdvantages(attacker, target);
+  const attackerSapped = (attacker.conditions ?? []).includes(SAPPED_MARKER);
   const darkAdvantage =
     state.combat.lightLevel === "dark" && target.darkvision !== true;
   const darkDisadvantage =
@@ -414,6 +533,12 @@ export function performAttack(
         conditions: (target.conditions ?? []).filter((c) => c !== GUIDING_BOLT_MARKER),
       };
     }
+    if ((target.conditions ?? []).includes(VEXED_MARKER)) {
+      newTarget = {
+        ...newTarget,
+        conditions: (target.conditions ?? []).filter((c) => c !== VEXED_MARKER),
+      };
+    }
     if (target.concentratingOn && result.damageTotal > 0) {
       if (newTarget.currentHp === 0) {
         result.concentrationBroken = true;
@@ -430,12 +555,26 @@ export function performAttack(
         }
       }
     }
+    newTarget = applyAttackMastery(newTarget, result, input);
     result.targetStatus = newTarget.status;
     result.targetCurrentHp = newTarget.currentHp;
   } else {
-    newTarget = { ...target, currentHp: result.targetCurrentHp, status: result.targetStatus };
+    newTarget = applyAttackMastery(target, result, input);
+    result.targetStatus = newTarget.status;
+    result.targetCurrentHp = newTarget.currentHp;
   }
-  const combatants = state.combat.combatants.map((c) => (c.id === target.id ? newTarget : c));
+  const combatants = state.combat.combatants.map((c) => {
+    if (c.id === target.id) return newTarget;
+    if (c.id === attacker.id && attackerSapped) {
+      return {
+        ...c,
+        conditions: (c.conditions ?? []).filter((x) => x !== SAPPED_MARKER),
+      };
+    }
+    return c;
+  });
+  const resolvedAttacker =
+    combatants.find((c) => c.id === attacker.id) ?? attacker;
   return {
     ok: true,
     state: {
@@ -444,7 +583,7 @@ export function performAttack(
       updatedAt: new Date().toISOString(),
     },
     result,
-    attacker,
+    attacker: resolvedAttacker,
     target,
   };
 }

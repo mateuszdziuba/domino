@@ -26,6 +26,10 @@ export type WeaponDef = {
   price?: string;
   versatileDice?: string;
   label: string;
+  // Weapon Mastery (SRD 5.2.1 / 2024 PHB weapon table). Ranged weapons and
+  // shields have no mastery. Masteries: cleave, graze, hamstring, nick, push,
+  // sap, slow, topple, vex.
+  mastery?: string;
 };
 
 export const WEAPONS: WeaponDef[] = [
@@ -39,6 +43,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "1 sp",
     label: "Pałka",
+    mastery: "slow",
   },
   {
     name: "Dagger",
@@ -50,6 +55,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 1,
     price: "2 gp",
     label: "Sztylet",
+    mastery: "nick",
   },
   {
     name: "Greatclub",
@@ -61,6 +67,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 10,
     price: "2 sp",
     label: "Wielka pałka",
+    mastery: "push",
   },
   {
     name: "Handaxe",
@@ -72,6 +79,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "5 gp",
     label: "Toporek",
+    mastery: "vex",
   },
   {
     name: "Javelin",
@@ -83,6 +91,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "5 sp",
     label: "Oszczep",
+    mastery: "slow",
   },
   {
     name: "Light Hammer",
@@ -94,6 +103,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "2 gp",
     label: "Lekki młot",
+    mastery: "push",
   },
   {
     name: "Mace",
@@ -105,6 +115,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 4,
     price: "5 gp",
     label: "Bulawa",
+    mastery: "sap",
   },
   {
     name: "Quarterstaff",
@@ -117,6 +128,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "2 sp",
     versatileDice: "1d8",
     label: "Kij bojowy",
+    mastery: "topple",
   },
   {
     name: "Sickle",
@@ -128,6 +140,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "1 gp",
     label: "Sierp",
+    mastery: "nick",
   },
   {
     name: "Spear",
@@ -140,6 +153,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "1 gp",
     versatileDice: "1d8",
     label: "Włócznia",
+    mastery: "sap",
   },
   {
     name: "Light Crossbow",
@@ -195,6 +209,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "10 gp",
     versatileDice: "1d10",
     label: "Topór bojowy",
+    mastery: "topple",
   },
   {
     name: "Flail",
@@ -206,6 +221,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "10 gp",
     label: "Cep bojowy",
+    mastery: "sap",
   },
   {
     name: "Glaive",
@@ -217,6 +233,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 6,
     price: "20 gp",
     label: "Glewia",
+    mastery: "cleave",
   },
   {
     name: "Greataxe",
@@ -228,6 +245,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 7,
     price: "30 gp",
     label: "Wielki topór",
+    mastery: "cleave",
   },
   {
     name: "Greatsword",
@@ -239,6 +257,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 6,
     price: "50 gp",
     label: "Wielki miecz",
+    mastery: "graze",
   },
   {
     name: "Halberd",
@@ -250,6 +269,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 6,
     price: "20 gp",
     label: "Halabarda",
+    mastery: "cleave",
   },
   {
     name: "Lance",
@@ -261,6 +281,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 6,
     price: "10 gp",
     label: "Lanca",
+    mastery: "topple",
   },
   {
     name: "Longsword",
@@ -273,6 +294,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "15 gp",
     versatileDice: "1d10",
     label: "Miecz długi",
+    mastery: "sap",
   },
   {
     name: "Maul",
@@ -284,6 +306,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 10,
     price: "10 gp",
     label: "Obuch",
+    mastery: "topple",
   },
   {
     name: "Morningstar",
@@ -295,6 +318,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 4,
     price: "15 gp",
     label: "Gwiazda poranna",
+    mastery: "slow",
   },
   {
     name: "Pike",
@@ -306,6 +330,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 18,
     price: "5 gp",
     label: "Pika",
+    mastery: "push",
   },
   {
     name: "Rapier",
@@ -317,6 +342,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "25 gp",
     label: "Rapier",
+    mastery: "vex",
   },
   {
     name: "Scimitar",
@@ -328,6 +354,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 3,
     price: "25 gp",
     label: "Szabla",
+    mastery: "nick",
   },
   {
     name: "Shortsword",
@@ -339,6 +366,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "10 gp",
     label: "Krótki miecz",
+    mastery: "vex",
   },
   {
     name: "Trident",
@@ -351,6 +379,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "5 gp",
     versatileDice: "1d8",
     label: "Trójząb",
+    mastery: "topple",
   },
   {
     name: "War Pick",
@@ -362,6 +391,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "5 gp",
     label: "Kilof bojowy",
+    mastery: "slow",
   },
   {
     name: "Warhammer",
@@ -374,6 +404,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "15 gp",
     versatileDice: "1d10",
     label: "Młot wojenny",
+    mastery: "push",
   },
   {
     name: "Whip",
@@ -385,6 +416,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 3,
     price: "2 gp",
     label: "Bicz",
+    mastery: "slow",
   },
   {
     name: "Blowgun",

@@ -9,6 +9,8 @@ import {
   nextTurn,
   raceHasDarkvision,
   startCombat,
+  exhaustedSpeed,
+  effectiveMovement,
 } from "./combat.js";
 import { defaultCampaignState } from "./state.js";
 import type { CampaignState, Character, Combatant } from "@domino/shared";
@@ -1586,5 +1588,345 @@ describe("characterAttackInput", () => {
       damageNotation: "1d6",
       damageBonus: 0,
     });
+  });
+});
+
+describe("weapon mastery riders (SRD 5.2.1)", () => {
+  function hitAttack(overrides: Partial<Combatant> = {}) {
+    const state = combatState(0);
+    state.combat.combatants[1] = { ...state.combat.combatants[1]!, ...overrides };
+    return state;
+  }
+
+  it("topple knocks the target prone on a failed STR save (DC 12)", () => {
+    const seq = [0.5, 0.5, 0.01]; // d20 11 hit, 1d8 5 dmg, save 1 -> fail
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(hitAttack(), "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d8",
+      damageBonus: 0,
+      mastery: "topple",
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.masteryApplied).toBe("topple");
+    expect(enemy(outcome.state).conditions).toContain("prone");
+  });
+
+  it("topple does not knock the target prone on a successful save", () => {
+    const seq = [0.5, 0.5, 0.95]; // save 20 -> success
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(hitAttack(), "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d8",
+      damageBonus: 0,
+      mastery: "topple",
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.masteryApplied).toBeUndefined();
+    expect(enemy(outcome.state).conditions ?? []).not.toContain("prone");
+  });
+
+  it("topple does nothing on a miss (no save roll)", () => {
+    const seq = [0.01]; // d20 1 -> fumble
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(hitAttack(), "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d8",
+      damageBonus: 0,
+      mastery: "topple",
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.masteryApplied).toBeUndefined();
+    expect(enemy(outcome.state).conditions ?? []).not.toContain("prone");
+  });
+
+  it("push shoves the target 10 ft down the battle line", () => {
+    const seq = [0.5, 0.5];
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(hitAttack(), "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d8",
+      damageBonus: 0,
+      mastery: "push",
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.masteryApplied).toBe("push");
+    expect(outcome.result.pushedDistance).toBe(10);
+    expect(enemy(outcome.state).position).toBe(10);
+  });
+
+  it("push clamps the target position at 500 ft", () => {
+    const seq = [0.5, 0.5];
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(hitAttack({ position: 495 }), "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d8",
+      damageBonus: 0,
+      mastery: "push",
+      reach: 999, // ranged-like reach so the position check passes
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(enemy(outcome.state).position).toBe(500);
+  });
+
+  it("vex marks the target and grants advantage on the next attack against it", () => {
+    const original = Math.random;
+    Math.random = () => 0.5;
+    const first = performAttack(hitAttack(), "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d8",
+      damageBonus: 0,
+      mastery: "vex",
+    });
+    Math.random = original;
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.result.masteryApplied).toBe("vex");
+    expect(enemy(first.state).conditions).toContain("vexed");
+    const seq = [0.2, 0.85, 0.0]; // d20s 5, 18 -> advantage keeps 18
+    Math.random = () => seq.shift() ?? 0;
+    const second = performAttack(first.state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.result.attackRolls).toEqual([5, 18]);
+    expect(second.result.attackRoll).toBe(18);
+    expect(enemy(second.state).conditions ?? []).not.toContain("vexed");
+  });
+
+  it("graze deals the attacker's damage bonus on a miss", () => {
+    const seq = [0.01]; // d20 1 -> fumble
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(hitAttack(), "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d8",
+      damageBonus: 5,
+      mastery: "graze",
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.hit).toBe(false);
+    expect(outcome.result.masteryApplied).toBe("graze");
+    expect(outcome.result.grazeDamage).toBe(5);
+    expect(enemy(outcome.state).currentHp).toBe(3); // 8 - 5
+  });
+
+  it("sap marks the target with the internal sapped marker", () => {
+    const seq = [0.5, 0.5];
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(hitAttack(), "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d8",
+      damageBonus: 0,
+      mastery: "sap",
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.masteryApplied).toBe("sap");
+    expect(enemy(outcome.state).conditions).toContain("sapped");
+  });
+
+  it("a sapped attacker rolls with disadvantage and the marker is consumed", () => {
+    const state = hitAttack();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      conditions: ["sapped"],
+    };
+    const seq = [0.85, 0.2, 0.0]; // d20s 18, 5 -> disadvantage keeps 5
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([18, 5]);
+    expect(outcome.result.attackRoll).toBe(5);
+    const attacker = outcome.state.combat.combatants.find((c) => c.id === "char-1")!;
+    expect(attacker.conditions ?? []).not.toContain("sapped");
+  });
+
+  it("slow marks the target with the internal slowed marker", () => {
+    const seq = [0.5, 0.5];
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(hitAttack(), "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d8",
+      damageBonus: 0,
+      mastery: "slow",
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.masteryApplied).toBe("slow");
+    expect(enemy(outcome.state).conditions).toContain("slowed");
+  });
+
+  it("hamstring marks the target with the internal hamstring marker", () => {
+    const seq = [0.5, 0.5];
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(hitAttack(), "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d8",
+      damageBonus: 0,
+      mastery: "hamstring",
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.masteryApplied).toBe("hamstring");
+    expect(enemy(outcome.state).conditions).toContain("hamstring");
+  });
+
+  it("cleave changes no state (the DM chains the second attack)", () => {
+    const seq = [0.5, 0.5];
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(hitAttack(), "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d8",
+      damageBonus: 0,
+      mastery: "cleave",
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.masteryApplied).toBeUndefined();
+    expect(enemy(outcome.state).conditions ?? []).toEqual([]);
+  });
+});
+
+describe("exhaustion and movement (SRD 5.2.1)", () => {
+  it("exhaustedSpeed halves at level 2-4 and zeroes at level 5+", () => {
+    expect(exhaustedSpeed(30, 0)).toBe(30);
+    expect(exhaustedSpeed(30, 1)).toBe(30);
+    expect(exhaustedSpeed(30, 2)).toBe(15);
+    expect(exhaustedSpeed(30, 3)).toBe(15);
+    expect(exhaustedSpeed(30, 4)).toBe(15);
+    expect(exhaustedSpeed(30, 5)).toBe(0);
+    expect(exhaustedSpeed(30, 6)).toBe(0);
+    expect(exhaustedSpeed(25, 2)).toBe(12); // floor(25 / 2)
+  });
+
+  it("effectiveMovement halves for the slowed marker and zeroes for hamstring", () => {
+    const base = { speed: 30, movementLeft: 30 };
+    expect(effectiveMovement(base)).toBe(30);
+    expect(effectiveMovement({ ...base, conditions: ["slowed"] })).toBe(15);
+    expect(effectiveMovement({ ...base, conditions: ["hamstring"] })).toBe(0);
+    expect(effectiveMovement({ ...base, conditions: ["slowed", "hamstring"] })).toBe(0);
+    expect(
+      effectiveMovement({ ...base, movementLeft: 20, conditions: ["slowed"] }),
+    ).toBe(10);
+  });
+
+  it("startCombat stores speed and movementLeft from entry.speed (default 30)", () => {
+    const state = startCombat(defaultCampaignState(), [
+      { id: "c1", name: "Aelar", isPlayer: true, maxHp: 10, armorClass: 14, speed: 25 },
+      { id: "c2", name: "Bran", isPlayer: true, maxHp: 10, armorClass: 12 },
+    ]);
+    const byId = Object.fromEntries(state.combat.combatants.map((c) => [c.id, c]));
+    expect(byId.c1!.speed).toBe(25);
+    expect(byId.c1!.movementLeft).toBe(25);
+    expect(byId.c2!.speed).toBe(30);
+    expect(byId.c2!.movementLeft).toBe(30);
+  });
+
+  it("nextTurn resets the new current combatant's movementLeft to its speed", () => {
+    const state: CampaignState = {
+      ...defaultCampaignState(),
+      phase: "combat",
+      combat: {
+        active: true,
+        round: 1,
+        turnIndex: 0,
+        combatants: [
+          { id: "a", name: "A", isPlayer: true, initiative: 10, currentHp: 10, maxHp: 10, armorClass: 12, status: "active", speed: 30, movementLeft: 0 },
+          { id: "b", name: "B", isPlayer: true, initiative: 5, currentHp: 10, maxHp: 10, armorClass: 12, status: "active", speed: 40, movementLeft: 0 },
+        ],
+      },
+    };
+    const next = nextTurn(state);
+    const a = next.combat.combatants.find((c) => c.id === "a")!;
+    const b = next.combat.combatants.find((c) => c.id === "b")!;
+    expect(b.movementLeft).toBe(40);
+    expect(a.movementLeft).toBe(0);
+  });
+
+  it("exhaustion level 4 halves the instant-death threshold at 0 HP", () => {
+    const state = combatState(0);
+    state.combat.combatants[1] = {
+      ...enemy(state),
+      currentHp: 0,
+      status: "downed",
+      maxHp: 20,
+      exhaustionLevel: 4,
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+    };
+    const original = Math.random;
+    Math.random = () => 0.3; // d20 7 -> hit, 12d1 -> 12 damage
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "12d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.damageTotal).toBe(12);
+    expect(enemy(outcome.state).status).toBe("dead"); // 12 >= floor(20/2)
+    expect(enemy(outcome.state).deathSaveFailures).toBe(3);
+  });
+
+  it("keeps the full instant-death threshold without exhaustion level 4", () => {
+    const state = combatState(0);
+    state.combat.combatants[1] = {
+      ...enemy(state),
+      currentHp: 0,
+      status: "downed",
+      maxHp: 20,
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+    };
+    const original = Math.random;
+    Math.random = () => 0.3; // d20 7 -> hit, 12d1 -> 12 damage
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "12d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(enemy(outcome.state).status).toBe("downed"); // 12 < 20
+    expect(enemy(outcome.state).deathSaveFailures).toBe(1);
   });
 });

@@ -15,27 +15,28 @@ export type Monster = {
   attacks: number;
   tags: string[];
   traits: string[];
+  speed?: number;
 };
 
 export const MONSTERS: Monster[] = [
-  { key: "giant-rat", name: "Giant Rat", maxHp: 7, armorClass: 12, attackBonus: 4, damageNotation: "1d4", damageBonus: 2, cr: 0.125, attacks: 1, tags: ["rat", "vermin", "sewer", "swarm", "szczur", "szczury"], traits: ["keen_smell"] },
-  { key: "goblin", name: "Goblin", maxHp: 7, armorClass: 15, attackBonus: 4, damageNotation: "1d6", damageBonus: 2, cr: 0.25, attacks: 1, tags: ["goblin", "cave", "raider", "ambush", "tribe", "gobliny"], traits: ["nimble_escape"] },
-  { key: "wolf", name: "Wolf", maxHp: 11, armorClass: 13, attackBonus: 4, damageNotation: "2d4", damageBonus: 2, cr: 0.25, attacks: 1, tags: ["wolf", "pack", "forest", "wild", "woods", "wilk", "wilki", "wilcze"], traits: ["keen_senses", "pack_tactics"] },
-  { key: "skeleton", name: "Skeleton", maxHp: 13, armorClass: 13, attackBonus: 4, damageNotation: "1d6", damageBonus: 2, cr: 0.25, attacks: 1, tags: ["skeleton", "undead", "tomb", "crypt", "graveyard", "bones", "szkielet", "szkielety"], traits: [] },
-  { key: "zombie", name: "Zombie", maxHp: 22, armorClass: 8, attackBonus: 3, damageNotation: "1d6", damageBonus: 1, cr: 0.25, attacks: 1, tags: ["zombie", "undead", "corpse", "tomb", "swamp"], traits: ["undead_fortitude"] },
-  { key: "bandit", name: "Bandit", maxHp: 11, armorClass: 12, attackBonus: 3, damageNotation: "1d8", damageBonus: 1, cr: 0.125, attacks: 1, tags: ["bandit", "outlaw", "road", "thug", "ambush", "bandyt", "rabus", "złodziej"], traits: [] },
-  { key: "cultist", name: "Cultist", maxHp: 9, armorClass: 12, attackBonus: 2, damageNotation: "1d6", damageBonus: 0, cr: 0.125, attacks: 1, tags: ["cultist", "cult", "ritual", "shrine", "fanatic", "kultysta", "kultysci", "kult"], traits: [] },
-  { key: "giant-spider", name: "Giant Spider", maxHp: 26, armorClass: 14, attackBonus: 5, damageNotation: "1d8", damageBonus: 3, cr: 1, attacks: 1, tags: ["spider", "web", "forest", "cave", "pająk", "pajaki"], traits: ["web"] },
-  { key: "hobgoblin", name: "Hobgoblin", maxHp: 11, armorClass: 18, attackBonus: 3, damageNotation: "1d8", damageBonus: 1, cr: 0.5, attacks: 1, tags: ["hobgoblin", "soldier", "war", "goblin", "hobgobliny"], traits: [] },
-  { key: "orc", name: "Orc", maxHp: 15, armorClass: 13, attackBonus: 5, damageNotation: "1d12", damageBonus: 3, cr: 0.5, attacks: 1, tags: ["orc", "warband", "camp", "raider", "warrior", "ork", "orki"], traits: [] },
-  { key: "worg", name: "Worg", maxHp: 26, armorClass: 13, attackBonus: 5, damageNotation: "2d6", damageBonus: 4, cr: 0.5, attacks: 1, tags: ["worg", "wolf", "mount", "dark"], traits: [] },
-  { key: "bugbear", name: "Bugbear", maxHp: 27, armorClass: 16, attackBonus: 4, damageNotation: "2d8", damageBonus: 2, cr: 1, attacks: 1, tags: ["bugbear", "brute", "goblin", "ambush"], traits: [] },
-  { key: "dire-wolf", name: "Dire Wolf", maxHp: 37, armorClass: 14, attackBonus: 5, damageNotation: "2d6", damageBonus: 3, cr: 1, attacks: 1, tags: ["wolf", "dire", "forest", "pack", "wilk"], traits: ["keen_senses", "pack_tactics"] },
-  { key: "ghoul", name: "Ghoul", maxHp: 22, armorClass: 12, attackBonus: 4, damageNotation: "2d6", damageBonus: 2, cr: 1, attacks: 1, tags: ["ghoul", "undead", "tomb", "crypt", "graveyard", "ghul", "trup"], traits: ["paralyzing_touch"] },
-  { key: "specter", name: "Specter", maxHp: 22, armorClass: 12, attackBonus: 4, damageNotation: "3d6", damageBonus: 0, cr: 1, attacks: 1, tags: ["specter", "ghost", "undead", "haunt", "widmo", "zjawa"], traits: [] },
-  { key: "ogre", name: "Ogre", maxHp: 59, armorClass: 11, attackBonus: 6, damageNotation: "2d8", damageBonus: 4, cr: 2, attacks: 1, tags: ["ogre", "brute", "giant", "cave", "ogr", "ogry"], traits: [] },
-  { key: "troll", name: "Troll", maxHp: 84, armorClass: 15, attackBonus: 7, damageNotation: "2d6", damageBonus: 4, cr: 5, attacks: 2, tags: ["troll", "bridge", "regeneration", "swamp"], traits: ["regeneration", "keen_senses"] },
-  { key: "hill-giant", name: "Hill Giant", maxHp: 105, armorClass: 13, attackBonus: 8, damageNotation: "3d8", damageBonus: 5, cr: 5, attacks: 2, tags: ["giant", "brute", "hill", "gigant", "olbrzym"], traits: [] },
+  { key: "giant-rat", name: "Giant Rat", maxHp: 7, armorClass: 12, attackBonus: 4, damageNotation: "1d4", damageBonus: 2, cr: 0.125, attacks: 1, tags: ["rat", "vermin", "sewer", "swarm", "szczur", "szczury"], traits: ["keen_smell"], speed: 30 },
+  { key: "goblin", name: "Goblin", maxHp: 7, armorClass: 15, attackBonus: 4, damageNotation: "1d6", damageBonus: 2, cr: 0.25, attacks: 1, tags: ["goblin", "cave", "raider", "ambush", "tribe", "gobliny"], traits: ["nimble_escape"], speed: 30 },
+  { key: "wolf", name: "Wolf", maxHp: 11, armorClass: 13, attackBonus: 4, damageNotation: "2d4", damageBonus: 2, cr: 0.25, attacks: 1, tags: ["wolf", "pack", "forest", "wild", "woods", "wilk", "wilki", "wilcze"], traits: ["keen_senses", "pack_tactics"], speed: 40 },
+  { key: "skeleton", name: "Skeleton", maxHp: 13, armorClass: 13, attackBonus: 4, damageNotation: "1d6", damageBonus: 2, cr: 0.25, attacks: 1, tags: ["skeleton", "undead", "tomb", "crypt", "graveyard", "bones", "szkielet", "szkielety"], traits: [], speed: 30 },
+  { key: "zombie", name: "Zombie", maxHp: 22, armorClass: 8, attackBonus: 3, damageNotation: "1d6", damageBonus: 1, cr: 0.25, attacks: 1, tags: ["zombie", "undead", "corpse", "tomb", "swamp"], traits: ["undead_fortitude"], speed: 20 },
+  { key: "bandit", name: "Bandit", maxHp: 11, armorClass: 12, attackBonus: 3, damageNotation: "1d8", damageBonus: 1, cr: 0.125, attacks: 1, tags: ["bandit", "outlaw", "road", "thug", "ambush", "bandyt", "rabus", "złodziej"], traits: [], speed: 30 },
+  { key: "cultist", name: "Cultist", maxHp: 9, armorClass: 12, attackBonus: 2, damageNotation: "1d6", damageBonus: 0, cr: 0.125, attacks: 1, tags: ["cultist", "cult", "ritual", "shrine", "fanatic", "kultysta", "kultysci", "kult"], traits: [], speed: 30 },
+  { key: "giant-spider", name: "Giant Spider", maxHp: 26, armorClass: 14, attackBonus: 5, damageNotation: "1d8", damageBonus: 3, cr: 1, attacks: 1, tags: ["spider", "web", "forest", "cave", "pająk", "pajaki"], traits: ["web"], speed: 30 },
+  { key: "hobgoblin", name: "Hobgoblin", maxHp: 11, armorClass: 18, attackBonus: 3, damageNotation: "1d8", damageBonus: 1, cr: 0.5, attacks: 1, tags: ["hobgoblin", "soldier", "war", "goblin", "hobgobliny"], traits: [], speed: 30 },
+  { key: "orc", name: "Orc", maxHp: 15, armorClass: 13, attackBonus: 5, damageNotation: "1d12", damageBonus: 3, cr: 0.5, attacks: 1, tags: ["orc", "warband", "camp", "raider", "warrior", "ork", "orki"], traits: [], speed: 30 },
+  { key: "worg", name: "Worg", maxHp: 26, armorClass: 13, attackBonus: 5, damageNotation: "2d6", damageBonus: 4, cr: 0.5, attacks: 1, tags: ["worg", "wolf", "mount", "dark"], traits: [], speed: 50 },
+  { key: "bugbear", name: "Bugbear", maxHp: 27, armorClass: 16, attackBonus: 4, damageNotation: "2d8", damageBonus: 2, cr: 1, attacks: 1, tags: ["bugbear", "brute", "goblin", "ambush"], traits: [], speed: 30 },
+  { key: "dire-wolf", name: "Dire Wolf", maxHp: 37, armorClass: 14, attackBonus: 5, damageNotation: "2d6", damageBonus: 3, cr: 1, attacks: 1, tags: ["wolf", "dire", "forest", "pack", "wilk"], traits: ["keen_senses", "pack_tactics"], speed: 50 },
+  { key: "ghoul", name: "Ghoul", maxHp: 22, armorClass: 12, attackBonus: 4, damageNotation: "2d6", damageBonus: 2, cr: 1, attacks: 1, tags: ["ghoul", "undead", "tomb", "crypt", "graveyard", "ghul", "trup"], traits: ["paralyzing_touch"], speed: 30 },
+  { key: "specter", name: "Specter", maxHp: 22, armorClass: 12, attackBonus: 4, damageNotation: "3d6", damageBonus: 0, cr: 1, attacks: 1, tags: ["specter", "ghost", "undead", "haunt", "widmo", "zjawa"], traits: [], speed: 0 },
+  { key: "ogre", name: "Ogre", maxHp: 59, armorClass: 11, attackBonus: 6, damageNotation: "2d8", damageBonus: 4, cr: 2, attacks: 1, tags: ["ogre", "brute", "giant", "cave", "ogr", "ogry"], traits: [], speed: 40 },
+  { key: "troll", name: "Troll", maxHp: 84, armorClass: 15, attackBonus: 7, damageNotation: "2d6", damageBonus: 4, cr: 5, attacks: 2, tags: ["troll", "bridge", "regeneration", "swamp"], traits: ["regeneration", "keen_senses"], speed: 30 },
+  { key: "hill-giant", name: "Hill Giant", maxHp: 105, armorClass: 13, attackBonus: 8, damageNotation: "3d8", damageBonus: 5, cr: 5, attacks: 2, tags: ["giant", "brute", "hill", "gigant", "olbrzym"], traits: [], speed: 40 },
 ];
 
 function normalizeWord(word: string): string {
@@ -96,6 +97,7 @@ export function buildEncounter(
         cr: kind.cr,
         traits: kind.traits,
         attacksPerTurn: kind.attacks,
+        speed: kind.speed ?? 30,
       });
     }
   }
@@ -142,6 +144,7 @@ export function randomEncounter(
         cr: kind.cr,
         traits: kind.traits,
         attacksPerTurn: kind.attacks,
+        speed: kind.speed ?? 30,
       });
     }
     spent += count * kind.cr;

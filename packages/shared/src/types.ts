@@ -114,6 +114,8 @@ export type Combatant = {
   attacksLeft?: number;
   reactionAvailable?: boolean;
   bonusActionAvailable?: boolean;
+  movementLeft?: number;
+  speed?: number;
   position?: number;
   darkvision?: boolean;
   status?: CombatantStatus;

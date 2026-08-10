@@ -8,6 +8,10 @@ export type ConditionDef = {
 };
 
 export const GUIDING_BOLT_MARKER = "guiding_bolt";
+export const VEXED_MARKER = "vexed";
+export const SAPPED_MARKER = "sapped";
+export const SLOWED_MARKER = "slowed";
+export const HAMSTRING_MARKER = "hamstring";
 
 export const CONDITIONS: ConditionDef[] = [
   {
@@ -117,7 +121,8 @@ export function attackRollAdvantages(
     attackerConditions.has("frightened") ||
     attackerConditions.has("poisoned") ||
     attackerConditions.has("prone") ||
-    attackerConditions.has("restrained");
+    attackerConditions.has("restrained") ||
+    attackerConditions.has(SAPPED_MARKER);
   const advantage =
     targetConditions.has("blinded") ||
     targetConditions.has("prone") ||
@@ -126,7 +131,8 @@ export function attackRollAdvantages(
     targetConditions.has("petrified") ||
     targetConditions.has("stunned") ||
     targetConditions.has("unconscious") ||
-    targetConditions.has(GUIDING_BOLT_MARKER);
+    targetConditions.has(GUIDING_BOLT_MARKER) ||
+    targetConditions.has(VEXED_MARKER);
   if (advantage && disadvantage) return { advantage: false, disadvantage: false };
   return { advantage, disadvantage };
 }

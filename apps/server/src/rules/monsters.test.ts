@@ -69,6 +69,28 @@ describe("monster catalog", () => {
       expect(byKey.get(key)!.traits, key).toEqual([]);
     }
   });
+
+  it("carries SRD movement speeds (walk; fly noted separately)", () => {
+    const byKey = new Map(MONSTERS.map((m) => [m.key, m]));
+    expect(byKey.get("giant-rat")!.speed).toBe(30);
+    expect(byKey.get("goblin")!.speed).toBe(30);
+    expect(byKey.get("wolf")!.speed).toBe(40);
+    expect(byKey.get("skeleton")!.speed).toBe(30);
+    expect(byKey.get("zombie")!.speed).toBe(20);
+    expect(byKey.get("bandit")!.speed).toBe(30);
+    expect(byKey.get("cultist")!.speed).toBe(30);
+    expect(byKey.get("giant-spider")!.speed).toBe(30);
+    expect(byKey.get("hobgoblin")!.speed).toBe(30);
+    expect(byKey.get("orc")!.speed).toBe(30);
+    expect(byKey.get("worg")!.speed).toBe(50);
+    expect(byKey.get("bugbear")!.speed).toBe(30);
+    expect(byKey.get("dire-wolf")!.speed).toBe(50);
+    expect(byKey.get("ghoul")!.speed).toBe(30);
+    expect(byKey.get("specter")!.speed).toBe(0);
+    expect(byKey.get("ogre")!.speed).toBe(40);
+    expect(byKey.get("troll")!.speed).toBe(30);
+    expect(byKey.get("hill-giant")!.speed).toBe(40);
+  });
 });
 
 describe("matchMonsters", () => {
@@ -137,6 +159,13 @@ describe("buildEncounter", () => {
   it("carries the monster traits onto the combatants", () => {
     const encounter = buildEncounter("a troll blocks the bridge", 1);
     expect(encounter[0]!.traits).toContain("regeneration");
+  });
+
+  it("carries the monster speed onto the combatants (default 30)", () => {
+    const encounter = buildEncounter("a dire wolf stalks the party", 1);
+    const direWolf = encounter.find((e) => e.name === "Dire Wolf")!;
+    expect(direWolf.speed).toBe(50);
+    expect(buildEncounter("a goblin tribe", 1)[0]!.speed).toBe(30);
   });
 });
 

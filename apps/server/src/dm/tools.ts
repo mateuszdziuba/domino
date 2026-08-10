@@ -22,6 +22,10 @@ import { xpAwardForDeadEnemies, hitDieForClass } from "../rules/advancement.js";
 import {
   CONDITIONS,
   GUIDING_BOLT_MARKER,
+  HAMSTRING_MARKER,
+  SAPPED_MARKER,
+  SLOWED_MARKER,
+  VEXED_MARKER,
   attackRollAdvantages,
   canAct,
   isConditionKey,
@@ -35,11 +39,14 @@ import {
   combatantByCharacter,
   performAttack,
   applyHitToTarget,
+  applyAttackMastery,
   resolveAttack,
   performDeathSave,
   characterAttackInput,
   extraAttacksForClass,
   raceHasDarkvision,
+  exhaustedSpeed,
+  effectiveMovement,
 } from "../rules/combat.js";
 import { abilityModifier, proficiencyBonus } from "../rules/abilities.js";
 import { buildCharacterFeatures } from "../rules/features.js";
@@ -351,6 +358,7 @@ export async function runDmTool(
         exhaustionLevel: ch.exhaustion ?? 0,
         attacksPerTurn: extraAttacksForClass(ch.className, ch.level),
         darkvision: raceHasDarkvision(ch.race),
+        speed: exhaustedSpeed(ch.speed, ch.exhaustion ?? 0),
       }));
       let state = startCombat(state0, [...combatants, ...monsters]);
       state = saveState(campaignId, state);
@@ -399,6 +407,7 @@ export async function runDmTool(
         exhaustionLevel: ch.exhaustion ?? 0,
         attacksPerTurn: extraAttacksForClass(ch.className, ch.level),
         darkvision: raceHasDarkvision(ch.race),
+        speed: exhaustedSpeed(ch.speed, ch.exhaustion ?? 0),
       }));
       let state = startCombat(state0, [...combatants, ...monsters]);
       state = saveState(campaignId, state);
@@ -443,6 +452,8 @@ export async function runDmTool(
         parsed.data.useInspiration === true && attackerCharacter?.inspiration === true;
       let { attackBonus, damageNotation, damageBonus } = parsed.data;
       let reach = 5;
+      let weaponMastery: string | undefined;
+      let masteryWeapon: string | undefined;
       if (attacker.characterId) {
         const character = getCharacterById(attacker.characterId);
         if (character) {
@@ -453,7 +464,11 @@ export async function runDmTool(
           damageNotation ??= defaults.damageNotation;
           damageBonus ??= defaults.damageBonus;
           const weapon = findEquippedWeapon(character);
-          if (weapon) reach = weaponReach(weapon);
+          if (weapon) {
+            reach = weaponReach(weapon);
+            weaponMastery = weapon.mastery;
+            masteryWeapon = weapon.name;
+          }
         }
       }
       const outcome = performAttack(state, parsed.data.attackerId, parsed.data.targetId, {
@@ -463,6 +478,8 @@ export async function runDmTool(
         advantage: parsed.data.advantage || inspirationUsed,
         disadvantage: parsed.data.disadvantage,
         reach,
+        mastery: weaponMastery,
+        masteryWeapon,
       });
       if (!outcome.ok) return { ok: false, message: `${outcome.error}.` };
       if (outcome.target.characterId) {
@@ -472,7 +489,8 @@ export async function runDmTool(
         updateCharacterInspiration(attacker.characterId, false);
       }
       const updatedAttacker = {
-        ...attacker,
+        ...(outcome.state.combat.combatants.find((c) => c.id === attacker.id) ??
+          attacker),
         attacksLeft: (attacker.attacksLeft ?? 1) - 1,
       };
       saveState(campaignId, {
@@ -489,6 +507,7 @@ export async function runDmTool(
         attacker: outcome.attacker.name,
         target: outcome.target.name,
         attacksLeft: updatedAttacker.attacksLeft,
+        mastery: weaponMastery ?? null,
         ...outcome.result,
         ...(inspirationUsed ? { inspirationUsed: true } : {}),
       });
@@ -497,7 +516,7 @@ export async function runDmTool(
         : `${outcome.attacker.name} chybia ${outcome.target.name} (atak ${outcome.result.attackTotal} vs AC ${outcome.target.armorClass}).`;
       return {
         ok: true,
-        message: `${hitMessage}${outcome.result.fumble ? " — pudło!" : ""}`,
+        message: `${hitMessage}${masteryNarration(outcome.result)}${cleaveNote(weaponMastery, outcome.result.hit)}${outcome.result.fumble ? " — pudło!" : ""}`,
         data: outcome.result,
       };
     }
@@ -536,6 +555,7 @@ export async function runDmTool(
       if (target.status === "dead") return { ok: false, message: "Cel jest martwy." };
       let { attackBonus, damageNotation, damageBonus } = parsed.data;
       let reach = 5;
+      let weaponMastery: string | undefined;
       if (attacker.characterId) {
         const character = getCharacterById(attacker.characterId);
         if (character) {
@@ -546,7 +566,10 @@ export async function runDmTool(
           damageNotation ??= defaults.damageNotation;
           damageBonus ??= defaults.damageBonus;
           const weapon = findEquippedWeapon(character);
-          if (weapon) reach = weaponReach(weapon);
+          if (weapon) {
+            reach = weaponReach(weapon);
+            weaponMastery = weapon.mastery;
+          }
         }
       }
       if ((target.position ?? 0) > reach) {
@@ -569,13 +592,29 @@ export async function runDmTool(
             conditions: (target.conditions ?? []).filter((c) => c !== GUIDING_BOLT_MARKER),
           };
         }
-        result.targetStatus = newTarget.status;
-        result.targetCurrentHp = newTarget.currentHp;
+        if ((target.conditions ?? []).includes(VEXED_MARKER)) {
+          newTarget = {
+            ...newTarget,
+            conditions: (target.conditions ?? []).filter((c) => c !== VEXED_MARKER),
+          };
+        }
       } else {
         newTarget = { ...target, currentHp: result.targetCurrentHp, status: result.targetStatus };
       }
+      newTarget = applyAttackMastery(newTarget, result, {
+        mastery: weaponMastery,
+        damageBonus: damageBonus ?? 0,
+      });
+      result.targetStatus = newTarget.status;
+      result.targetCurrentHp = newTarget.currentHp;
       const combatants = state.combat.combatants.map((c) => {
-        if (c.id === attacker.id) return { ...c, reactionAvailable: false };
+        if (c.id === attacker.id) {
+          return {
+            ...c,
+            reactionAvailable: false,
+            conditions: (c.conditions ?? []).filter((x) => x !== SAPPED_MARKER),
+          };
+        }
         if (c.id === target.id) return newTarget;
         return c;
       });
@@ -591,6 +630,7 @@ export async function runDmTool(
         type: "opportunity-attack",
         attacker: attacker.name,
         target: target.name,
+        mastery: weaponMastery ?? null,
         ...result,
       });
       const reactionMessage = result.hit
@@ -598,7 +638,7 @@ export async function runDmTool(
         : `${attacker.name} wykonuje atak okazyjny na ${target.name} — chybienie (atak ${result.attackTotal} vs AC ${target.armorClass}).`;
       return {
         ok: true,
-        message: `${reactionMessage}${result.fumble ? " — pudło!" : ""}`,
+        message: `${reactionMessage}${masteryNarration(result)}${result.fumble ? " — pudło!" : ""}`,
         data: result,
       };
     }
@@ -646,19 +686,26 @@ export async function runDmTool(
         return { ok: false, message: "Walka dwiema broniami wymaga dwóch broni lekkich." };
       }
       const stats = weaponAttackStats(offhandWeapon, character);
+      const offhandMastery = offhandWeapon.mastery;
       const outcome = performAttack(state, attacker.id, target.id, {
         attackBonus: parsed.data.attackBonus ?? stats.hitBonus,
         damageNotation: parsed.data.damageNotation ?? offhandWeapon.damageDice,
         damageBonus: parsed.data.damageBonus ?? 0,
         reach: weaponReach(offhandWeapon),
+        mastery: offhandMastery,
+        masteryWeapon: offhandWeapon.name,
       });
       if (!outcome.ok) return { ok: false, message: `${outcome.error}.` };
       if (outcome.target.characterId) {
         updateCharacterHp(outcome.target.characterId, outcome.target.currentHp);
       }
+      // SRD 5.2.1 Nick: the off-hand attack with a Nick weapon is part of the
+      // Attack action and does not consume the bonus action.
+      const nickFree = offhandMastery === "nick";
       const updatedAttacker = {
-        ...attacker,
-        bonusActionAvailable: false,
+        ...(outcome.state.combat.combatants.find((c) => c.id === attacker.id) ??
+          attacker),
+        ...(nickFree ? {} : { bonusActionAvailable: false }),
       };
       saveState(campaignId, {
         ...outcome.state,
@@ -673,6 +720,7 @@ export async function runDmTool(
         type: "bonus-attack",
         attacker: outcome.attacker.name,
         target: outcome.target.name,
+        mastery: offhandMastery ?? null,
         ...outcome.result,
       });
       const hitMessage = outcome.result.hit
@@ -680,7 +728,7 @@ export async function runDmTool(
         : `${outcome.attacker.name} chybia ${outcome.target.name} (atak ${outcome.result.attackTotal} vs AC ${outcome.target.armorClass}).`;
       return {
         ok: true,
-        message: `${outcome.attacker.name} wykonuje dodatkowy atak ${offhandWeapon.name}: ${hitMessage}${outcome.result.fumble ? " — pudło!" : ""}`,
+        message: `${outcome.attacker.name} wykonuje dodatkowy atak ${offhandWeapon.name}: ${hitMessage}${masteryNarration(outcome.result)}${nickFree ? " (Nick: atak dodatkowy nie zużywa akcji dodatkowej.)" : ""}${outcome.result.fumble ? " — pudło!" : ""}`,
         data: outcome.result,
       };
     }
@@ -695,7 +743,20 @@ export async function runDmTool(
       if (!state.combat.active) return { ok: false, message: "Brak walki w toku." };
       const combatant = findCombatant(state, parsed.data.combatantId);
       if (!combatant) return { ok: false, message: "Nie znaleziono kombatanta." };
-      const updated: Combatant = { ...combatant, position: parsed.data.feet };
+      const available = effectiveMovement(combatant);
+      if (parsed.data.feet > available) {
+        return {
+          ok: false,
+          message: `Za mało ruchu w tej turze (zostało ${available} stóp).`,
+        };
+      }
+      const movementLeft =
+        (combatant.movementLeft ?? combatant.speed ?? 30) - parsed.data.feet;
+      const updated: Combatant = {
+        ...combatant,
+        position: parsed.data.feet,
+        movementLeft,
+      };
       const nextState: CampaignState = {
         ...state,
         combat: {
@@ -711,11 +772,19 @@ export async function runDmTool(
         type: "move",
         combatant: combatant.name,
         position: parsed.data.feet,
+        speed: updated.speed ?? 30,
+        movementLeft,
       });
+      const conditions = new Set(combatant.conditions ?? []);
+      const movementNote = conditions.has(HAMSTRING_MARKER)
+        ? " (Hamstring: prędkość 0.)"
+        : conditions.has(SLOWED_MARKER)
+          ? " (Slow: dostępny ruch o połowę.)"
+          : "";
       const message =
         parsed.data.feet === 0
-          ? `${combatant.name} przesuwa się w sam środek walki w zwarciu.`
-          : `${combatant.name} przesuwa się na pozycję ${parsed.data.feet} stóp od walki w zwarciu.`;
+          ? `${combatant.name} przesuwa się w sam środek walki w zwarciu.${movementNote}`
+          : `${combatant.name} przesuwa się na pozycję ${parsed.data.feet} stóp od walki w zwarciu.${movementNote}`;
       return { ok: true, message, data: summarizeState(nextState) };
     }
     case "set_lighting": {
@@ -986,12 +1055,13 @@ export async function runDmTool(
           updated = applySpellRider(updated, def) ?? updated;
         } else if (
           result.hit &&
-          (targetCombatant.conditions ?? []).includes(GUIDING_BOLT_MARKER)
+          ((targetCombatant.conditions ?? []).includes(GUIDING_BOLT_MARKER) ||
+            (targetCombatant.conditions ?? []).includes(VEXED_MARKER))
         ) {
           updated = {
             ...updated,
             conditions: (targetCombatant.conditions ?? []).filter(
-              (c) => c !== GUIDING_BOLT_MARKER,
+              (c) => c !== GUIDING_BOLT_MARKER && c !== VEXED_MARKER,
             ),
           };
         }
@@ -1310,7 +1380,14 @@ export async function runDmTool(
       const combatant = findCombatant(state, parsed.data.combatantId);
       if (!combatant) return { ok: false, message: "Nie znaleziono kombatanta." };
       const { condition } = parsed.data;
-      if (!isConditionKey(condition) && condition !== GUIDING_BOLT_MARKER) {
+      if (
+        !isConditionKey(condition) &&
+        condition !== GUIDING_BOLT_MARKER &&
+        condition !== VEXED_MARKER &&
+        condition !== SAPPED_MARKER &&
+        condition !== SLOWED_MARKER &&
+        condition !== HAMSTRING_MARKER
+      ) {
         return { ok: false, message: `Nieznany stan "${condition}".` };
       }
       const existing = combatant.conditions ?? [];
@@ -1931,6 +2008,36 @@ function spellNarration(
   return `${casterName} rzuca ${def.name} na ${target.name} — stabilizuje ${target.name}.`;
 }
 
+function masteryNarration(result: {
+  masteryApplied?: string;
+  grazeDamage?: number;
+}): string {
+  switch (result.masteryApplied) {
+    case "topple":
+      return " Cel powalony! (Topple)";
+    case "push":
+      return " Cel odepchnięty o 10 stóp! (Push)";
+    case "vex":
+      return " Oznaczono cel: przewaga na następny atak przeciw niemu (Vex).";
+    case "sap":
+      return " Cel ma utrudnienie do swojego następnego ataku (Sap).";
+    case "slow":
+      return " Cel zwolniony — jego prędkość jest o połowę mniejsza (Slow).";
+    case "graze":
+      return ` Graze: chybienie zadaje ${result.grazeDamage} obrażeń.`;
+    case "hamstring":
+      return " Cel jest utrudniony — hamstring: prędkość 0.";
+    default:
+      return "";
+  }
+}
+
+function cleaveNote(mastery: string | undefined, hit: boolean): string {
+  return mastery === "cleave" && hit
+    ? " (Cięcie: możesz wykonać kolejny atak na innego wroga w zasięgu.)"
+    : "";
+}
+
 function summarizeState(state: CampaignState) {
   return {
     phase: state.phase,
@@ -1951,6 +2058,8 @@ function summarizeState(state: CampaignState) {
               attacksLeft: c.attacksLeft ?? 1,
               bonusActionAvailable: c.bonusActionAvailable ?? true,
               traits: c.traits ?? [],
+              speed: c.speed ?? 30,
+              movementLeft: c.movementLeft ?? c.speed ?? 30,
               turn: c.id === currentTurnCombatant(state)?.id,
             };
           }),

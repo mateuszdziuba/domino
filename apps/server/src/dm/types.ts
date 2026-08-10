@@ -68,7 +68,7 @@ export const DM_TOOLS: DmTool[] = [
   {
     name: "attack_combatant",
     description:
-      "Resolve an attack by a combatant against a target through the rules engine. The attacker must be the current combatant in the initiative order. Applies damage to the target, updates HP/status (downed/dead), and saves the authoritative state. Returns the attack roll result.",
+      "Resolve an attack by a combatant against a target through the rules engine. The attacker must be the current combatant in the initiative order. Applies damage to the target, updates HP/status (downed/dead), applies the equipped weapon's Mastery rider (SRD 5.2.1), and saves the authoritative state. Returns the attack roll result.",
     parameters: {
       attackerId: { type: "string" },
       targetId: { type: "string" },
@@ -95,7 +95,7 @@ export const DM_TOOLS: DmTool[] = [
   {
     name: "bonus_attack",
     description:
-      "Two-weapon fighting: a bonus-action attack with the off-hand Light weapon (no damage bonus). Requires two equipped Light weapons and an available bonus action.",
+      "Two-weapon fighting: a bonus-action attack with the off-hand Light weapon (no damage bonus). Requires two equipped Light weapons and an available bonus action. With a Nick off-hand weapon the attack is part of the Attack action and does not consume the bonus action. Applies the off-hand weapon's Mastery rider.",
     parameters: {
       attackerId: { type: "string" },
       targetId: { type: "string" },
@@ -107,7 +107,7 @@ export const DM_TOOLS: DmTool[] = [
   {
     name: "move_combatant",
     description:
-      "Move a combatant on the abstract 1-D battle line: position is feet from the melee cluster (0 = in melee). Updates the authoritative combat state.",
+      "Move a combatant on the abstract 1-D battle line: position is feet from the melee cluster (0 = in melee). The move costs feet against the combatant's movement budget (movementLeft, refreshed each turn to its speed; the Slow mastery halves it, Hamstring zeroes it). Updates the authoritative combat state.",
     parameters: {
       combatantId: { type: "string" },
       feet: { type: "number" },
@@ -167,7 +167,7 @@ export const DM_TOOLS: DmTool[] = [
   {
     name: "remove_condition",
     description:
-      "Remove a condition from a combatant in the active combat. Also works for the internal guiding_bolt marker.",
+      "Remove a condition from a combatant in the active combat. Also works for the internal guiding_bolt, vexed, sapped, slowed and hamstring mastery markers.",
     parameters: { combatantId: { type: "string" }, condition: { type: "string" } },
   },
   {

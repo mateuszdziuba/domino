@@ -101,6 +101,11 @@ function stateWithCombat(overrides: Partial<CampaignState> = {}): CampaignState 
           status: "active",
           deathSaveSuccesses: 0,
           deathSaveFailures: 0,
+          bonusActionAvailable: true,
+          attacksLeft: 1,
+          attacksPerTurn: 1,
+          speed: 30,
+          movementLeft: 30,
         },
         {
           id: "enemy-1",
@@ -113,6 +118,8 @@ function stateWithCombat(overrides: Partial<CampaignState> = {}): CampaignState 
           status: "active",
           deathSaveSuccesses: 0,
           deathSaveFailures: 0,
+          speed: 30,
+          movementLeft: 30,
         },
       ],
     },
@@ -3500,5 +3507,254 @@ describe("runDmTool environment_hazard (mocked store)", () => {
     });
     expect(result.ok).toBe(false);
     expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("runDmTool move_combatant movement budget (mocked store)", () => {
+  it("rejects a move beyond the remaining movement budget", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      movementLeft: 10,
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      feet: 11,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Za mało ruchu w tej turze (zostało 10 stóp).");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("decrements movementLeft by the distance moved and reports speed", async () => {
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      feet: 10,
+    });
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.position).toBe(10);
+    expect(goblin.movementLeft).toBe(20);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "move",
+        combatant: "Goblin",
+        position: 10,
+        speed: 30,
+        movementLeft: 20,
+      }),
+    );
+  });
+
+  it("refuses a second move beyond the remaining budget", async () => {
+    expect((await runTool("move_combatant", { combatantId: "enemy-1", feet: 20 })).ok).toBe(true);
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      feet: 11,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("zostało 10 stóp");
+  });
+
+  it("resets movementLeft to speed when the combatant's next turn starts", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      movementLeft: 10,
+    };
+    mock.states.set("c1", state);
+    const advance = await runTool("advance_turn");
+    expect(advance.ok).toBe(true);
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      feet: 30,
+    });
+    expect(result.ok).toBe(true);
+    const goblin = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.movementLeft).toBe(0);
+  });
+
+  it("the slowed marker halves the available movement", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["slowed"],
+    };
+    mock.states.set("c1", state);
+    const ok = await runTool("move_combatant", { combatantId: "enemy-1", feet: 15 });
+    expect(ok.ok).toBe(true);
+    // movementLeft is 15 after the move; slowed halves that to 7 effective.
+    const tooFar = await runTool("move_combatant", { combatantId: "enemy-1", feet: 8 });
+    expect(tooFar.ok).toBe(false);
+    expect(tooFar.message).toContain("zostało 7 stóp");
+  });
+
+  it("the hamstring marker zeroes the available movement", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["hamstring"],
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("move_combatant", { combatantId: "enemy-1", feet: 1 });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("zostało 0 stóp");
+  });
+});
+
+describe("runDmTool bonus_attack nick mastery (mocked store)", () => {
+  it("does not consume the bonus action when the off-hand weapon has nick", async () => {
+    mock.characters.set("ch1", {
+      ...aria,
+      inventory: [
+        { id: "i1", name: "Shortsword", quantity: 1, slot: "weapon" },
+        { id: "i2", name: "Dagger", quantity: 1, slot: "offhand" },
+      ],
+    });
+    const original = Math.random;
+    Math.random = () => 0.9; // d20 19 -> hit, 1d4 = 4
+    const first = await runTool("bonus_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(first.ok).toBe(true);
+    expect(first.message).toContain("Nick");
+    const ariaCombatant = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(ariaCombatant.bonusActionAvailable).toBe(true);
+    const second = await runTool("bonus_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(second.ok).toBe(true);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "bonus-attack", mastery: "nick" }),
+    );
+  });
+});
+
+describe("runDmTool attack_combatant mastery (mocked store)", () => {
+  it("reports the equipped weapon's mastery in the event and narration", async () => {
+    mock.characters.set("ch1", {
+      ...aria,
+      inventory: [{ id: "i1", name: "Longsword", quantity: 1, slot: "weapon" }],
+    });
+    const original = Math.random;
+    Math.random = () => 0.9; // d20 19 -> hit
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Sap");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "attack", mastery: "sap" }),
+    );
+  });
+
+  it("emits mastery null for an unarmed attacker", async () => {
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "attack", mastery: null }),
+    );
+  });
+});
+
+describe("runDmTool speed and exhaustion at combat start (mocked store)", () => {
+  beforeEach(() => {
+    mock.members.mockReset();
+    mock.members.mockReturnValue([{ characterId: "ch1" }]);
+    mock.states.set("c1", mock.defaultState());
+  });
+
+  it("generate_encounter carries monster speeds onto the saved combatants", async () => {
+    const result = await runTool("generate_encounter", {
+      description: "a wolf pack",
+    });
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const wolf = saved.combat.combatants.find((c) => c.id === "wolf-0");
+    expect(wolf).toBeDefined();
+    expect(wolf!.speed).toBe(40);
+    expect(wolf!.movementLeft).toBe(40);
+  });
+
+  it("generate_encounter halves a PC's speed at exhaustion level 2", async () => {
+    mock.characters.set("ch1", { ...aria, exhaustion: 2 });
+    const result = await runTool("generate_encounter", {
+      description: "goblins in a cave",
+    });
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const ariaCombatant = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(ariaCombatant.speed).toBe(15);
+    expect(ariaCombatant.movementLeft).toBe(15);
+  });
+
+  it("generate_encounter zeroes a PC's speed at exhaustion level 5", async () => {
+    mock.characters.set("ch1", { ...aria, exhaustion: 5 });
+    const result = await runTool("generate_encounter", {
+      description: "goblins in a cave",
+    });
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const ariaCombatant = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(ariaCombatant.speed).toBe(0);
+    expect(ariaCombatant.movementLeft).toBe(0);
+  });
+
+  it("summarizeState includes speed and movementLeft per combatant", async () => {
+    mock.states.set("c1", {
+      ...mock.defaultState(),
+      phase: "combat",
+      combat: {
+        active: true,
+        round: 1,
+        turnIndex: 0,
+        combatants: [
+          {
+            id: "troll-0",
+            name: "Troll",
+            isPlayer: false,
+            initiative: 15,
+            currentHp: 84,
+            maxHp: 84,
+            armorClass: 15,
+            status: "active",
+            speed: 30,
+            movementLeft: 10,
+          },
+        ],
+      },
+    });
+    const result = await runTool("get_campaign_state");
+    expect(result.ok).toBe(true);
+    const data = result.data as {
+      combat: { combatants: { speed: number; movementLeft: number }[] };
+    };
+    expect(data.combat.combatants[0]!.speed).toBe(30);
+    expect(data.combat.combatants[0]!.movementLeft).toBe(10);
   });
 });

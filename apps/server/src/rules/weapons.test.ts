@@ -69,6 +69,64 @@ describe("weapon catalog", () => {
   });
 });
 
+describe("weapon masteries (SRD 5.2.1)", () => {
+  const MASTERIES = [
+    "cleave",
+    "graze",
+    "hamstring",
+    "nick",
+    "push",
+    "sap",
+    "slow",
+    "topple",
+    "vex",
+  ];
+
+  it("assigns the SRD mastery to each melee weapon", () => {
+    const byName = new Map(WEAPONS.map((w) => [w.name, w.mastery]));
+    expect(byName.get("Dagger")).toBe("nick");
+    expect(byName.get("Handaxe")).toBe("vex");
+    expect(byName.get("Javelin")).toBe("slow");
+    expect(byName.get("Light Hammer")).toBe("push");
+    expect(byName.get("Mace")).toBe("sap");
+    expect(byName.get("Quarterstaff")).toBe("topple");
+    expect(byName.get("Sickle")).toBe("nick");
+    expect(byName.get("Spear")).toBe("sap");
+    expect(byName.get("Club")).toBe("slow");
+    expect(byName.get("Greatclub")).toBe("push");
+    expect(byName.get("Battleaxe")).toBe("topple");
+    expect(byName.get("Flail")).toBe("sap");
+    expect(byName.get("Glaive")).toBe("cleave");
+    expect(byName.get("Greataxe")).toBe("cleave");
+    expect(byName.get("Greatsword")).toBe("graze");
+    expect(byName.get("Halberd")).toBe("cleave");
+    expect(byName.get("Lance")).toBe("topple");
+    expect(byName.get("Longsword")).toBe("sap");
+    expect(byName.get("Maul")).toBe("topple");
+    expect(byName.get("Morningstar")).toBe("slow");
+    expect(byName.get("Pike")).toBe("push");
+    expect(byName.get("Rapier")).toBe("vex");
+    expect(byName.get("Scimitar")).toBe("nick");
+    expect(byName.get("Shortsword")).toBe("vex");
+    expect(byName.get("Trident")).toBe("topple");
+    expect(byName.get("War Pick")).toBe("slow");
+    expect(byName.get("Warhammer")).toBe("push");
+    expect(byName.get("Whip")).toBe("slow");
+  });
+
+  it("covers every melee weapon with a known mastery", () => {
+    for (const weapon of WEAPONS.filter((w) => w.range === "melee")) {
+      expect(MASTERIES, weapon.name).toContain(weapon.mastery);
+    }
+  });
+
+  it("leaves ranged weapons (crossbows, bows, sling, dart, blowgun) without mastery", () => {
+    for (const weapon of WEAPONS.filter((w) => w.range === "ranged")) {
+      expect(weapon.mastery, weapon.name).toBeUndefined();
+    }
+  });
+});
+
 describe("findWeapon", () => {
   it("matches the SRD English name case-insensitively", () => {
     expect(findWeapon("Longsword")?.name).toBe("Longsword");

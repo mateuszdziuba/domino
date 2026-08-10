@@ -15,6 +15,8 @@ import {
   TooltipTrigger,
 } from "./ui/tooltip";
 
+const HIDDEN_CONDITION_MARKERS = ["guiding_bolt", "vexed", "sapped", "slowed", "hamstring"];
+
 const CONDITION_LABELS: Record<string, string> = {
   blinded: "ślepota",
   frightened: "przerażony",
@@ -177,7 +179,7 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                     {c.status === "downed" && <Badge variant="outline">powalony</Badge>}
                     {c.status === "stable" && <Badge variant="outline">stabilny</Badge>}
                     {(c.conditions ?? [])
-                      .filter((cond) => cond !== "guiding_bolt")
+                      .filter((cond) => !HIDDEN_CONDITION_MARKERS.includes(cond))
                       .map((cond) => (
                         <Tooltip key={cond}>
                           <TooltipTrigger asChild>
@@ -209,6 +211,20 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                     )}
                     {c.position != null && c.position > 0 && (
                       <span className="text-[9px] text-[#a08b5c]">{c.position} ft</span>
+                    )}
+                    {c.speed != null && c.movementLeft != null && (
+                      <span
+                        className={cn(
+                          "text-[9px]",
+                          c.movementLeft <= 0
+                            ? "text-[#8f1d1d]"
+                            : c.movementLeft < c.speed
+                              ? "text-[#a97e1f]"
+                              : "text-[#a08b5c]",
+                        )}
+                      >
+                        ruch {c.movementLeft}/{c.speed} ft
+                      </span>
                     )}
                     {c.darkvision && (
                       <span

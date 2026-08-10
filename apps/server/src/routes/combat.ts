@@ -22,6 +22,7 @@ import {
   characterAttackInput,
   extraAttacksForClass,
   raceHasDarkvision,
+  exhaustedSpeed,
 } from "../rules/combat.js";
 import { buildEncounter } from "../rules/monsters.js";
 import {
@@ -88,6 +89,7 @@ combatRoutes.post("/start", requireAuth, async (c) => {
       exhaustionLevel: ch.exhaustion ?? 0,
       attacksPerTurn: extraAttacksForClass(ch.className, ch.level),
       darkvision: raceHasDarkvision(ch.race),
+      speed: exhaustedSpeed(ch.speed, ch.exhaustion ?? 0),
     }));
   const enemies = parsed.data.enemies.map((e) => ({
     id: e.id ?? `enemy-${crypto.randomUUID()}`,
@@ -146,6 +148,7 @@ combatRoutes.post("/generate", requireAuth, async (c) => {
     exhaustionLevel: ch.exhaustion ?? 0,
     attacksPerTurn: extraAttacksForClass(ch.className, ch.level),
     darkvision: raceHasDarkvision(ch.race),
+    speed: exhaustedSpeed(ch.speed, ch.exhaustion ?? 0),
   }));
 
   let state = startCombat(state0, [...combatants, ...monsters]);
