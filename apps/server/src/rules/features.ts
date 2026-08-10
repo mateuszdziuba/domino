@@ -258,6 +258,12 @@ export const CLASSES: ClassDef[] = [
     hitDie: 12,
     savingThrows: ["strength", "constitution"],
     features: [
+              {
+          name: "Biegłość w broniach (Weapon Mastery)",
+          description: "Możesz używać właściwości masterii dwóch rodzajów prostych lub wojskowych broni do walki wręcz według wyboru (np. wielki topór i toporek). Po długim odpoczynku możesz przećwiczyć techniki i zmienić jedno z wyborów.",
+          level: 1,
+        },
+
       {
         name: "Szał (Rage)",
         description:
@@ -276,7 +282,13 @@ export const CLASSES: ClassDef[] = [
           "Podczas swojej tury możesz atakować z przewagą bronią walki wręcz, ale ataki wymierzone w ciebie mają przewagę do początku twojej następnej tury.",
         level: 2,
       },
-      {
+      
+              {
+          name: "Pierwotna wiedza (Primal Knowledge)",
+          description: "Zyskujesz biegłość w kolejnej umiejętności według wyboru. Ponadto podczas Szału testy cech z Akrobatyki, Zastraszania, Percepcji, Skradania lub Przetrwania możesz wykonywać jako testy Siły.",
+          level: 3,
+        },
+{
         name: "Niebezpieczny zmysł (Danger Sense)",
         description:
           "Masz przewagę w rzutach obronnych Zręczności przeciw efektom, które widzisz — w tym przeciw zasadzkom.",
@@ -379,7 +391,13 @@ export const CLASSES: ClassDef[] = [
           "Jeśli suma testu Siły lub rzutu obronnego Siły jest niższa niż twój wynik Siły, możesz użyć wyniku Siły w zamian.",
         level: 18,
       },
-      {
+      
+              {
+          name: "Epicki dar (Epic Boon)",
+          description: "Zyskujesz feat Epicki Dar (Epic Boon) według wyboru (patrz Featy) albo inny feat, na który się kwalifikujesz. Zalecany: Boon of Irresistible Offense.",
+          level: 19,
+        },
+{
         name: "Poprawa cech (ASI)",
         description:
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
@@ -466,7 +484,7 @@ export const CLASSES: ClassDef[] = [
         name: "Ekspertyza (Expertise)",
         description:
           "Wybierasz dwie umiejętności, w których masz biegłość, ale nie Ekspertyzę, i zyskujesz w nich Ekspertyzę.",
-        level: 9,
+        level: 2,
       },
       {
         name: "Tajemnice magiczne (Magical Secrets)",
@@ -517,7 +535,13 @@ export const CLASSES: ClassDef[] = [
           "Gdy rzucasz na inicjatywę, odzyskujesz użycia Inspiracji barda do dwóch, jeśli masz ich mniej.",
         level: 18,
       },
-      {
+      
+              {
+          name: "Epicki dar (Epic Boon)",
+          description: "Zyskujesz feat Epicki Dar (Epic Boon) według wyboru (patrz Featy) albo inny feat, na który się kwalifikujesz. Zalecany: Boon of Irresistible Offense.",
+          level: 19,
+        },
+{
         name: "Poprawa cech (ASI)",
         description:
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
@@ -659,7 +683,13 @@ export const CLASSES: ClassDef[] = [
         description: "Liczba użyć Kanału bóstwa między odpoczynkami rośnie do 4.",
         level: 18,
       },
-      {
+      
+              {
+          name: "Epicki dar (Epic Boon)",
+          description: "Zyskujesz feat Epicki Dar (Epic Boon) według wyboru (patrz Featy) albo inny feat, na który się kwalifikujesz. Zalecany: Boon of Irresistible Offense.",
+          level: 19,
+        },
+{
         name: "Poprawa cech (ASI)",
         description:
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
@@ -697,6 +727,17 @@ export const CLASSES: ClassDef[] = [
     hitDie: 8,
     savingThrows: ["intelligence", "wisdom"],
     features: [
+              {
+          name: "Druidyczny (Druidic)",
+          description: "Znasz sekretny język druidów. Zawsze masz przygotowane zaklęcie Speak with Animals. Druidycznym możesz zostawiać ukryte wiadomości — widzą je tylko znający język; inni wykryją ich obecność testem Inteligencji (Śledztwo) DC 15.",
+          level: 1,
+        },
+              {
+          name: "Pierwotny zakon (Primal Order)",
+          description: "Poświęcasz się jednej z dwóch ról: Mag — znasz dodatkową cantripę z listy druida i dodajesz modyfikator Mądrości do testów Inteligencji (Tajemnice lub Natura); Strażnik — zyskujesz biegłość w broniach wojskowych i średnich pancerzach.",
+          level: 1,
+        },
+
       {
         name: "Rzucanie zaklęć (Spellcasting)",
         description: "Rzucasz zaklęcia druida; twoim atrybutem rzucania jest Mądrość.",
@@ -791,7 +832,13 @@ export const CLASSES: ClassDef[] = [
           "Podczas Dzikich kształtów możesz rzucać zaklęcia w formie bestii, z wyjątkiem zaklęć wymagających składnika materialnego o określonym koszcie lub go zużywających.",
         level: 18,
       },
-      {
+      
+              {
+          name: "Epicki dar (Epic Boon)",
+          description: "Zyskujesz feat Epicki Dar (Epic Boon) według wyboru (patrz Featy) albo inny feat, na który się kwalifikujesz. Zalecany: Boon of Irresistible Offense.",
+          level: 19,
+        },
+{
         name: "Poprawa cech (ASI)",
         description:
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
@@ -829,6 +876,17 @@ export const CLASSES: ClassDef[] = [
     hitDie: 10,
     savingThrows: ["strength", "constitution"],
     features: [
+              {
+          name: "Biegłość w broniach (Weapon Mastery)",
+          description: "Możesz używać właściwości masterii dwóch rodzajów prostych lub wojskowych broni do walki wręcz według wyboru (np. wielki topór i toporek). Po długim odpoczynku możesz przećwiczyć techniki i zmienić jedno z wyborów.",
+          level: 1,
+        },
+              {
+          name: "Taktyczny umysł (Tactical Mind)",
+          description: "Gdy nie powiedzie ci się test cech, możesz wydać użycie Drugiego Oddechu, aby wspomóc się: zamiast odzyskiwania punktów życia rzucasz 1k10 i dodajesz wynik do testu. Jeśli test nadal się nie powiedzie, użycie Drugiego Oddechu nie jest tracone.",
+          level: 2,
+        },
+
       {
         name: "Styl walki (Fighting Style)",
         description: "Wybierasz styl walki, który daje ci stałą premię w walce.",
@@ -953,7 +1011,13 @@ export const CLASSES: ClassDef[] = [
         description: "Zyskujesz kolejną zdolność swojej podklasy wojownika.",
         level: 18,
       },
-      {
+      
+              {
+          name: "Epicki dar (Epic Boon)",
+          description: "Zyskujesz feat Epicki Dar (Epic Boon) według wyboru (patrz Featy) albo inny feat, na który się kwalifikujesz. Zalecany: Boon of Irresistible Offense.",
+          level: 19,
+        },
+{
         name: "Poprawa cech (ASI)",
         description:
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
@@ -984,6 +1048,17 @@ export const CLASSES: ClassDef[] = [
     hitDie: 8,
     savingThrows: ["strength", "dexterity"],
     features: [
+              {
+          name: "Nadzwyczajny metabolizm (Uncanny Metabolism)",
+          description: "Gdy rzucasz inicjatywę, możesz odzyskać wszystkie wydane punkty skupienia, a także rzucić kością Sztuk Walki i odzyskać tyle punktów życia, ile wynosi twój poziom mnicha plus wynik. Raz na długi odpoczynek.",
+          level: 2,
+        },
+              {
+          name: "Odparcie ataków (Deflect Attacks)",
+          description: "Gdy trafi cię atak z obrażeniami obuchowymi, kłutymi lub siecznymi, reakcją możesz zmniejszyć obrażenia o 1k10 + modyfikator Zręczności + poziom mnicha. Jeśli zredukujesz je do 0, możesz wydać 1 punkt skupienia, aby odbić część siły ataku w istotę w zasięgu 5 stóp.",
+          level: 3,
+        },
+
       {
         name: "Sztuki walki (Martial Arts)",
         description:
@@ -1140,7 +1215,13 @@ export const CLASSES: ClassDef[] = [
           "Na początku swojej tury możesz wydać 3 punkty skupienia, aby na 1 minutę uzyskać odporność na wszystkie obrażenia oprócz siłowych.",
         level: 18,
       },
-      {
+      
+              {
+          name: "Epicki dar (Epic Boon)",
+          description: "Zyskujesz feat Epicki Dar (Epic Boon) według wyboru (patrz Featy) albo inny feat, na który się kwalifikujesz. Zalecany: Boon of Irresistible Offense.",
+          level: 19,
+        },
+{
         name: "Poprawa cech (ASI)",
         description:
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
@@ -1171,6 +1252,12 @@ export const CLASSES: ClassDef[] = [
     hitDie: 10,
     savingThrows: ["wisdom", "charisma"],
     features: [
+              {
+          name: "Biegłość w broniach (Weapon Mastery)",
+          description: "Możesz używać właściwości masterii dwóch rodzajów prostych lub wojskowych broni do walki wręcz według wyboru (np. wielki topór i toporek). Po długim odpoczynku możesz przećwiczyć techniki i zmienić jedno z wyborów.",
+          level: 1,
+        },
+
       {
         name: "Nałożenie rąk (Lay on Hands)",
         description:
@@ -1186,7 +1273,7 @@ export const CLASSES: ClassDef[] = [
       {
         name: "Rzucanie zaklęć (Spellcasting)",
         description: "Rzucasz zaklęcia paladyna; twoim atrybutem rzucania jest Charyzma.",
-        level: 2,
+        level: 1,
       },
       {
         name: "Styl walki (Fighting Style)",
@@ -1290,7 +1377,13 @@ export const CLASSES: ClassDef[] = [
         description: "Zasięg twojej Aury ochrony rośnie do 30 stóp.",
         level: 18,
       },
-      {
+      
+              {
+          name: "Epicki dar (Epic Boon)",
+          description: "Zyskujesz feat Epicki Dar (Epic Boon) według wyboru (patrz Featy) albo inny feat, na który się kwalifikujesz. Zalecany: Boon of Irresistible Offense.",
+          level: 19,
+        },
+{
         name: "Poprawa cech (ASI)",
         description:
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
@@ -1327,6 +1420,17 @@ export const CLASSES: ClassDef[] = [
     hitDie: 10,
     savingThrows: ["strength", "dexterity"],
     features: [
+              {
+          name: "Biegłość w broniach (Weapon Mastery)",
+          description: "Możesz używać właściwości masterii dwóch rodzajów prostych lub wojskowych broni do walki wręcz według wyboru (np. wielki topór i toporek). Po długim odpoczynku możesz przećwiczyć techniki i zmienić jedno z wyborów.",
+          level: 1,
+        },
+              {
+          name: "Zręczny odkrywca (Deft Explorer)",
+          description: "Zyskujesz Ekspertyzę w jednej z twoich biegłości umiejętności, w której jej nie masz, oraz znajomość dwóch języków według wyboru.",
+          level: 2,
+        },
+
       {
         name: "Ulubiony wróg (Favored Enemy)",
         description:
@@ -1341,7 +1445,7 @@ export const CLASSES: ClassDef[] = [
       {
         name: "Rzucanie zaklęć (Spellcasting)",
         description: "Rzucasz zaklęcia łowcy; twoim atrybutem rzucania jest Mądrość.",
-        level: 2,
+        level: 1,
       },
       {
         name: "Poprawa cech (ASI)",
@@ -1429,7 +1533,13 @@ export const CLASSES: ClassDef[] = [
         description: "Zyskujesz widzenie w ciemności (blindsight) w promieniu 30 stóp.",
         level: 18,
       },
-      {
+      
+              {
+          name: "Epicki dar (Epic Boon)",
+          description: "Zyskujesz feat Epicki Dar (Epic Boon) według wyboru (patrz Featy) albo inny feat, na który się kwalifikujesz. Zalecany: Boon of Irresistible Offense.",
+          level: 19,
+        },
+{
         name: "Poprawa cech (ASI)",
         description:
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
@@ -1460,6 +1570,17 @@ export const CLASSES: ClassDef[] = [
     hitDie: 8,
     savingThrows: ["dexterity", "intelligence"],
     features: [
+              {
+          name: "Biegłość w broniach (Weapon Mastery)",
+          description: "Możesz używać właściwości masterii dwóch rodzajów prostych lub wojskowych broni do walki wręcz według wyboru (np. wielki topór i toporek). Po długim odpoczynku możesz przećwiczyć techniki i zmienić jedno z wyborów.",
+          level: 1,
+        },
+              {
+          name: "Stabilne celowanie (Steady Aim)",
+          description: "Akcją bonusową zyskujesz przewagę na następny rzut ataku w bieżącej turze. Możesz tego użyć tylko, jeśli w tej turze się nie poruszałeś — po użyciu twoja szybkość wynosi 0 do końca tury.",
+          level: 3,
+        },
+
       {
         name: "Ekspertyza (Expertise)",
         description:
@@ -1603,7 +1724,13 @@ export const CLASSES: ClassDef[] = [
           "Żaden rzut ataku nie może mieć przewagi przeciw tobie, chyba że jesteś obezwładniony.",
         level: 18,
       },
-      {
+      
+              {
+          name: "Epicki dar (Epic Boon)",
+          description: "Zyskujesz feat Epicki Dar (Epic Boon) według wyboru (patrz Featy) albo inny feat, na który się kwalifikujesz. Zalecany: Boon of Irresistible Offense.",
+          level: 19,
+        },
+{
         name: "Poprawa cech (ASI)",
         description:
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
@@ -1696,7 +1823,7 @@ export const CLASSES: ClassDef[] = [
         name: "Metamagia (Metamagic)",
         description:
           "Wybierasz dwie opcje Metamagii, np. Podwójne zaklęcie albo Wzmocnione zaklęcie, które możesz stosować za punkty czarów.",
-        level: 10,
+        level: 2,
       },
       {
         name: "Nowy krąg zaklęć (New Spell Circle)",
@@ -1730,17 +1857,19 @@ export const CLASSES: ClassDef[] = [
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
         level: 16,
       },
-      {
-        name: "Metamagia (Metamagic)",
-        description: "Wybierasz dodatkową opcję Metamagii.",
-        level: 17,
-      },
+      
       {
         name: "Cecha pochodzenia (Subclass Feature)",
         description: "Zyskujesz kolejną zdolność swojego smoczego pochodzenia.",
         level: 18,
       },
-      {
+      
+              {
+          name: "Epicki dar (Epic Boon)",
+          description: "Zyskujesz feat Epicki Dar (Epic Boon) według wyboru (patrz Featy) albo inny feat, na który się kwalifikujesz. Zalecany: Boon of Irresistible Offense.",
+          level: 19,
+        },
+{
         name: "Poprawa cech (ASI)",
         description:
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
@@ -1772,6 +1901,12 @@ export const CLASSES: ClassDef[] = [
     hitDie: 8,
     savingThrows: ["wisdom", "charisma"],
     features: [
+              {
+          name: "Magiczna przebiegłość (Magical Cunning)",
+          description: "Przez 1 minutę wykonujesz ezoteryczny rytuał, po którym odzyskujesz wydane sloty Magii Paktu — nie więcej niż połowę maksymalnej liczby (zaokrąglone w górę). Raz na długi odpoczynek.",
+          level: 2,
+        },
+
       {
         name: "Magia paktu (Pact Magic)",
         description:
@@ -1782,7 +1917,7 @@ export const CLASSES: ClassDef[] = [
         name: "Mistyczne przyzwania (Eldritch Invocations)",
         description:
           "Wybierasz przyzwania, które dają ci trwałe zdolności magiczne; ich liczba rośnie z poziomem.",
-        level: 2,
+        level: 1,
       },
       {
         name: "Dar paktu (Pact Boon)",
@@ -1871,7 +2006,13 @@ export const CLASSES: ClassDef[] = [
         description: "Liczba znanych ci przyzwań rośnie do 10.",
         level: 18,
       },
-      {
+      
+              {
+          name: "Epicki dar (Epic Boon)",
+          description: "Zyskujesz feat Epicki Dar (Epic Boon) według wyboru (patrz Featy) albo inny feat, na który się kwalifikujesz. Zalecany: Boon of Irresistible Offense.",
+          level: 19,
+        },
+{
         name: "Poprawa cech (ASI)",
         description:
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",
@@ -1903,6 +2044,17 @@ export const CLASSES: ClassDef[] = [
     hitDie: 6,
     savingThrows: ["intelligence", "wisdom"],
     features: [
+              {
+          name: "Znawca rytuałów (Ritual Adept)",
+          description: "Możesz rzucać dowolne zaklęcie z cechą Rytuał, jeśli znajduje się w twojej księdze zaklęć — nie musi być przygotowane, ale musisz czytać z księgi.",
+          level: 1,
+        },
+              {
+          name: "Uczony (Scholar)",
+          description: "Specjalizujesz się w jednej z umiejętności, w której masz biegłość: Tajemnice, Historia, Śledztwo, Medycyna, Natura lub Religia. Zyskujesz w niej Ekspertyzę.",
+          level: 2,
+        },
+
       {
         name: "Rzucanie zaklęć (Spellcasting)",
         description: "Rzucasz zaklęcia czarodzieja; twoim atrybutem rzucania jest Inteligencja.",
@@ -1995,7 +2147,13 @@ export const CLASSES: ClassDef[] = [
           "Wybierasz zaklęcie 1. i 2. kręgu z księgi z czasem rzucania równym akcji: masz je zawsze przygotowane i rzucasz je bez wydawania slotów.",
         level: 18,
       },
-      {
+      
+              {
+          name: "Epicki dar (Epic Boon)",
+          description: "Zyskujesz feat Epicki Dar (Epic Boon) według wyboru (patrz Featy) albo inny feat, na który się kwalifikujesz. Zalecany: Boon of Irresistible Offense.",
+          level: 19,
+        },
+{
         name: "Poprawa cech (ASI)",
         description:
           "Zwiększ jedną cechę o 2 albo dwie o 1 (maks. 20) lub wybierz feat zamiast poprawy.",

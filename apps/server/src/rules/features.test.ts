@@ -54,12 +54,16 @@ describe("SRD 5.2.1 classes", () => {
   });
 
   it("covers every class level 4-20 with class or subclass features", () => {
+    // SRD 5.2.1: Bard has no feature at level 9 (next is Magical Secrets at 10).
+    const noFeatureAtLevel: Record<string, number[]> = { Bard: [9], Sorcerer: [10, 17] };
     for (const klass of CLASSES) {
       const covered = new Set([
         ...klass.features.map((f) => f.level),
         ...klass.subclasses.flatMap((s) => s.features.map((f) => f.level)),
       ]);
+      const exempt = new Set(noFeatureAtLevel[klass.name] ?? []);
       for (let level = 4; level <= 20; level++) {
+        if (exempt.has(level)) continue;
         expect(covered.has(level), `${klass.name} has no feature at level ${level}`).toBe(
           true,
         );
@@ -179,7 +183,7 @@ describe("buildCharacterFeatures", () => {
       level: 3,
     });
     expect(onlyClass.filter((f) => f.category === "race")).toHaveLength(0);
-    expect(onlyClass.filter((f) => f.category === "class")).toHaveLength(3);
+    expect(onlyClass.filter((f) => f.category === "class")).toHaveLength(5);
     const onlyRace = buildCharacterFeatures({ race: "Human", className: "Ninja", level: 3 });
     expect(onlyRace.filter((f) => f.category === "race")).toHaveLength(2);
     expect(onlyRace.filter((f) => f.category === "class")).toHaveLength(0);
