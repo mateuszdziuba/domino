@@ -59,7 +59,7 @@ import {
   type SpellDef,
   type SpellCastResult,
 } from "../rules/spells.js";
-import { buildEncounter, randomEncounter } from "../rules/monsters.js";
+import { buildEncounter, randomEncounter, MONSTERS } from "../rules/monsters.js";
 import { EQUIPMENT_SLOTS, isSlotKey } from "../rules/equipment.js";
 import {
   equippedWeaponAttackInput,
@@ -1198,6 +1198,141 @@ export async function runDmTool(
         };
       }
       return { ok: false, message: "Nie znaleziono celu." };
+    }
+    case "monster_cast": {
+      const parsed = z
+        .object({
+          combatantId: z.string().min(1),
+          spellName: z.string().min(1),
+          targetId: z.string().min(1),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return { ok: false, message: "Wymagane są combatantId, spellName i targetId." };
+      }
+      const state = loadState(campaignId);
+      if (!state.combat.active) return { ok: false, message: "Brak walki w toku." };
+      const caster = findCombatant(state, parsed.data.combatantId);
+      if (!caster) return { ok: false, message: "Nie znaleziono kombatanta." };
+      if (caster.characterId) {
+        return { ok: false, message: "Ten kombatant nie jest potworem — użyj cast_spell." };
+      }
+      const current = currentTurnCombatant(state);
+      if (!current || current.id !== caster.id) {
+        return { ok: false, message: "To nie tura tego kombatanta." };
+      }
+      if (!canAct(caster)) {
+        return { ok: false, message: "Rzucający jest obezwładniony i nie może działać." };
+      }
+      const def = findSpellByName(parsed.data.spellName);
+      const monster = MONSTERS.find((m) => caster.id.startsWith(`${m.key}-`));
+      if (!def || !monster?.spells?.includes(def.name)) {
+        return { ok: false, message: "Ten potwór nie zna tego zaklęcia." };
+      }
+      const target = findCombatant(state, parsed.data.targetId);
+      if (!target) return { ok: false, message: "Nie znaleziono celu w walce." };
+      if (target.status === "dead") return { ok: false, message: "Cel jest martwy." };
+      const stats: SpellCasterStats = {
+        spellAttackBonus: monster.spellAttackBonus ?? 0,
+        spellSaveDc: monster.spellSaveDc ?? 10,
+        spellAbilityMod: 0,
+      };
+      const result = resolveSpellCast(def, stats, target);
+      const concentrationApplied =
+        "concentration" in def.effect && def.effect.concentration === true;
+      const previousSpell = concentrationApplied
+        ? caster.concentratingOn
+        : undefined;
+      const casterUpdated: Combatant = {
+        ...caster,
+        ...(concentrationApplied ? { concentratingOn: def.name, conSaveMod: 0 } : {}),
+        ...(def.effect.castingTime === "bonus"
+          ? { bonusActionAvailable: false }
+          : { attacksLeft: (caster.attacksLeft ?? 1) - 1 }),
+      };
+      let updated: Combatant = {
+        ...target,
+        currentHp: result.targetCurrentHp,
+        status: result.targetStatus,
+      };
+      if (result.riderApplied) {
+        updated = applySpellRider(updated, def) ?? updated;
+      } else if (
+        result.hit &&
+        ((target.conditions ?? []).includes(GUIDING_BOLT_MARKER) ||
+          (target.conditions ?? []).includes(VEXED_MARKER))
+      ) {
+        updated = {
+          ...updated,
+          conditions: (target.conditions ?? []).filter(
+            (c) => c !== GUIDING_BOLT_MARKER && c !== VEXED_MARKER,
+          ),
+        };
+      }
+      if (result.conditionApplied) {
+        const existing = updated.conditions ?? [];
+        if (!existing.includes(result.conditionApplied)) {
+          updated = { ...updated, conditions: [...existing, result.conditionApplied] };
+        }
+      } else if (result.conditionRemoved) {
+        updated = {
+          ...updated,
+          conditions: (updated.conditions ?? []).filter(
+            (c) => c !== result.conditionRemoved,
+          ),
+        };
+      }
+      if (def.effect.kind === "restore") {
+        if (result.restoredExhaustion) {
+          updated = {
+            ...updated,
+            exhaustionLevel: Math.max(0, (updated.exhaustionLevel ?? 0) - 1),
+          };
+        } else if (result.restoredCondition) {
+          updated = {
+            ...updated,
+            conditions: (updated.conditions ?? []).filter(
+              (c) => c !== result.restoredCondition,
+            ),
+          };
+        }
+      }
+      const combatants = state.combat.combatants.map((c) => {
+        if (c.id === caster.id) {
+          return c.id === target.id
+            ? {
+                ...updated,
+                attacksLeft: casterUpdated.attacksLeft,
+                bonusActionAvailable: casterUpdated.bonusActionAvailable,
+                concentratingOn: casterUpdated.concentratingOn,
+              }
+            : casterUpdated;
+        }
+        return c.id === target.id ? updated : c;
+      });
+      saveState(campaignId, {
+        ...state,
+        combat: { ...state.combat, combatants },
+        updatedAt: new Date().toISOString(),
+      });
+      if (target.characterId) {
+        updateCharacterHp(target.characterId, result.targetCurrentHp);
+      }
+      pushEvent(campaignId, "action.resolved", {
+        type: "spell",
+        spell: def.name,
+        caster: caster.name,
+        target: target.name,
+        ...result,
+        ...(concentrationApplied ? { concentration: true } : {}),
+      });
+      const message = spellNarration(def, caster.name, target, result);
+      const concentrationNote = concentrationApplied
+        ? previousSpell
+          ? ` ${caster.name} kończy koncentrację na ${previousSpell} i zaczyna koncentrować się na ${def.name}.`
+          : ` ${caster.name} zaczyna koncentrować się na zaklęciu ${def.name}.`
+        : "";
+      return { ok: true, message: `${message}${concentrationNote}`, data: result };
     }
     case "resolve_death_save": {
       const parsed = z.object({ combatantId: z.string().min(1) }).safeParse(rawArgs);

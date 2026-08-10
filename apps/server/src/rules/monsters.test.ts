@@ -91,6 +91,61 @@ describe("monster catalog", () => {
     expect(byKey.get("troll")!.speed).toBe(30);
     expect(byKey.get("hill-giant")!.speed).toBe(40);
   });
+
+  it("carries the SRD spellcaster Acolyte (spells, save DC, attack bonus)", () => {
+    const acolyte = MONSTERS.find((m) => m.key === "acolyte")!;
+    expect(acolyte).toBeDefined();
+    expect(acolyte.name).toBe("Acolyte");
+    expect(acolyte.cr).toBe(0.25);
+    expect(acolyte.maxHp).toBe(9);
+    expect(acolyte.armorClass).toBe(10);
+    expect(acolyte.attackBonus).toBe(2);
+    expect(acolyte.damageNotation).toBe("1d4");
+    expect(acolyte.damageBonus).toBe(0);
+    expect(acolyte.attacks).toBe(1);
+    expect(acolyte.spells).toEqual(["Sacred Flame", "Cure Wounds", "Spare the Dying"]);
+    expect(acolyte.spellSaveDc).toBe(11);
+    expect(acolyte.spellAttackBonus).toBe(3);
+  });
+
+  it("carries the SRD spellcaster Priest (spells, save DC, attack bonus)", () => {
+    const priest = MONSTERS.find((m) => m.key === "priest")!;
+    expect(priest).toBeDefined();
+    expect(priest.name).toBe("Priest");
+    expect(priest.cr).toBe(2);
+    expect(priest.maxHp).toBe(27);
+    expect(priest.armorClass).toBe(13);
+    expect(priest.attackBonus).toBe(4);
+    expect(priest.damageNotation).toBe("1d6");
+    expect(priest.damageBonus).toBe(1);
+    expect(priest.attacks).toBe(1);
+    expect(priest.spells).toEqual([
+      "Sacred Flame",
+      "Cure Wounds",
+      "Guiding Bolt",
+      "Lesser Restoration",
+      "Spiritual Weapon",
+      "Spirit Guardians",
+    ]);
+    expect(priest.spellSaveDc).toBe(13);
+    expect(priest.spellAttackBonus).toBe(5);
+  });
+
+  it("matches acolytes and priests from temple/cleric descriptions", () => {
+    const acolyte = matchMonsters("an acolyte guards the temple");
+    expect(acolyte.map((m) => m.key)).toContain("acolyte");
+    const priest = matchMonsters("a priest of the temple preaches");
+    expect(priest.map((m) => m.key)).toContain("priest");
+  });
+
+  it("builds spellcaster combatants into encounters", () => {
+    const encounter = buildEncounter("a priest and acolytes of the temple", 4);
+    const keys = new Set(
+      encounter.map((e) => MONSTERS.find((m) => e.id.startsWith(`${m.key}-`))?.key),
+    );
+    expect(keys.has("priest")).toBe(true);
+    expect(keys.has("acolyte")).toBe(true);
+  });
 });
 
 describe("matchMonsters", () => {

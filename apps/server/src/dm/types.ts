@@ -12,6 +12,7 @@ export type DmToolName =
   | "move_combatant"
   | "set_lighting"
   | "cast_spell"
+  | "monster_cast"
   | "resolve_death_save"
   | "advance_turn"
   | "end_combat"
@@ -125,6 +126,16 @@ export const DM_TOOLS: DmTool[] = [
       "Cast a known spell through the rules engine. In combat the caster must be the current combatant; the target is a combatant id. Outside combat only healing/stabilizing cantrips and spells are allowed, and the target is a character id. Consumes a spell slot (cantrips are free). Concentration spells (Hold Person, Blindness/Deafness, Spirit Guardians, Banishment, Blade Barrier) start concentration and replace any spell the caster was already concentrating on. Spells are resolved by the engine — never invent damage or healing.",
     parameters: {
       characterId: { type: "string" },
+      spellName: { type: "string" },
+      targetId: { type: "string" },
+    },
+  },
+  {
+    name: "monster_cast",
+    description:
+      "Cast a spell known to a monster spellcaster (SRD 5.2.1 stat block) through the rules engine. The caster must be a monster combatant (no characterId) on its turn. The spell list, spell save DC and spell attack bonus come from the SRD stat block; damage, healing, conditions and concentration are resolved by the engine — never invent damage or healing.",
+    parameters: {
+      combatantId: { type: "string" },
       spellName: { type: "string" },
       targetId: { type: "string" },
     },

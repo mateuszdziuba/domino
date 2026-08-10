@@ -2137,6 +2137,254 @@ describe("runDmTool cast_spell (mocked store)", () => {
   });
 });
 
+describe("runDmTool monster_cast (mocked store)", () => {
+  function priestCombatState(overrides: Partial<CampaignState> = {}): CampaignState {
+    return {
+      ...mock.defaultState(),
+      phase: "combat",
+      combat: {
+        active: true,
+        turnIndex: 0,
+        round: 1,
+        combatants: [
+          {
+            id: "priest-0",
+            name: "Priest",
+            isPlayer: false,
+            initiative: 18,
+            currentHp: 27,
+            maxHp: 27,
+            armorClass: 13,
+            status: "active",
+            attacksPerTurn: 1,
+            attacksLeft: 1,
+          },
+          {
+            id: "char-ch1",
+            name: "Aria",
+            characterId: "ch1",
+            isPlayer: true,
+            initiative: 5,
+            currentHp: 10,
+            maxHp: 10,
+            armorClass: 15,
+            status: "active",
+            deathSaveSuccesses: 0,
+            deathSaveFailures: 0,
+          },
+        ],
+      },
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    mock.states.set("c1", priestCombatState());
+  });
+
+  it("a Priest casts Spirit Guardians at a player, applying damage and the event payload", async () => {
+    const original = Math.random;
+    Math.random = () => 0; // save 1 < DC 13 -> hit, 3d8 = 3 damage
+    const result = await runTool("monster_cast", {
+      combatantId: "priest-0",
+      spellName: "Spirit Guardians",
+      targetId: "char-ch1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Spirit Guardians");
+    expect(result.message).toContain("3 obrażeń");
+    const aria = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(aria.currentHp).toBe(7);
+    expect(aria.status).toBe("active");
+    const priest = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "priest-0")!;
+    expect(priest.concentratingOn).toBe("Spirit Guardians");
+    expect(priest.attacksLeft).toBe(0);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 7);
+    expect(result.data).toEqual({
+      hit: true,
+      critical: false,
+      saveDc: 13,
+      saveTotal: 1,
+      damageTotal: 3,
+      damageRolls: [1, 1, 1],
+      healed: 0,
+      healRolls: [],
+      targetCurrentHp: 7,
+      targetStatus: "active",
+    });
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "spell",
+        spell: "Spirit Guardians",
+        caster: "Priest",
+        target: "Aria",
+        damageTotal: 3,
+        saveDc: 13,
+        saveTotal: 1,
+        concentration: true,
+      }),
+    );
+  });
+
+  it("heals an ally with Cure Wounds and writes back the player's HP", async () => {
+    const state = priestCombatState();
+    state.combat.combatants[1] = { ...state.combat.combatants[1]!, currentHp: 4 };
+    mock.states.set("c1", state);
+    mock.characters.set("ch1", { ...aria, currentHp: 4 });
+    const original = Math.random;
+    Math.random = () => 0.9; // 1d8 = 8
+    const result = await runTool("monster_cast", {
+      combatantId: "priest-0",
+      spellName: "Cure Wounds",
+      targetId: "char-ch1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("leczy o 8");
+    const ariaCombatant = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(ariaCombatant.currentHp).toBe(10);
+    expect(ariaCombatant.status).toBe("active");
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 10);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({
+        type: "spell",
+        spell: "Cure Wounds",
+        caster: "Priest",
+        target: "Aria",
+        healed: 8,
+      }),
+    );
+  });
+
+  it("rejects a spell the monster does not know", async () => {
+    const result = await runTool("monster_cast", {
+      combatantId: "priest-0",
+      spellName: "Fireball",
+      targetId: "char-ch1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Ten potwór nie zna tego zaklęcia.");
+    expect(mock.updateCharacterHp).not.toHaveBeenCalled();
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a known spell that is not on the monster's spell list", async () => {
+    const result = await runTool("monster_cast", {
+      combatantId: "priest-0",
+      spellName: "Revivify",
+      targetId: "char-ch1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Ten potwór nie zna tego zaklęcia.");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a player character as the caster", async () => {
+    mock.states.set("c1", stateWithCombat());
+    const result = await runTool("monster_cast", {
+      combatantId: "char-ch1",
+      spellName: "Sacred Flame",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("nie jest potworem");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects an off-turn monster caster", async () => {
+    const state = priestCombatState();
+    state.combat.turnIndex = 1;
+    mock.states.set("c1", state);
+    const result = await runTool("monster_cast", {
+      combatantId: "priest-0",
+      spellName: "Sacred Flame",
+      targetId: "char-ch1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("To nie tura tego kombatanta.");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects without active combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    const result = await runTool("monster_cast", {
+      combatantId: "priest-0",
+      spellName: "Sacred Flame",
+      targetId: "char-ch1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Brak walki");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown combatant and a missing target", async () => {
+    const ghost = await runTool("monster_cast", {
+      combatantId: "ghost",
+      spellName: "Sacred Flame",
+      targetId: "char-ch1",
+    });
+    expect(ghost.ok).toBe(false);
+    expect(ghost.message).toContain("Nie znaleziono kombatanta");
+    const notarget = await runTool("monster_cast", {
+      combatantId: "priest-0",
+      spellName: "Sacred Flame",
+      targetId: "ghost",
+    });
+    expect(notarget.ok).toBe(false);
+    expect(notarget.message).toContain("Nie znaleziono celu");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a dead target", async () => {
+    const state = priestCombatState();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      currentHp: 0,
+      status: "dead",
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("monster_cast", {
+      combatantId: "priest-0",
+      spellName: "Sacred Flame",
+      targetId: "char-ch1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("martwy");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("Guiding Bolt uses the monster's spell attack bonus", async () => {
+    const original = Math.random;
+    Math.random = () => 0.9; // d20 = 19, 4d6 = 6 each
+    const result = await runTool("monster_cast", {
+      combatantId: "priest-0",
+      spellName: "Guiding Bolt",
+      targetId: "char-ch1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    const data = result.data as { attackTotal: number; damageTotal: number };
+    expect(data.attackTotal).toBe(24); // 19 + spellAttackBonus 5
+    expect(data.damageTotal).toBe(24); // 4d6 all sixes
+    const aria = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(aria.currentHp).toBe(0);
+    expect(aria.status).toBe("downed");
+  });
+});
+
 describe("runDmTool take_long_rest (mocked store)", () => {
   it("heals every campaign member to full and returns to exploration", async () => {
     mock.states.clear();

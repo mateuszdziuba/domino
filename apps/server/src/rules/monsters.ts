@@ -16,6 +16,9 @@ export type Monster = {
   tags: string[];
   traits: string[];
   speed?: number;
+  spells?: string[];
+  spellSaveDc?: number;
+  spellAttackBonus?: number;
 };
 
 export const MONSTERS: Monster[] = [
@@ -26,6 +29,8 @@ export const MONSTERS: Monster[] = [
   { key: "zombie", name: "Zombie", maxHp: 22, armorClass: 8, attackBonus: 3, damageNotation: "1d6", damageBonus: 1, cr: 0.25, attacks: 1, tags: ["zombie", "undead", "corpse", "tomb", "swamp"], traits: ["undead_fortitude"], speed: 20 },
   { key: "bandit", name: "Bandit", maxHp: 11, armorClass: 12, attackBonus: 3, damageNotation: "1d8", damageBonus: 1, cr: 0.125, attacks: 1, tags: ["bandit", "outlaw", "road", "thug", "ambush", "bandyt", "rabus", "złodziej"], traits: [], speed: 30 },
   { key: "cultist", name: "Cultist", maxHp: 9, armorClass: 12, attackBonus: 2, damageNotation: "1d6", damageBonus: 0, cr: 0.125, attacks: 1, tags: ["cultist", "cult", "ritual", "shrine", "fanatic", "kultysta", "kultysci", "kult"], traits: [], speed: 30 },
+  { key: "acolyte", name: "Acolyte", maxHp: 9, armorClass: 10, attackBonus: 2, damageNotation: "1d4", damageBonus: 0, cr: 0.25, attacks: 1, tags: ["acolyte", "cult", "temple", "cleric"], traits: [], speed: 30, spells: ["Sacred Flame", "Cure Wounds", "Spare the Dying"], spellSaveDc: 11, spellAttackBonus: 3 },
+  { key: "priest", name: "Priest", maxHp: 27, armorClass: 13, attackBonus: 4, damageNotation: "1d6", damageBonus: 1, cr: 2, attacks: 1, tags: ["priest", "temple", "cleric", "holy"], traits: [], speed: 30, spells: ["Sacred Flame", "Cure Wounds", "Guiding Bolt", "Lesser Restoration", "Spiritual Weapon", "Spirit Guardians"], spellSaveDc: 13, spellAttackBonus: 5 },
   { key: "giant-spider", name: "Giant Spider", maxHp: 26, armorClass: 14, attackBonus: 5, damageNotation: "1d8", damageBonus: 3, cr: 1, attacks: 1, tags: ["spider", "web", "forest", "cave", "pająk", "pajaki"], traits: ["web"], speed: 30 },
   { key: "hobgoblin", name: "Hobgoblin", maxHp: 11, armorClass: 18, attackBonus: 3, damageNotation: "1d8", damageBonus: 1, cr: 0.5, attacks: 1, tags: ["hobgoblin", "soldier", "war", "goblin", "hobgobliny"], traits: [], speed: 30 },
   { key: "orc", name: "Orc", maxHp: 15, armorClass: 13, attackBonus: 5, damageNotation: "1d12", damageBonus: 3, cr: 0.5, attacks: 1, tags: ["orc", "warband", "camp", "raider", "warrior", "ork", "orki"], traits: [], speed: 30 },
