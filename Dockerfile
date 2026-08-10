@@ -1,5 +1,6 @@
 # Stage 1 — build
 FROM node:24-slim AS build
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
@@ -14,6 +15,7 @@ RUN pnpm build
 
 # Stage 2 — runtime (single server: API + static web)
 FROM node:24-slim
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 ENV NODE_ENV=production
 WORKDIR /app
