@@ -230,8 +230,21 @@ export async function llmNarrate(
     { role: "user", content: userMessage },
   ];
 
+  async function callWithRetry(currentMessages: ApiMessage[]) {
+    try {
+      return await callLlm(config.baseUrl, model, apiKey, currentMessages);
+    } catch (err) {
+      console.error("[dm] LLM call failed, retrying with reduced context:", String(err).slice(0, 200));
+      const slim = [
+        currentMessages[0]!,
+        ...currentMessages.slice(-6),
+      ] as ApiMessage[];
+      return await callLlm(config.baseUrl, model, apiKey, slim);
+    }
+  }
+
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const response = await callLlm(config.baseUrl, model, apiKey, messages);
+    const response = await callWithRetry(messages);
     const toolCalls = response.tool_calls ?? [];
 
     if (toolCalls.length === 0) {
@@ -266,10 +279,19 @@ export async function llmNarrate(
     }
   }
 
-  // Tool loop exhausted: give the model one last chance without tools so the
+  // Tool loop exhausted: give the model one last chance WITHOUT tools and with
+  // a clean, small context (no tool-call noise, no huge history) so the
   // session never ends on a silent failure.
+  const fallbackMessages: ApiMessage[] = [
+    { role: "system", content: SYSTEM_PROMPT + partyBlock },
+    ...historyMessages.slice(-4).map((m) => ({
+      role: m.role,
+      content: m.content.slice(0, 2_000),
+    })),
+    { role: "user", content: userMessage.slice(0, 2_000) },
+  ];
   try {
-    const response = await callLlm(config.baseUrl, model, apiKey, messages, false);
+    const response = await callLlm(config.baseUrl, model, apiKey, fallbackMessages, false);
     if (response.content) {
       return {
         narration: stripMarkdown(response.content),
