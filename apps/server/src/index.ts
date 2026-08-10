@@ -1,4 +1,5 @@
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
@@ -20,6 +21,7 @@ app.use(
     credentials: true,
   }),
 );
+app.use("/static/*", serveStatic({ root: "./data" }));
 
 app.get("/api/health", (c) => c.json({ ok: true, service: "domino-server" }));
 

@@ -71,6 +71,13 @@
       "when": 1786197765674,
       "tag": "0009_omniscient_captain_america",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1786371743367,
+      "tag": "0010_giant_nico_minoru",
+      "breakpoints": true
     }
   ]
 }

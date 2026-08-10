@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { Map, Play, Send, Users, Dices, Volume2, VolumeX, ScrollText } from "lucide-react";
+import {
+  Map,
+  Play,
+  Send,
+  Users,
+  Dices,
+  Volume2,
+  VolumeX,
+  ScrollText,
+  Image as ImageIcon,
+} from "lucide-react";
 import {
   campaignApi,
   characterApi,
@@ -39,11 +49,12 @@ import { playDice, playMessage, setSoundEnabled, soundEnabled } from "../lib/sou
 
 type RollEntry = {
   id: string;
-  kind: "attack" | "death-save" | "spell" | "skill" | "item";
+  kind: "attack" | "death-save" | "spell" | "skill" | "item" | "image";
   label: string;
   detail: string;
   createdAt: string;
   animated?: boolean;
+  url?: string;
 };
 
 type LevelUpInfo = {
@@ -412,11 +423,28 @@ export default function CampaignPage() {
   const legalActions = (suggestion?.availableActions.filter((a) => a.legal) ?? []).slice(0, 6);
 
   function mapRollPayload(payload: Record<string, unknown>): {
-    kind: "attack" | "death-save" | "spell" | "skill" | "item";
+    kind: "attack" | "death-save" | "spell" | "skill" | "item" | "image";
     label: string;
     detail: string;
+    url?: string;
   } | null {
     const type = payload.type;
+    if (type === "image") {
+      return {
+        kind: "image",
+        label: "Obraz",
+        detail: String(payload.prompt ?? ""),
+        url: String(payload.url ?? ""),
+      };
+    }
+    if (type === "portrait") {
+      return {
+        kind: "image",
+        label: `Portret: ${String(payload.name ?? "?")}`,
+        detail: "",
+        url: String(payload.url ?? ""),
+      };
+    }
     if (
       type !== "attack" &&
       type !== "death-save" &&
@@ -712,6 +740,26 @@ export default function CampaignPage() {
                       );
                     }
                     const { roll } = item;
+                    if (roll.kind === "image" && roll.url) {
+                      return (
+                        <div
+                          key={roll.id}
+                          className="self-start flex max-w-[85%] flex-col gap-1.5 rounded-sm border border-[#a97e1f]/50 bg-[#efe2c4] p-2"
+                        >
+                          <img
+                            src={roll.url}
+                            alt={roll.label}
+                            loading="lazy"
+                            className="max-h-64 w-full rounded-sm border border-[#b99f6b] object-cover shadow-[0_4px_12px_-4px_rgba(60,40,10,0.4)]"
+                          />
+                          <div className="flex items-center gap-1.5 text-xs text-[#7c6a45]">
+                            <ImageIcon className="size-3.5 shrink-0 text-[#7a4b1d]" />
+                            <span className="font-display tracking-[0.06em] text-[#7a4b1d]">{roll.label}</span>
+                            {roll.detail && <span>{roll.detail}</span>}
+                          </div>
+                        </div>
+                      );
+                    }
                     return (
                       <div
                         key={roll.id}

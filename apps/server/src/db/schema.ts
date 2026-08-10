@@ -66,6 +66,7 @@ export const characters = sqliteTable(
     inspiration: integer("inspiration").notNull().default(0),
     feats: text("feats", { mode: "json" }).notNull().default([]),
     asiLevels: text("asi_levels", { mode: "json" }).notNull().default([]),
+    portraitUrl: text("portrait_url"),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(datetime('now'))`),

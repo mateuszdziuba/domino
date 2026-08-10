@@ -166,14 +166,23 @@ function DrawerContent({
     <div className="flex flex-col">
       <header className="sticky top-0 z-10 border-b border-[#a97e1f]/40 bg-[#fbf3dd]/95 px-5 pb-4 pt-5 backdrop-blur-sm">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="font-display text-lg tracking-[0.08em] text-[#3a2c17]">
-              {character.name}
-            </h2>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              <Badge variant="secondary">{character.race}</Badge>
-              <Badge variant="secondary">{character.className}</Badge>
-              <Badge variant="outline">poz. {character.level}</Badge>
+          <div className="flex min-w-0 items-center gap-3">
+            {character.portraitUrl && (
+              <img
+                src={character.portraitUrl}
+                alt={`Portret ${character.name}`}
+                className="h-16 w-16 shrink-0 rounded-sm border border-[#b99f6b] object-cover shadow-[0_4px_12px_-4px_rgba(60,40,10,0.4)]"
+              />
+            )}
+            <div className="min-w-0">
+              <h2 className="font-display text-lg tracking-[0.08em] text-[#3a2c17]">
+                {character.name}
+              </h2>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                <Badge variant="secondary">{character.race}</Badge>
+                <Badge variant="secondary">{character.className}</Badge>
+                <Badge variant="outline">poz. {character.level}</Badge>
+              </div>
             </div>
           </div>
           <button

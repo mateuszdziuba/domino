@@ -445,6 +445,35 @@ export default function CharacterSheetPage() {
         <Link to="/app/characters" className="text-[#7c6a45] hover:text-[#4a3417]">
           <ArrowLeft className="size-4" />
         </Link>
+        {character.portraitUrl && (
+          <div className="flex flex-col items-center gap-1.5">
+            <img
+              src={character.portraitUrl}
+              alt={`Portret ${character.name}`}
+              className="h-24 w-24 shrink-0 rounded-sm border border-[#b99f6b] object-cover shadow-[0_4px_12px_-4px_rgba(60,40,10,0.4)]"
+            />
+            <TooltipProvider delayDuration={250}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 font-display text-[10px] uppercase tracking-[0.1em] text-[#7c6a45] hover:text-[#3a2c17]"
+                  >
+                    <Sparkles className="size-3.5" />
+                    Wygeneruj portret
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                    Portret generuje DM w czacie (napisz np. „wygeneruj portret {character.name}").
+                  </span>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        )}
         <div>
           <h1 className="text-2xl tracking-[0.1em] text-[#3a2c17]">{character.name}</h1>
           <p className="text-sm text-[#7c6a45]">

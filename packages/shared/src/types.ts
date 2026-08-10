@@ -83,6 +83,7 @@ export type Character = {
   inspiration?: boolean;
   feats?: string[];
   asiLevels?: number[];
+  portraitUrl?: string;
   createdAt: string;
   updatedAt: string;
 };

@@ -239,11 +239,20 @@ export default function CharactersPage() {
         {characters.length === 0 && (
           <p className="text-sm text-muted-foreground">Nie masz jeszcze postaci.</p>
         )}
-        {characters.map((character) => (
-          <Card key={character.id}>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <CardTitle>{character.name}</CardTitle>
+        {characters.map((character) => {
+          const portraitUrl = (character as CharacterSummary & { portraitUrl?: string }).portraitUrl;
+          return (
+            <Card key={character.id}>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  {portraitUrl && (
+                    <img
+                      src={portraitUrl}
+                      alt={`Portret ${character.name}`}
+                      className="h-10 w-10 shrink-0 rounded-sm border border-[#b99f6b] object-cover shadow-[0_4px_12px_-4px_rgba(60,40,10,0.4)]"
+                    />
+                  )}
+                  <CardTitle>{character.name}</CardTitle>
                 <Badge variant="secondary">
                   {character.race} {character.className} · poziom {character.level}
                 </Badge>
@@ -281,8 +290,9 @@ export default function CharactersPage() {
                 </Button>
               </div>
             </CardFooter>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

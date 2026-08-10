@@ -12,11 +12,18 @@ import {
   updateCharacterHitDice,
   updateCharacterExhaustion,
   updateCharacterInspiration,
+  updateCharacterPortrait,
   updateCharacterInventory,
   grantXp,
   grantLoot,
 } from "../campaign/store.js";
 import { buildDmSuggestion, getAvailableActions } from "../rules/actions.js";
+import {
+  buildPortraitPrompt,
+  generateImage,
+  imageProvider,
+  isImageConfigured,
+} from "./image.js";
 import { d, rollD20, rollDiceNotation } from "../rules/dice.js";
 import { xpAwardForDeadEnemies, hitDieForClass } from "../rules/advancement.js";
 import {
@@ -1873,6 +1880,53 @@ export async function runDmTool(
           parsed.data.reason ? ` (${parsed.data.reason})` : ""
         }`,
         data: result,
+      };
+    }
+    case "generate_image": {
+      const parsed = z
+        .object({
+          prompt: z.string().min(3).max(500),
+          style: z.string().max(60).optional(),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) return { ok: false, message: "Wymagany jest opis (min. 3 znaki)." };
+      if (!isImageConfigured()) {
+        return { ok: false, message: "Generowanie obrazów jest wyłączone (IMAGE_PROVIDER)." };
+      }
+      const fullPrompt = parsed.data.style
+        ? `${parsed.data.prompt}, ${parsed.data.style}`
+        : parsed.data.prompt;
+      const image = await generateImage(fullPrompt);
+      if (!image.ok) return { ok: false, message: image.error };
+      pushEvent(campaignId, "action.resolved", {
+        type: "image",
+        prompt: fullPrompt,
+        url: image.url,
+        provider: imageProvider(),
+      });
+      return { ok: true, message: `Wygenerowano obraz: ${image.url}`, data: { url: image.url } };
+    }
+    case "generate_portrait": {
+      const parsed = z.object({ characterId: z.string().min(1) }).safeParse(rawArgs);
+      if (!parsed.success) return { ok: false, message: "Wymagany jest characterId." };
+      const character = getCharacterById(parsed.data.characterId);
+      if (!character) return { ok: false, message: "Nie znaleziono postaci." };
+      if (!isImageConfigured()) {
+        return { ok: false, message: "Generowanie obrazów jest wyłączone (IMAGE_PROVIDER)." };
+      }
+      const image = await generateImage(buildPortraitPrompt(character));
+      if (!image.ok) return { ok: false, message: image.error };
+      updateCharacterPortrait(character.id, image.url);
+      pushEvent(campaignId, "action.resolved", {
+        type: "portrait",
+        characterId: character.id,
+        name: character.name,
+        url: image.url,
+      });
+      return {
+        ok: true,
+        message: `Portret ${character.name} wygenerowany: ${image.url}`,
+        data: { url: image.url },
       };
     }
     case "use_item": {

@@ -32,7 +32,9 @@ export type DmToolName =
   | "generate_encounter"
   | "random_encounter"
   | "skill_check"
-  | "use_item";
+  | "use_item"
+  | "generate_image"
+  | "generate_portrait";
 
 export type DmTool = {
   name: DmToolName;
@@ -248,6 +250,18 @@ export const DM_TOOLS: DmTool[] = [
     description:
       "Generate and start a combat encounter from a short description. The rules engine picks SRD monsters matching the description, scaled to the party; the AI never invents stat blocks or HP.",
     parameters: { description: { type: "string" } },
+  },
+  {
+    name: "generate_image",
+    description:
+      "Generate an AI illustration for a key campaign moment (battles, discoveries, scenes). Returns an image URL shown in the chat.",
+    parameters: { prompt: { type: "string" }, style: { type: "string" } },
+  },
+  {
+    name: "generate_portrait",
+    description:
+      "Generate an AI portrait for a character (used for their portrait on the sheet).",
+    parameters: { characterId: { type: "string" } },
   },
   {
     name: "random_encounter",

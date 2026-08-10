@@ -146,6 +146,13 @@ export function updateCharacterExhaustion(characterId: string, level: number): v
     .run();
 }
 
+export function updateCharacterPortrait(characterId: string, url: string): void {
+  db.update(characters)
+    .set({ portraitUrl: url, updatedAt: isoNow() })
+    .where(eq(characters.id, characterId))
+    .run();
+}
+
 export function updateCharacterInspiration(characterId: string, has: boolean): void {
   db.update(characters)
     .set({ inspiration: has ? 1 : 0, updatedAt: isoNow() })
@@ -281,6 +288,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     inspiration: Boolean(row.inspiration),
     feats: (row.feats as string[] | undefined) ?? [],
     asiLevels: (row.asiLevels as number[] | undefined) ?? [],
+    portraitUrl: (row.portraitUrl as string | undefined) ?? undefined,
     xp: row.xp ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
