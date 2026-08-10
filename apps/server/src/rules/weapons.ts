@@ -26,9 +26,8 @@ export type WeaponDef = {
   price?: string;
   versatileDice?: string;
   label: string;
-  // Weapon Mastery (SRD 5.2.1 / 2024 PHB weapon table). Ranged weapons and
-  // shields have no mastery. Masteries: cleave, graze, hamstring, nick, push,
-  // sap, slow, topple, vex.
+  // Weapon Mastery (SRD 5.2.1 weapon table): every weapon carries exactly one
+  // mastery. Masteries: cleave, graze, nick, push, sap, slow, topple, vex.
   mastery?: string;
 };
 
@@ -103,7 +102,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "2 gp",
     label: "Lekki młot",
-    mastery: "push",
+    mastery: "nick",
   },
   {
     name: "Mace",
@@ -165,6 +164,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 5,
     price: "25 gp",
     label: "Lekka kusza",
+    mastery: "slow",
   },
   {
     name: "Dart",
@@ -176,6 +176,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 0.25,
     price: "5 cp",
     label: "Strzałka",
+    mastery: "vex",
   },
   {
     name: "Shortbow",
@@ -187,6 +188,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "25 gp",
     label: "Krótki łuk",
+    mastery: "vex",
   },
   {
     name: "Sling",
@@ -197,6 +199,7 @@ export const WEAPONS: WeaponDef[] = [
     properties: ["ammunition"],
     price: "1 sp",
     label: "Proca",
+    mastery: "slow",
   },
   {
     name: "Battleaxe",
@@ -233,7 +236,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 6,
     price: "20 gp",
     label: "Glewia",
-    mastery: "cleave",
+    mastery: "graze",
   },
   {
     name: "Greataxe",
@@ -318,7 +321,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 4,
     price: "15 gp",
     label: "Gwiazda poranna",
-    mastery: "slow",
+    mastery: "sap",
   },
   {
     name: "Pike",
@@ -391,7 +394,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "5 gp",
     label: "Kilof bojowy",
-    mastery: "slow",
+    mastery: "sap",
   },
   {
     name: "Warhammer",
@@ -428,6 +431,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 1,
     price: "10 gp",
     label: "Dmuchawka",
+    mastery: "vex",
   },
   {
     name: "Hand Crossbow",
@@ -439,6 +443,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 3,
     price: "75 gp",
     label: "Kusza ręczna",
+    mastery: "vex",
   },
   {
     name: "Heavy Crossbow",
@@ -450,6 +455,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 18,
     price: "50 gp",
     label: "Ciężka kusza",
+    mastery: "push",
   },
   {
     name: "Longbow",
@@ -461,6 +467,7 @@ export const WEAPONS: WeaponDef[] = [
     weight: 2,
     price: "50 gp",
     label: "Długi łuk",
+    mastery: "slow",
   },
 ];
 

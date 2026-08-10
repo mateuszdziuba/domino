@@ -15,7 +15,15 @@ import {
   TooltipTrigger,
 } from "./ui/tooltip";
 
-const HIDDEN_CONDITION_MARKERS = ["guiding_bolt", "vexed", "sapped", "slowed", "hamstring"];
+const HIDDEN_CONDITION_MARKERS = ["guiding_bolt", "sapped"];
+
+function isHiddenMarker(cond: string): boolean {
+  return (
+    HIDDEN_CONDITION_MARKERS.includes(cond) ||
+    cond.startsWith("slowed:") ||
+    cond.startsWith("vexed:")
+  );
+}
 
 const CONDITION_LABELS: Record<string, string> = {
   blinded: "ślepota",
@@ -179,7 +187,7 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                     {c.status === "downed" && <Badge variant="outline">powalony</Badge>}
                     {c.status === "stable" && <Badge variant="outline">stabilny</Badge>}
                     {(c.conditions ?? [])
-                      .filter((cond) => !HIDDEN_CONDITION_MARKERS.includes(cond))
+                      .filter((cond) => !isHiddenMarker(cond))
                       .map((cond) => (
                         <Tooltip key={cond}>
                           <TooltipTrigger asChild>

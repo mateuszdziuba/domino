@@ -22,10 +22,9 @@ import { xpAwardForDeadEnemies, hitDieForClass } from "../rules/advancement.js";
 import {
   CONDITIONS,
   GUIDING_BOLT_MARKER,
-  HAMSTRING_MARKER,
   SAPPED_MARKER,
-  SLOWED_MARKER,
-  VEXED_MARKER,
+  SLOWED_MARKER_PREFIX,
+  VEXED_MARKER_PREFIX,
   attackRollAdvantages,
   canAct,
   isConditionKey,
@@ -47,6 +46,7 @@ import {
   raceHasDarkvision,
   exhaustedSpeed,
   effectiveMovement,
+  hasWeaponMastery,
 } from "../rules/combat.js";
 import { abilityModifier, proficiencyBonus } from "../rules/abilities.js";
 import { buildCharacterFeatures } from "../rules/features.js";
@@ -454,6 +454,7 @@ export async function runDmTool(
       let reach = 5;
       let weaponMastery: string | undefined;
       let masteryWeapon: string | undefined;
+      let toppleDc: number | undefined;
       if (attacker.characterId) {
         const character = getCharacterById(attacker.characterId);
         if (character) {
@@ -463,11 +464,21 @@ export async function runDmTool(
           attackBonus ??= defaults.attackBonus;
           damageNotation ??= defaults.damageNotation;
           damageBonus ??= defaults.damageBonus;
-          const weapon = findEquippedWeapon(character);
+          // SRD: a weapon's Mastery applies only with the Weapon Mastery
+          // feature (Barbarian/Fighter 1+, Paladin/Ranger 9+).
+          const weapon = hasWeaponMastery(character)
+            ? findEquippedWeapon(character)
+            : undefined;
           if (weapon) {
             reach = weaponReach(weapon);
             weaponMastery = weapon.mastery;
             masteryWeapon = weapon.name;
+            if (weaponMastery === "topple") {
+              toppleDc =
+                8 +
+                abilityModifier(character.abilityScores.strength) +
+                character.proficiencyBonus;
+            }
           }
         }
       }
@@ -480,6 +491,7 @@ export async function runDmTool(
         reach,
         mastery: weaponMastery,
         masteryWeapon,
+        toppleDc,
       });
       if (!outcome.ok) return { ok: false, message: `${outcome.error}.` };
       if (outcome.target.characterId) {
@@ -556,6 +568,7 @@ export async function runDmTool(
       let { attackBonus, damageNotation, damageBonus } = parsed.data;
       let reach = 5;
       let weaponMastery: string | undefined;
+      let toppleDc: number | undefined;
       if (attacker.characterId) {
         const character = getCharacterById(attacker.characterId);
         if (character) {
@@ -565,10 +578,19 @@ export async function runDmTool(
           attackBonus ??= defaults.attackBonus;
           damageNotation ??= defaults.damageNotation;
           damageBonus ??= defaults.damageBonus;
-          const weapon = findEquippedWeapon(character);
+          // SRD: a weapon's Mastery applies only with the Weapon Mastery feature.
+          const weapon = hasWeaponMastery(character)
+            ? findEquippedWeapon(character)
+            : undefined;
           if (weapon) {
             reach = weaponReach(weapon);
             weaponMastery = weapon.mastery;
+            if (weaponMastery === "topple") {
+              toppleDc =
+                8 +
+                abilityModifier(character.abilityScores.strength) +
+                character.proficiencyBonus;
+            }
           }
         }
       }
@@ -592,19 +614,27 @@ export async function runDmTool(
             conditions: (target.conditions ?? []).filter((c) => c !== GUIDING_BOLT_MARKER),
           };
         }
-        if ((target.conditions ?? []).includes(VEXED_MARKER)) {
-          newTarget = {
-            ...newTarget,
-            conditions: (target.conditions ?? []).filter((c) => c !== VEXED_MARKER),
-          };
-        }
       } else {
         newTarget = { ...target, currentHp: result.targetCurrentHp, status: result.targetStatus };
       }
-      newTarget = applyAttackMastery(newTarget, result, {
-        mastery: weaponMastery,
-        damageBonus: damageBonus ?? 0,
-      });
+      // Vex: the wielder's attack roll consumes the marker on a hit and a miss.
+      const vexedByAttacker = (target.conditions ?? []).includes(
+        `${VEXED_MARKER_PREFIX}${attacker.id}`,
+      );
+      if (vexedByAttacker) {
+        newTarget = {
+          ...newTarget,
+          conditions: (newTarget.conditions ?? []).filter(
+            (c) => c !== `${VEXED_MARKER_PREFIX}${attacker.id}`,
+          ),
+        };
+      }
+      newTarget = applyAttackMastery(
+        newTarget,
+        result,
+        { mastery: weaponMastery, damageBonus: damageBonus ?? 0, toppleDc },
+        attacker.id,
+      );
       result.targetStatus = newTarget.status;
       result.targetCurrentHp = newTarget.currentHp;
       const combatants = state.combat.combatants.map((c) => {
@@ -686,14 +716,24 @@ export async function runDmTool(
         return { ok: false, message: "Walka dwiema broniami wymaga dwóch broni lekkich." };
       }
       const stats = weaponAttackStats(offhandWeapon, character);
-      const offhandMastery = offhandWeapon.mastery;
+      // SRD: a weapon's Mastery applies only with the Weapon Mastery feature.
+      const offhandMastery = hasWeaponMastery(character)
+        ? offhandWeapon.mastery
+        : undefined;
+      const toppleDc =
+        offhandMastery === "topple"
+          ? 8 +
+            abilityModifier(character.abilityScores.strength) +
+            character.proficiencyBonus
+          : undefined;
       const outcome = performAttack(state, attacker.id, target.id, {
         attackBonus: parsed.data.attackBonus ?? stats.hitBonus,
         damageNotation: parsed.data.damageNotation ?? offhandWeapon.damageDice,
         damageBonus: parsed.data.damageBonus ?? 0,
         reach: weaponReach(offhandWeapon),
         mastery: offhandMastery,
-        masteryWeapon: offhandWeapon.name,
+        masteryWeapon: offhandMastery ? offhandWeapon.name : undefined,
+        toppleDc,
       });
       if (!outcome.ok) return { ok: false, message: `${outcome.error}.` };
       if (outcome.target.characterId) {
@@ -743,18 +783,22 @@ export async function runDmTool(
       if (!state.combat.active) return { ok: false, message: "Brak walki w toku." };
       const combatant = findCombatant(state, parsed.data.combatantId);
       if (!combatant) return { ok: false, message: "Nie znaleziono kombatanta." };
+      const newPosition = parsed.data.feet;
+      const oldPosition = combatant.position ?? 0;
+      // The move costs the DELTA on the battle line, not the absolute position.
+      const cost = Math.abs(newPosition - oldPosition);
       const available = effectiveMovement(combatant);
-      if (parsed.data.feet > available) {
+      if (cost > available) {
         return {
           ok: false,
           message: `Za mało ruchu w tej turze (zostało ${available} stóp).`,
         };
       }
       const movementLeft =
-        (combatant.movementLeft ?? combatant.speed ?? 30) - parsed.data.feet;
+        (combatant.movementLeft ?? combatant.speed ?? 30) - cost;
       const updated: Combatant = {
         ...combatant,
-        position: parsed.data.feet,
+        position: newPosition,
         movementLeft,
       };
       const nextState: CampaignState = {
@@ -771,20 +815,19 @@ export async function runDmTool(
       pushEvent(campaignId, "action.resolved", {
         type: "move",
         combatant: combatant.name,
-        position: parsed.data.feet,
+        position: newPosition,
         speed: updated.speed ?? 30,
         movementLeft,
       });
-      const conditions = new Set(combatant.conditions ?? []);
-      const movementNote = conditions.has(HAMSTRING_MARKER)
-        ? " (Hamstring: prędkość 0.)"
-        : conditions.has(SLOWED_MARKER)
-          ? " (Slow: dostępny ruch o połowę.)"
-          : "";
+      const movementNote = (combatant.conditions ?? []).some((c) =>
+        c.startsWith(SLOWED_MARKER_PREFIX),
+      )
+        ? " (Slow: dostępny ruch o 10 stóp mniejszy.)"
+        : "";
       const message =
-        parsed.data.feet === 0
+        newPosition === 0
           ? `${combatant.name} przesuwa się w sam środek walki w zwarciu.${movementNote}`
-          : `${combatant.name} przesuwa się na pozycję ${parsed.data.feet} stóp od walki w zwarciu.${movementNote}`;
+          : `${combatant.name} przesuwa się na pozycję ${newPosition} stóp od walki w zwarciu.${movementNote}`;
       return { ok: true, message, data: summarizeState(nextState) };
     }
     case "set_lighting": {
@@ -1053,17 +1096,21 @@ export async function runDmTool(
         };
         if (result.riderApplied) {
           updated = applySpellRider(updated, def) ?? updated;
-        } else if (
-          result.hit &&
-          ((targetCombatant.conditions ?? []).includes(GUIDING_BOLT_MARKER) ||
-            (targetCombatant.conditions ?? []).includes(VEXED_MARKER))
-        ) {
-          updated = {
-            ...updated,
-            conditions: (targetCombatant.conditions ?? []).filter(
-              (c) => c !== GUIDING_BOLT_MARKER && c !== VEXED_MARKER,
-            ),
-          };
+        } else if (result.hit) {
+          // Vex is consumed by the wielder's own attack roll, including spell
+          // attacks: only the caster's own vexed marker is cleared here.
+          const ownVexed = `${VEXED_MARKER_PREFIX}${casterCombatant.id}`;
+          if (
+            (targetCombatant.conditions ?? []).includes(GUIDING_BOLT_MARKER) ||
+            (targetCombatant.conditions ?? []).includes(ownVexed)
+          ) {
+            updated = {
+              ...updated,
+              conditions: (targetCombatant.conditions ?? []).filter(
+                (c) => c !== GUIDING_BOLT_MARKER && c !== ownVexed,
+              ),
+            };
+          }
         }
         if (result.conditionApplied) {
           const existing = updated.conditions ?? [];
@@ -1257,17 +1304,21 @@ export async function runDmTool(
       };
       if (result.riderApplied) {
         updated = applySpellRider(updated, def) ?? updated;
-      } else if (
-        result.hit &&
-        ((target.conditions ?? []).includes(GUIDING_BOLT_MARKER) ||
-          (target.conditions ?? []).includes(VEXED_MARKER))
-      ) {
-        updated = {
-          ...updated,
-          conditions: (target.conditions ?? []).filter(
-            (c) => c !== GUIDING_BOLT_MARKER && c !== VEXED_MARKER,
-          ),
-        };
+      } else if (result.hit) {
+        // Vex is consumed by the wielder's own attack roll, including spell
+        // attacks: only the caster's own vexed marker is cleared here.
+        const ownVexed = `${VEXED_MARKER_PREFIX}${caster.id}`;
+        if (
+          (target.conditions ?? []).includes(GUIDING_BOLT_MARKER) ||
+          (target.conditions ?? []).includes(ownVexed)
+        ) {
+          updated = {
+            ...updated,
+            conditions: (target.conditions ?? []).filter(
+              (c) => c !== GUIDING_BOLT_MARKER && c !== ownVexed,
+            ),
+          };
+        }
       }
       if (result.conditionApplied) {
         const existing = updated.conditions ?? [];
@@ -1518,17 +1569,23 @@ export async function runDmTool(
       if (
         !isConditionKey(condition) &&
         condition !== GUIDING_BOLT_MARKER &&
-        condition !== VEXED_MARKER &&
         condition !== SAPPED_MARKER &&
-        condition !== SLOWED_MARKER &&
-        condition !== HAMSTRING_MARKER
+        condition !== VEXED_MARKER_PREFIX &&
+        condition !== SLOWED_MARKER_PREFIX
       ) {
         return { ok: false, message: `Nieznany stan "${condition}".` };
       }
       const existing = combatant.conditions ?? [];
-      const updated: Combatant = existing.includes(condition)
-        ? { ...combatant, conditions: existing.filter((c) => c !== condition) }
-        : combatant;
+      // Prefix markers ("vexed:", "slowed:") are removed as a group.
+      const isPrefixMarker =
+        condition === VEXED_MARKER_PREFIX || condition === SLOWED_MARKER_PREFIX;
+      const removed = isPrefixMarker
+        ? existing.filter((c) => !c.startsWith(condition))
+        : existing.filter((c) => c !== condition);
+      const updated: Combatant =
+        removed.length !== existing.length
+          ? { ...combatant, conditions: removed }
+          : combatant;
       const nextState: CampaignState = {
         ...state,
         combat: {
@@ -2157,11 +2214,9 @@ function masteryNarration(result: {
     case "sap":
       return " Cel ma utrudnienie do swojego następnego ataku (Sap).";
     case "slow":
-      return " Cel zwolniony — jego prędkość jest o połowę mniejsza (Slow).";
+      return " Cel zwolniony — jego ruch spada o 10 stóp do początku twojej następnej tury (Slow).";
     case "graze":
       return ` Graze: chybienie zadaje ${result.grazeDamage} obrażeń.`;
-    case "hamstring":
-      return " Cel jest utrudniony — hamstring: prędkość 0.";
     default:
       return "";
   }

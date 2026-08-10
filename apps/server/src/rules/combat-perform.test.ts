@@ -831,14 +831,34 @@ describe("lethal damage at 0 HP and stable status", () => {
     Math.random = original;
   });
 
-  it("instantly kills a 0-HP target when damage equals or exceeds its max HP", () => {
+  it("does not instantly kill a 0-HP target when damage equals its max HP", () => {
     const original = Math.random;
-    Math.random = () => 0.3; // d20 = 7 -> hit; 10d6 each = 2 -> total 20 >= maxHp 10
+    Math.random = () => 0.3; // d20 = 7 -> hit; 10d1 = 10 damage == maxHp 10
     const state = combatState(0);
     state.combat.combatants[1] = downedTarget({ maxHp: 10 });
     const outcome = performAttack(state, "char-1", "enemy-1", {
       attackBonus: 99,
-      damageNotation: "10d6",
+      damageNotation: "10d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.hit).toBe(true);
+    expect(outcome.result.damageTotal).toBe(10);
+    expect(enemy(outcome.state).status).toBe("downed");
+    expect(enemy(outcome.state).deathSaveFailures).toBe(1);
+    expect(enemy(outcome.state).currentHp).toBe(0);
+  });
+
+  it("instantly kills a 0-HP target when damage exceeds its max HP", () => {
+    const original = Math.random;
+    Math.random = () => 0.3; // d20 = 7 -> hit; 11d1 = 11 damage > maxHp 10
+    const state = combatState(0);
+    state.combat.combatants[1] = downedTarget({ maxHp: 10 });
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "11d1",
       damageBonus: 0,
     });
     Math.random = original;
@@ -1370,6 +1390,22 @@ describe("nextTurn", () => {
     expect(b.bonusActionAvailable).toBe(true);
     expect(a.bonusActionAvailable).toBe(true);
   });
+
+  it("expires slowed markers applied by the new current combatant (wielder's next turn)", () => {
+    const state = turnState(
+      [
+        { ...fighter("a"), conditions: ["slowed:b"] },
+        { ...fighter("b"), conditions: ["slowed:a"] },
+      ],
+      0,
+    );
+    const next = nextTurn(state);
+    const a = next.combat.combatants.find((c) => c.id === "a")!;
+    const b = next.combat.combatants.find((c) => c.id === "b")!;
+    // b's turn starts: the marker b applied to a expires; a's marker on b stays.
+    expect(a.conditions ?? []).not.toContain("slowed:b");
+    expect(b.conditions ?? []).toContain("slowed:a");
+  });
 });
 
 describe("startCombat", () => {
@@ -1598,7 +1634,7 @@ describe("weapon mastery riders (SRD 5.2.1)", () => {
     return state;
   }
 
-  it("topple knocks the target prone on a failed STR save (DC 12)", () => {
+  it("topple knocks the target prone on a failed CON save (DC 12)", () => {
     const seq = [0.5, 0.5, 0.01]; // d20 11 hit, 1d8 5 dmg, save 1 -> fail
     const original = Math.random;
     Math.random = () => seq.shift() ?? 0;
@@ -1630,6 +1666,25 @@ describe("weapon mastery riders (SRD 5.2.1)", () => {
     if (!outcome.ok) return;
     expect(outcome.result.masteryApplied).toBeUndefined();
     expect(enemy(outcome.state).conditions ?? []).not.toContain("prone");
+  });
+
+  it("topple uses the input toppleDc (8 + STR mod + proficiency) instead of 12", () => {
+    // Aria (STR 16 -> +3, prof +2) -> DC 13: a save roll of 12 fails.
+    const seq = [0.5, 0.5, 0.55]; // d20 11 hit, 1d8 5 dmg, save 12 -> fail vs DC 13
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(hitAttack(), "char-1", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d8",
+      damageBonus: 0,
+      mastery: "topple",
+      toppleDc: 13,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.masteryApplied).toBe("topple");
+    expect(enemy(outcome.state).conditions).toContain("prone");
   });
 
   it("topple does nothing on a miss (no save roll)", () => {
@@ -1684,7 +1739,7 @@ describe("weapon mastery riders (SRD 5.2.1)", () => {
     expect(enemy(outcome.state).position).toBe(500);
   });
 
-  it("vex marks the target and grants advantage on the next attack against it", () => {
+  it("vex marks the target for its wielder and grants the wielder advantage on the next attack", () => {
     const original = Math.random;
     Math.random = () => 0.5;
     const first = performAttack(hitAttack(), "char-1", "enemy-1", {
@@ -1697,7 +1752,7 @@ describe("weapon mastery riders (SRD 5.2.1)", () => {
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     expect(first.result.masteryApplied).toBe("vex");
-    expect(enemy(first.state).conditions).toContain("vexed");
+    expect(enemy(first.state).conditions).toContain("vexed:char-1");
     const seq = [0.2, 0.85, 0.0]; // d20s 5, 18 -> advantage keeps 18
     Math.random = () => seq.shift() ?? 0;
     const second = performAttack(first.state, "char-1", "enemy-1", {
@@ -1710,7 +1765,54 @@ describe("weapon mastery riders (SRD 5.2.1)", () => {
     if (!second.ok) return;
     expect(second.result.attackRolls).toEqual([5, 18]);
     expect(second.result.attackRoll).toBe(18);
-    expect(enemy(second.state).conditions ?? []).not.toContain("vexed");
+    expect(enemy(second.state).conditions ?? []).not.toContain("vexed:char-1");
+  });
+
+  it("vex does not grant advantage to another attacker (only the wielder)", () => {
+    const state = hitAttack();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      id: "char-2",
+      characterId: undefined,
+    };
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["vexed:char-1"],
+    };
+    const seq = [0.5, 0.0]; // single d20: 11 -> no advantage roll
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(state, "char-2", "enemy-1", {
+      attackBonus: 99,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.attackRolls).toEqual([11]);
+    expect(enemy(outcome.state).conditions).toContain("vexed:char-1");
+  });
+
+  it("vex is consumed when the wielder attacks the target on a miss too", () => {
+    const state = hitAttack();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      conditions: ["vexed:char-1"],
+    };
+    const seq = [0.01]; // d20 1 -> fumble
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 0,
+      damageNotation: "1d1",
+      damageBonus: 0,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.hit).toBe(false);
+    expect(enemy(outcome.state).conditions ?? []).not.toContain("vexed:char-1");
   });
 
   it("graze deals the attacker's damage bonus on a miss", () => {
@@ -1772,7 +1874,7 @@ describe("weapon mastery riders (SRD 5.2.1)", () => {
     expect(attacker.conditions ?? []).not.toContain("sapped");
   });
 
-  it("slow marks the target with the internal slowed marker", () => {
+  it("slow marks the target with the wielder-scoped slowed marker", () => {
     const seq = [0.5, 0.5];
     const original = Math.random;
     Math.random = () => seq.shift() ?? 0;
@@ -1786,24 +1888,7 @@ describe("weapon mastery riders (SRD 5.2.1)", () => {
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expect(outcome.result.masteryApplied).toBe("slow");
-    expect(enemy(outcome.state).conditions).toContain("slowed");
-  });
-
-  it("hamstring marks the target with the internal hamstring marker", () => {
-    const seq = [0.5, 0.5];
-    const original = Math.random;
-    Math.random = () => seq.shift() ?? 0;
-    const outcome = performAttack(hitAttack(), "char-1", "enemy-1", {
-      attackBonus: 99,
-      damageNotation: "1d8",
-      damageBonus: 0,
-      mastery: "hamstring",
-    });
-    Math.random = original;
-    expect(outcome.ok).toBe(true);
-    if (!outcome.ok) return;
-    expect(outcome.result.masteryApplied).toBe("hamstring");
-    expect(enemy(outcome.state).conditions).toContain("hamstring");
+    expect(enemy(outcome.state).conditions).toContain("slowed:char-1");
   });
 
   it("cleave changes no state (the DM chains the second attack)", () => {
@@ -1836,15 +1921,17 @@ describe("exhaustion and movement (SRD 5.2.1)", () => {
     expect(exhaustedSpeed(25, 2)).toBe(12); // floor(25 / 2)
   });
 
-  it("effectiveMovement halves for the slowed marker and zeroes for hamstring", () => {
+  it("effectiveMovement reduces the budget by 10 ft for the slowed marker (SRD)", () => {
     const base = { speed: 30, movementLeft: 30 };
     expect(effectiveMovement(base)).toBe(30);
-    expect(effectiveMovement({ ...base, conditions: ["slowed"] })).toBe(15);
-    expect(effectiveMovement({ ...base, conditions: ["hamstring"] })).toBe(0);
-    expect(effectiveMovement({ ...base, conditions: ["slowed", "hamstring"] })).toBe(0);
+    expect(effectiveMovement({ ...base, conditions: ["slowed:char-1"] })).toBe(20);
+    expect(effectiveMovement({ ...base, conditions: ["slowed"] })).toBe(20);
     expect(
-      effectiveMovement({ ...base, movementLeft: 20, conditions: ["slowed"] }),
+      effectiveMovement({ ...base, movementLeft: 20, conditions: ["slowed:char-1"] }),
     ).toBe(10);
+    expect(
+      effectiveMovement({ ...base, movementLeft: 5, conditions: ["slowed:char-1"] }),
+    ).toBe(0);
   });
 
   it("startCombat stores speed and movementLeft from entry.speed (default 30)", () => {
@@ -1902,7 +1989,7 @@ describe("exhaustion and movement (SRD 5.2.1)", () => {
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expect(outcome.result.damageTotal).toBe(12);
-    expect(enemy(outcome.state).status).toBe("dead"); // 12 >= floor(20/2)
+    expect(enemy(outcome.state).status).toBe("dead"); // 12 > floor(20/2)
     expect(enemy(outcome.state).deathSaveFailures).toBe(3);
   });
 

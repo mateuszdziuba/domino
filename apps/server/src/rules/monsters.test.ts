@@ -22,12 +22,13 @@ describe("monster catalog", () => {
     }
   });
 
-  it("grants Multiattack (2 attacks) only to troll and hill giant", () => {
+  it("grants Multiattack (2 attacks) to troll, hill giant and priest", () => {
     const byKey = new Map(MONSTERS.map((m) => [m.key, m]));
     expect(byKey.get("troll")!.attacks).toBe(2);
     expect(byKey.get("hill-giant")!.attacks).toBe(2);
+    expect(byKey.get("priest")!.attacks).toBe(2);
     for (const [key, m] of byKey) {
-      if (key !== "troll" && key !== "hill-giant") {
+      if (key !== "troll" && key !== "hill-giant" && key !== "priest") {
         expect(m.attacks, key).toBe(1);
       }
     }
@@ -58,6 +59,8 @@ describe("monster catalog", () => {
       "skeleton",
       "bandit",
       "cultist",
+      "priest-acolyte",
+      "priest",
       "hobgoblin",
       "orc",
       "worg",
@@ -79,6 +82,8 @@ describe("monster catalog", () => {
     expect(byKey.get("zombie")!.speed).toBe(20);
     expect(byKey.get("bandit")!.speed).toBe(30);
     expect(byKey.get("cultist")!.speed).toBe(30);
+    expect(byKey.get("priest-acolyte")!.speed).toBe(30);
+    expect(byKey.get("priest")!.speed).toBe(30);
     expect(byKey.get("giant-spider")!.speed).toBe(30);
     expect(byKey.get("hobgoblin")!.speed).toBe(30);
     expect(byKey.get("orc")!.speed).toBe(30);
@@ -92,48 +97,50 @@ describe("monster catalog", () => {
     expect(byKey.get("hill-giant")!.speed).toBe(40);
   });
 
-  it("carries the SRD spellcaster Acolyte (spells, save DC, attack bonus)", () => {
-    const acolyte = MONSTERS.find((m) => m.key === "acolyte")!;
-    expect(acolyte).toBeDefined();
-    expect(acolyte.name).toBe("Acolyte");
-    expect(acolyte.cr).toBe(0.25);
-    expect(acolyte.maxHp).toBe(9);
-    expect(acolyte.armorClass).toBe(10);
-    expect(acolyte.attackBonus).toBe(2);
-    expect(acolyte.damageNotation).toBe("1d4");
-    expect(acolyte.damageBonus).toBe(0);
-    expect(acolyte.attacks).toBe(1);
-    expect(acolyte.spells).toEqual(["Sacred Flame", "Cure Wounds", "Spare the Dying"]);
-    expect(acolyte.spellSaveDc).toBe(11);
-    expect(acolyte.spellAttackBonus).toBe(3);
+  it("carries the SRD 5.2.1 spellcaster Priest Acolyte (spells, save DC, attack bonus)", () => {
+    const priestAcolyte = MONSTERS.find((m) => m.key === "priest-acolyte")!;
+    expect(priestAcolyte).toBeDefined();
+    expect(priestAcolyte.name).toBe("Priest Acolyte");
+    expect(priestAcolyte.cr).toBe(0.25);
+    expect(priestAcolyte.maxHp).toBe(11);
+    expect(priestAcolyte.armorClass).toBe(13);
+    expect(priestAcolyte.attackBonus).toBe(3);
+    expect(priestAcolyte.damageNotation).toBe("1d4");
+    expect(priestAcolyte.damageBonus).toBe(1);
+    expect(priestAcolyte.attacks).toBe(1);
+    expect(priestAcolyte.spells).toEqual(["Sacred Flame", "Cure Wounds", "Guiding Bolt"]);
+    expect(priestAcolyte.spellSaveDc).toBe(12);
+    expect(priestAcolyte.spellAttackBonus).toBe(4);
   });
 
-  it("carries the SRD spellcaster Priest (spells, save DC, attack bonus)", () => {
+  it("has no Acolyte monster (5.2.1: Acolyte is a background, not a stat block)", () => {
+    expect(MONSTERS.some((m) => m.key === "acolyte")).toBe(false);
+  });
+
+  it("carries the SRD 5.2.1 spellcaster Priest (spells, save DC, attack bonus)", () => {
     const priest = MONSTERS.find((m) => m.key === "priest")!;
     expect(priest).toBeDefined();
     expect(priest.name).toBe("Priest");
     expect(priest.cr).toBe(2);
-    expect(priest.maxHp).toBe(27);
+    expect(priest.maxHp).toBe(38);
     expect(priest.armorClass).toBe(13);
-    expect(priest.attackBonus).toBe(4);
+    expect(priest.attackBonus).toBe(5);
     expect(priest.damageNotation).toBe("1d6");
-    expect(priest.damageBonus).toBe(1);
-    expect(priest.attacks).toBe(1);
+    expect(priest.damageBonus).toBe(3);
+    expect(priest.attacks).toBe(2);
     expect(priest.spells).toEqual([
       "Sacred Flame",
-      "Cure Wounds",
-      "Guiding Bolt",
+      "Healing Word",
       "Lesser Restoration",
-      "Spiritual Weapon",
       "Spirit Guardians",
     ]);
-    expect(priest.spellSaveDc).toBe(13);
+    expect(priest.spellSaveDc).toBe(12);
     expect(priest.spellAttackBonus).toBe(5);
   });
 
-  it("matches acolytes and priests from temple/cleric descriptions", () => {
+  it("matches priests and priest acolytes from temple/cleric descriptions", () => {
     const acolyte = matchMonsters("an acolyte guards the temple");
-    expect(acolyte.map((m) => m.key)).toContain("acolyte");
+    expect(acolyte.map((m) => m.key)).toContain("priest-acolyte");
     const priest = matchMonsters("a priest of the temple preaches");
     expect(priest.map((m) => m.key)).toContain("priest");
   });
@@ -144,7 +151,7 @@ describe("monster catalog", () => {
       encounter.map((e) => MONSTERS.find((m) => e.id.startsWith(`${m.key}-`))?.key),
     );
     expect(keys.has("priest")).toBe(true);
-    expect(keys.has("acolyte")).toBe(true);
+    expect(keys.has("priest-acolyte")).toBe(true);
   });
 });
 

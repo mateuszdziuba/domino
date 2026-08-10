@@ -2184,7 +2184,7 @@ describe("runDmTool monster_cast (mocked store)", () => {
 
   it("a Priest casts Spirit Guardians at a player, applying damage and the event payload", async () => {
     const original = Math.random;
-    Math.random = () => 0; // save 1 < DC 13 -> hit, 3d8 = 3 damage
+    Math.random = () => 0; // save 1 < DC 12 -> hit, 3d8 = 3 damage
     const result = await runTool("monster_cast", {
       combatantId: "priest-0",
       spellName: "Spirit Guardians",
@@ -2208,7 +2208,7 @@ describe("runDmTool monster_cast (mocked store)", () => {
     expect(result.data).toEqual({
       hit: true,
       critical: false,
-      saveDc: 13,
+      saveDc: 12,
       saveTotal: 1,
       damageTotal: 3,
       damageRolls: [1, 1, 1],
@@ -2226,43 +2226,43 @@ describe("runDmTool monster_cast (mocked store)", () => {
         caster: "Priest",
         target: "Aria",
         damageTotal: 3,
-        saveDc: 13,
+        saveDc: 12,
         saveTotal: 1,
         concentration: true,
       }),
     );
   });
 
-  it("heals an ally with Cure Wounds and writes back the player's HP", async () => {
+  it("heals an ally with Healing Word and writes back the player's HP", async () => {
     const state = priestCombatState();
     state.combat.combatants[1] = { ...state.combat.combatants[1]!, currentHp: 4 };
     mock.states.set("c1", state);
     mock.characters.set("ch1", { ...aria, currentHp: 4 });
     const original = Math.random;
-    Math.random = () => 0.9; // 1d8 = 8
+    Math.random = () => 0.9; // 1d4 = 4
     const result = await runTool("monster_cast", {
       combatantId: "priest-0",
-      spellName: "Cure Wounds",
+      spellName: "Healing Word",
       targetId: "char-ch1",
     });
     Math.random = original;
     expect(result.ok).toBe(true);
-    expect(result.message).toContain("leczy o 8");
+    expect(result.message).toContain("leczy o 4");
     const ariaCombatant = mock
       .states.get("c1")!
       .combat.combatants.find((c) => c.id === "char-ch1")!;
-    expect(ariaCombatant.currentHp).toBe(10);
+    expect(ariaCombatant.currentHp).toBe(8);
     expect(ariaCombatant.status).toBe("active");
-    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 10);
+    expect(mock.updateCharacterHp).toHaveBeenCalledWith("ch1", 8);
     expect(mock.pushEvent).toHaveBeenCalledWith(
       "c1",
       "action.resolved",
       expect.objectContaining({
         type: "spell",
-        spell: "Cure Wounds",
+        spell: "Healing Word",
         caster: "Priest",
         target: "Aria",
-        healed: 8,
+        healed: 4,
       }),
     );
   });
@@ -2364,18 +2364,25 @@ describe("runDmTool monster_cast (mocked store)", () => {
     expect(mock.pushEvent).not.toHaveBeenCalled();
   });
 
-  it("Guiding Bolt uses the monster's spell attack bonus", async () => {
+  it("Guiding Bolt uses the monster's spell attack bonus (Priest Acolyte)", async () => {
+    const state = priestCombatState();
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      id: "priest-acolyte-0",
+      name: "Priest Acolyte",
+    };
+    mock.states.set("c1", state);
     const original = Math.random;
     Math.random = () => 0.9; // d20 = 19, 4d6 = 6 each
     const result = await runTool("monster_cast", {
-      combatantId: "priest-0",
+      combatantId: "priest-acolyte-0",
       spellName: "Guiding Bolt",
       targetId: "char-ch1",
     });
     Math.random = original;
     expect(result.ok).toBe(true);
     const data = result.data as { attackTotal: number; damageTotal: number };
-    expect(data.attackTotal).toBe(24); // 19 + spellAttackBonus 5
+    expect(data.attackTotal).toBe(23); // 19 + spellAttackBonus 4
     expect(data.damageTotal).toBe(24); // 4d6 all sixes
     const aria = mock
       .states.get("c1")!
@@ -3798,11 +3805,31 @@ describe("runDmTool move_combatant movement budget (mocked store)", () => {
     );
   });
 
+  it("costs the DELTA on the battle line, not the absolute position (40 -> 30 costs 10 ft)", async () => {
+    const state = stateWithCombat();
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      position: 40,
+      movementLeft: 20,
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      feet: 30,
+    });
+    expect(result.ok).toBe(true);
+    const goblin = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.position).toBe(30);
+    expect(goblin.movementLeft).toBe(10);
+  });
+
   it("refuses a second move beyond the remaining budget", async () => {
     expect((await runTool("move_combatant", { combatantId: "enemy-1", feet: 20 })).ok).toBe(true);
     const result = await runTool("move_combatant", {
       combatantId: "enemy-1",
-      feet: 11,
+      feet: 31,
     });
     expect(result.ok).toBe(false);
     expect(result.message).toContain("zostało 10 stóp");
@@ -3828,31 +3855,19 @@ describe("runDmTool move_combatant movement budget (mocked store)", () => {
     expect(goblin.movementLeft).toBe(0);
   });
 
-  it("the slowed marker halves the available movement", async () => {
+  it("the slowed marker reduces the available movement by 10 ft (SRD)", async () => {
     const state = stateWithCombat();
     state.combat.combatants[1] = {
       ...state.combat.combatants[1]!,
-      conditions: ["slowed"],
+      conditions: ["slowed:char-ch1"],
     };
     mock.states.set("c1", state);
     const ok = await runTool("move_combatant", { combatantId: "enemy-1", feet: 15 });
     expect(ok.ok).toBe(true);
-    // movementLeft is 15 after the move; slowed halves that to 7 effective.
-    const tooFar = await runTool("move_combatant", { combatantId: "enemy-1", feet: 8 });
+    // movementLeft is 15 after the move; slowed leaves 5 ft effective.
+    const tooFar = await runTool("move_combatant", { combatantId: "enemy-1", feet: 21 });
     expect(tooFar.ok).toBe(false);
-    expect(tooFar.message).toContain("zostało 7 stóp");
-  });
-
-  it("the hamstring marker zeroes the available movement", async () => {
-    const state = stateWithCombat();
-    state.combat.combatants[1] = {
-      ...state.combat.combatants[1]!,
-      conditions: ["hamstring"],
-    };
-    mock.states.set("c1", state);
-    const result = await runTool("move_combatant", { combatantId: "enemy-1", feet: 1 });
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain("zostało 0 stóp");
+    expect(tooFar.message).toContain("zostało 5 stóp");
   });
 });
 
@@ -3927,6 +3942,77 @@ describe("runDmTool attack_combatant mastery (mocked store)", () => {
       "action.resolved",
       expect.objectContaining({ type: "attack", mastery: null }),
     );
+  });
+
+  it("suppresses the weapon's mastery when the wielder lacks the Weapon Mastery feature", async () => {
+    // A Rogue (or any class without the feature) never applies mastery hooks.
+    mock.characters.set("ch1", {
+      ...aria,
+      className: "Rogue",
+      level: 1,
+      inventory: [{ id: "i1", name: "Longsword", quantity: 1, slot: "weapon" }],
+    });
+    const original = Math.random;
+    Math.random = () => 0.9; // d20 19 -> hit
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).not.toContain("Sap");
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "attack", mastery: null }),
+    );
+  });
+
+  it("computes the topple DC from the wielder's STR and proficiency (Maul)", async () => {
+    // Aria: Fighter 1, STR 16 (+3), proficiency 2 -> DC 13.
+    mock.characters.set("ch1", {
+      ...aria,
+      inventory: [{ id: "i1", name: "Maul", quantity: 1, slot: "weapon" }],
+    });
+    const seq = [0.9, 0.9, 0.01]; // d20 19 hit, 1d1 = 1, CON save 1 -> fail
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+      damageNotation: "1d1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Cel powalony");
+    const goblin = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions).toContain("prone");
+  });
+
+  it("a wielder without the mastery feature never applies topple", async () => {
+    mock.characters.set("ch1", {
+      ...aria,
+      className: "Rogue",
+      level: 1,
+      inventory: [{ id: "i1", name: "Maul", quantity: 1, slot: "weapon" }],
+    });
+    const seq = [0.9, 0.9, 0.01]; // d20 19 hit, 1d1 = 1, save 1
+    const original = Math.random;
+    Math.random = () => seq.shift() ?? 0;
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+      damageNotation: "1d1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+    expect(result.message).not.toContain("Cel powalony");
+    const goblin = mock
+      .states.get("c1")!
+      .combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.conditions ?? []).not.toContain("prone");
   });
 });
 

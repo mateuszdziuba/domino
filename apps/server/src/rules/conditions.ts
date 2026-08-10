@@ -8,10 +8,20 @@ export type ConditionDef = {
 };
 
 export const GUIDING_BOLT_MARKER = "guiding_bolt";
-export const VEXED_MARKER = "vexed";
 export const SAPPED_MARKER = "sapped";
-export const SLOWED_MARKER = "slowed";
-export const HAMSTRING_MARKER = "hamstring";
+// Mastery markers encode the wielder (attacker) combatant id: "vexed:<id>".
+export const VEXED_MARKER_PREFIX = "vexed:";
+// "slowed:<wielderId>" — the Slow mastery lasts until the start of the
+// wielder's next turn, so the marker carries the wielder's id.
+export const SLOWED_MARKER_PREFIX = "slowed:";
+
+export function vexedMarker(wielderId: string): string {
+  return `${VEXED_MARKER_PREFIX}${wielderId}`;
+}
+
+export function slowedMarker(wielderId: string): string {
+  return `${SLOWED_MARKER_PREFIX}${wielderId}`;
+}
 
 export const CONDITIONS: ConditionDef[] = [
   {
@@ -123,6 +133,13 @@ export function attackRollAdvantages(
     attackerConditions.has("prone") ||
     attackerConditions.has("restrained") ||
     attackerConditions.has(SAPPED_MARKER);
+  // Vex: advantage only for the weapon's wielder (the marker carries the
+  // wielder's combatant id).
+  const vexedByAttacker = [...targetConditions].some(
+    (c) =>
+      c.startsWith(VEXED_MARKER_PREFIX) &&
+      c.slice(VEXED_MARKER_PREFIX.length) === attacker.id,
+  );
   const advantage =
     targetConditions.has("blinded") ||
     targetConditions.has("prone") ||
@@ -132,7 +149,7 @@ export function attackRollAdvantages(
     targetConditions.has("stunned") ||
     targetConditions.has("unconscious") ||
     targetConditions.has(GUIDING_BOLT_MARKER) ||
-    targetConditions.has(VEXED_MARKER);
+    vexedByAttacker;
   if (advantage && disadvantage) return { advantage: false, disadvantage: false };
   return { advantage, disadvantage };
 }

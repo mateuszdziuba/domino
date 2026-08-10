@@ -2,12 +2,13 @@ import type { CampaignState, Character, Combatant, CombatState } from "@domino/s
 import { abilityModifier } from "./abilities.js";
 import {
   GUIDING_BOLT_MARKER,
-  HAMSTRING_MARKER,
   SAPPED_MARKER,
-  SLOWED_MARKER,
-  VEXED_MARKER,
+  SLOWED_MARKER_PREFIX,
+  VEXED_MARKER_PREFIX,
   attackRollAdvantages,
   canAct,
+  slowedMarker,
+  vexedMarker,
 } from "./conditions.js";
 import { d, rollDiceNotation } from "./dice.js";
 
@@ -119,23 +120,34 @@ export function nextTurn(state: CampaignState): CampaignState {
       ? Math.min(nextCombatant.maxHp, nextCombatant.currentHp + 10) -
         nextCombatant.currentHp
       : 0;
+  // Slow lasts "until the start of the wielder's next turn": when wielder X's
+  // turn starts, remove every slowed:X marker on any target.
+  const expiredSlowed = `${SLOWED_MARKER_PREFIX}${nextCombatant.id}`;
+  const combatants = combat.combatants.map((c) => {
+    const conditions =
+      c.id === nextCombatant.id || (c.conditions ?? []).includes(expiredSlowed)
+        ? (c.conditions ?? []).filter((cond) => cond !== expiredSlowed)
+        : c.conditions;
+    return c.id === nextCombatant.id
+      ? {
+          ...c,
+          currentHp:
+            regenerated > 0 ? c.currentHp + regenerated : c.currentHp,
+          attacksLeft: c.attacksPerTurn ?? 1,
+          reactionAvailable: true,
+          bonusActionAvailable: true,
+          movementLeft: c.speed ?? 30,
+          conditions,
+        }
+      : conditions !== c.conditions
+        ? { ...c, conditions }
+        : c;
+  });
   return {
     ...state,
     combat: {
       ...combat,
-      combatants: combat.combatants.map((c) =>
-        c.id === nextCombatant.id
-          ? {
-              ...c,
-              currentHp:
-                regenerated > 0 ? c.currentHp + regenerated : c.currentHp,
-              attacksLeft: c.attacksPerTurn ?? 1,
-              reactionAvailable: true,
-              bonusActionAvailable: true,
-              movementLeft: c.speed ?? 30,
-            }
-          : c,
-      ),
+      combatants,
       turnIndex: nextIndex,
       round: crossedZero ? combat.round + 1 : combat.round,
     },
@@ -179,6 +191,9 @@ export type AttackInput = {
   mastery?: string;
   // Name of the weapon the mastery came from (for messages/events).
   masteryWeapon?: string;
+  // Topple: DC 8 + STR mod + proficiency bonus of the wielder (PCs); the
+  // combat engine falls back to 12 for monsters and legacy callers.
+  toppleDc?: number;
 };
 
 export type AttackResult = {
@@ -342,18 +357,35 @@ export function exhaustedSpeed(speed: number, exhaustion: number): number {
 }
 
 /**
- * Movement budget currently available to a combatant this turn. The "slowed"
- * mastery marker halves it (rounded down); the "hamstring" marker sets it to 0.
+ * Movement budget currently available to a combatant this turn. The Slow
+ * mastery marker reduces it by 10 ft (SRD: −10 ft until the start of the
+ * wielder's next turn); the marker is stored as "slowed:<wielderId>".
  */
 export function effectiveMovement(combatant: {
   conditions?: string[];
   movementLeft?: number;
   speed?: number;
 }): number {
-  const conditions = new Set(combatant.conditions ?? []);
-  if (conditions.has(HAMSTRING_MARKER)) return 0;
   const base = combatant.movementLeft ?? combatant.speed ?? 30;
-  return conditions.has(SLOWED_MARKER) ? Math.floor(base / 2) : base;
+  // Any condition starting with "slowed" (the marker is "slowed:<wielderId>").
+  const slowed = (combatant.conditions ?? []).some((c) =>
+    c.startsWith("slowed"),
+  );
+  return slowed ? Math.max(0, base - 10) : base;
+}
+
+/**
+ * SRD 5.2.1 Weapon Mastery feature: Barbarian and Fighter gain it at level 1,
+ * Paladin and Ranger at level 9. Without the feature no mastery applies.
+ */
+export function hasWeaponMastery(character: {
+  className: string;
+  level: number;
+}): boolean {
+  const { className, level } = character;
+  if (className === "Barbarian" || className === "Fighter") return level >= 1;
+  if (className === "Paladin" || className === "Ranger") return level >= 9;
+  return false;
 }
 
 export function applyHitToTarget(
@@ -369,7 +401,8 @@ export function applyHitToTarget(
       (target.exhaustionLevel ?? 0) >= 4
         ? Math.floor(target.maxHp / 2)
         : target.maxHp;
-    const dead = damageTotal >= effectiveMaxHp || failures >= 3;
+    // SRD: instant death requires damage that EXCEEDS max HP (not equal).
+    const dead = damageTotal > effectiveMaxHp || failures >= 3;
     const status: Combatant["status"] = dead
       ? "dead"
       : target.status === "stable"
@@ -392,29 +425,30 @@ function appendCondition(target: Combatant, key: string): Combatant {
 
 /**
  * Apply the Weapon Mastery rider (SRD 5.2.1) to a resolved attack.
- * - topple: STR save (conSaveMod used as a stand-in — combatants carry no
- *   STR save modifier) vs DC 12; on a fail the target falls prone.
+ * - topple: CON save vs DC 8 + STR mod + proficiency bonus (input.toppleDc,
+ *   fallback 12); on a fail the target falls prone.
  * - push: the target is pushed 10 ft along the battle line (clamped to 500).
- * - vex: internal "vexed" marker grants advantage on the next attack against
- *   the target (consumed like guiding_bolt on the next hit).
+ * - vex: internal "vexed:<wielderId>" marker grants the wielder advantage on
+ *   its next attack roll against the target (consumed after that roll).
  * - graze: a miss still deals damage equal to the attacker's damage bonus.
  * - sap: internal "sapped" marker gives the target disadvantage on its next
  *   attack (consumed after that attack resolves).
- * - slow: internal "slowed" marker halves the target's movement (Part B).
- * - hamstring: internal "hamstring" marker zeroes the target's movement.
+ * - slow: internal "slowed:<wielderId>" marker reduces the target's movement
+ *   by 10 ft until the start of the wielder's next turn.
  * - cleave: data + narration only — the DM chains a second attack.
  * - nick: handled by the tools (off-hand attack costs no bonus action).
  */
 export function applyAttackMastery(
   target: Combatant,
   result: AttackResult,
-  input: Pick<AttackInput, "mastery" | "damageBonus">,
+  input: Pick<AttackInput, "mastery" | "damageBonus" | "toppleDc">,
+  wielderId: string,
 ): Combatant {
   if (result.hit) {
     switch (input.mastery) {
       case "topple": {
         const saveRoll = d(20, 1)[0]! + (target.conSaveMod ?? 0);
-        if (saveRoll < 12) {
+        if (saveRoll < (input.toppleDc ?? 12)) {
           result.masteryApplied = "topple";
           return appendCondition(target, "prone");
         }
@@ -427,7 +461,7 @@ export function applyAttackMastery(
       }
       case "vex": {
         result.masteryApplied = "vex";
-        return appendCondition(target, VEXED_MARKER);
+        return appendCondition(target, vexedMarker(wielderId));
       }
       case "sap": {
         result.masteryApplied = "sap";
@@ -435,11 +469,7 @@ export function applyAttackMastery(
       }
       case "slow": {
         result.masteryApplied = "slow";
-        return appendCondition(target, SLOWED_MARKER);
-      }
-      case "hamstring": {
-        result.masteryApplied = "hamstring";
-        return appendCondition(target, HAMSTRING_MARKER);
+        return appendCondition(target, slowedMarker(wielderId));
       }
       default:
         return target;
@@ -533,12 +563,6 @@ export function performAttack(
         conditions: (target.conditions ?? []).filter((c) => c !== GUIDING_BOLT_MARKER),
       };
     }
-    if ((target.conditions ?? []).includes(VEXED_MARKER)) {
-      newTarget = {
-        ...newTarget,
-        conditions: (target.conditions ?? []).filter((c) => c !== VEXED_MARKER),
-      };
-    }
     if (target.concentratingOn && result.damageTotal > 0) {
       if (newTarget.currentHp === 0) {
         result.concentrationBroken = true;
@@ -555,11 +579,26 @@ export function performAttack(
         }
       }
     }
-    newTarget = applyAttackMastery(newTarget, result, input);
+    newTarget = applyAttackMastery(newTarget, result, input, attacker.id);
     result.targetStatus = newTarget.status;
     result.targetCurrentHp = newTarget.currentHp;
   } else {
-    newTarget = applyAttackMastery(target, result, input);
+    newTarget = applyAttackMastery(target, result, input, attacker.id);
+    result.targetStatus = newTarget.status;
+    result.targetCurrentHp = newTarget.currentHp;
+  }
+  // Vex: the marker is tied to the attack roll — the wielder's next attack
+  // roll against the target consumes it on a hit AND on a miss.
+  const vexedByAttacker = (target.conditions ?? []).includes(
+    `${VEXED_MARKER_PREFIX}${attacker.id}`,
+  );
+  if (vexedByAttacker) {
+    newTarget = {
+      ...newTarget,
+      conditions: (newTarget.conditions ?? []).filter(
+        (c) => c !== `${VEXED_MARKER_PREFIX}${attacker.id}`,
+      ),
+    };
     result.targetStatus = newTarget.status;
     result.targetCurrentHp = newTarget.currentHp;
   }
