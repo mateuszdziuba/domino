@@ -44,6 +44,23 @@ export const characterApi = {
       body: JSON.stringify(input),
     }),
   remove: (id: string) => api<{ ok: boolean }>(`/characters/${id}`, { method: "DELETE" }),
+  uploadPortrait: (id: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return fetch(`/api/characters/${id}/portrait`, {
+      method: "POST",
+      credentials: "include",
+      body: form,
+    }).then(async (res) => {
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        portraitUrl?: string;
+        error?: string;
+      } | null;
+      if (!res.ok) throw new Error(data?.error ?? "Nie udało się przesłać portretu.");
+      return { ok: true, portraitUrl: data?.portraitUrl ?? "" };
+    });
+  },
 };
 
 export type SpellMeta = {

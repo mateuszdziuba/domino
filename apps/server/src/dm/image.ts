@@ -30,9 +30,11 @@ function saveImage(buffer: Buffer): string {
   return `/static/images/${file}`;
 }
 
+export type ImageReference = { url?: string; base64?: string };
+
 export async function generateImage(
   prompt: string,
-  opts?: { width?: number; height?: number },
+  opts?: { width?: number; height?: number; reference?: ImageReference },
 ): Promise<ImageResult> {
   const provider = imageProvider();
   if (provider === "off") {
@@ -49,7 +51,23 @@ export async function generateImage(
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: opts?.reference?.base64
+                  ? [
+                      {
+                        inlineData: {
+                          mimeType: "image/jpeg",
+                          data: opts.reference.base64,
+                        },
+                      },
+                      { text: prompt },
+                    ]
+                  : [{ text: prompt }],
+              },
+            ],
+          }),
         },
       );
       if (!response.ok) {
@@ -62,8 +80,13 @@ export async function generateImage(
       if (!data) return { ok: false, error: "Gemini nie zwrócił obrazu." };
       return { ok: true, url: saveImage(Buffer.from(data, "base64")) };
     }
+    const referenceUrl = opts?.reference?.url?.startsWith("http")
+      ? opts.reference.url
+      : undefined;
     const response = await fetch(
-      `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true`,
+      `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true${
+        referenceUrl ? `&image=${encodeURIComponent(referenceUrl)}` : ""
+      }`,
     );
     if (!response.ok) {
       return { ok: false, error: `Pollinations error ${response.status}.` };
@@ -72,6 +95,25 @@ export async function generateImage(
     return { ok: true, url: saveImage(buffer) };
   } catch {
     return { ok: false, error: "Nie udało się wygenerować obrazu." };
+  }
+}
+
+export function portraitFileFromUrl(url: string): string | null {
+  const match = url.match(/^\/static\/images\/([^/]+)$/);
+  if (!match) return null;
+  return resolve(IMAGES_DIR, match[1]!);
+}
+
+export async function loadPortraitReference(url: string): Promise<ImageReference> {
+  if (url.startsWith("http")) return { url };
+  const file = portraitFileFromUrl(url);
+  if (!file) return {};
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const buffer = await readFile(file);
+    return { base64: buffer.toString("base64") };
+  } catch {
+    return {};
   }
 }
 

@@ -23,6 +23,7 @@ import {
   generateImage,
   imageProvider,
   isImageConfigured,
+  loadPortraitReference,
 } from "./image.js";
 import { d, rollD20, rollDiceNotation } from "../rules/dice.js";
 import { xpAwardForDeadEnemies, hitDieForClass } from "../rules/advancement.js";
@@ -2050,6 +2051,7 @@ export async function runDmTool(
         .object({
           prompt: z.string().min(3).max(500),
           style: z.string().max(60).optional(),
+          characterId: z.string().optional(),
         })
         .safeParse(rawArgs);
       if (!parsed.success) return { ok: false, message: "Wymagany jest opis (min. 3 znaki)." };
@@ -2059,15 +2061,33 @@ export async function runDmTool(
       const fullPrompt = parsed.data.style
         ? `${parsed.data.prompt}, ${parsed.data.style}`
         : parsed.data.prompt;
-      const image = await generateImage(fullPrompt);
+      let referenceNote = "";
+      let reference: Awaited<ReturnType<typeof loadPortraitReference>> = {};
+      if (parsed.data.characterId) {
+        const character = getCharacterById(parsed.data.characterId);
+        if (character?.portraitUrl) {
+          reference = await loadPortraitReference(character.portraitUrl);
+          referenceNote = reference.base64
+            ? ` (referencja portretu ${character.name})`
+            : reference.url
+              ? ` (referencja portretu ${character.name})`
+              : "";
+        }
+      }
+      const image = await generateImage(fullPrompt, { reference });
       if (!image.ok) return { ok: false, message: image.error };
       pushEvent(campaignId, "action.resolved", {
         type: "image",
         prompt: fullPrompt,
         url: image.url,
         provider: imageProvider(),
+        ...(referenceNote ? { referenceCharacterId: parsed.data.characterId } : {}),
       });
-      return { ok: true, message: `Wygenerowano obraz: ${image.url}`, data: { url: image.url } };
+      return {
+        ok: true,
+        message: `Wygenerowano obraz: ${image.url}${referenceNote}`,
+        data: { url: image.url },
+      };
     }
     case "generate_portrait": {
       const parsed = z.object({ characterId: z.string().min(1) }).safeParse(rawArgs);
@@ -2077,7 +2097,10 @@ export async function runDmTool(
       if (!isImageConfigured()) {
         return { ok: false, message: "Generowanie obrazów jest wyłączone (IMAGE_PROVIDER)." };
       }
-      const image = await generateImage(buildPortraitPrompt(character));
+      const reference = character.portraitUrl
+        ? await loadPortraitReference(character.portraitUrl)
+        : {};
+      const image = await generateImage(buildPortraitPrompt(character), { reference });
       if (!image.ok) return { ok: false, message: image.error };
       updateCharacterPortrait(character.id, image.url);
       pushEvent(campaignId, "action.resolved", {

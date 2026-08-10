@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as schema from "./schema.js";
 
-const DATA_DIR = fileURLToPath(new URL("../data", import.meta.url));
+const DATA_DIR = fileURLToPath(new URL("../../data", import.meta.url));
 const DATABASE_URL =
   process.env.DATABASE_URL ?? resolve(DATA_DIR, "domino.db");
 

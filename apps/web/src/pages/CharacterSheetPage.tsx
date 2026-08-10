@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { ArrowLeft, Coins, ScrollText, Shield, Sparkles, Swords, Wand2 } from "lucide-react";
+import { ArrowLeft, Coins, ScrollText, Shield, Sparkles, Swords, Wand2 , Upload } from "lucide-react";
 import {
   characterApi,
   equipmentApi,
@@ -130,6 +130,8 @@ export default function CharacterSheetPage() {
   const [pendingGear, setPendingGear] = useState("");
   const [attuneError, setAttuneError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [shopError, setShopError] = useState<string | null>(null);
   const [shopSuccess, setShopSuccess] = useState<string | null>(null);
@@ -450,28 +452,67 @@ export default function CharacterSheetPage() {
             <img
               src={character.portraitUrl}
               alt={`Portret ${character.name}`}
-              className="h-24 w-24 shrink-0 rounded-sm border border-[#b99f6b] object-cover shadow-[0_4px_12px_-4px_rgba(60,40,10,0.4)]"
+              className="h-24 w-24 shrink-0 rounded-sm border border-[#b99f6b] object-cover object-top shadow-[0_4px_12px_-4px_rgba(60,40,10,0.4)]"
             />
-            <TooltipProvider delayDuration={250}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 font-display text-[10px] uppercase tracking-[0.1em] text-[#7c6a45] hover:text-[#3a2c17]"
-                  >
-                    <Sparkles className="size-3.5" />
-                    Wygeneruj portret
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <span className="text-[11px] leading-relaxed text-[#f6ead0]">
-                    Portret generuje DM w czacie (napisz np. „wygeneruj portret {character.name}").
-                  </span>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex items-center gap-1">
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setUploading(true);
+                    setUploadError(null);
+                    characterApi
+                      .uploadPortrait(character.id, file)
+                      .then(({ portraitUrl }) => {
+                        loadSheet();
+                        void portraitUrl;
+                      })
+                      .catch((err) =>
+                        setUploadError(err instanceof Error ? err.message : "Nie udało się przesłać"),
+                      )
+                      .finally(() => setUploading(false));
+                    e.target.value = "";
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 font-display text-[10px] uppercase tracking-[0.1em] text-[#7c6a45] hover:text-[#3a2c17]"
+                  disabled={uploading}
+                >
+                  <Upload className="size-3.5" />
+                  {uploading ? "Wysyłanie…" : "Prześlij"}
+                </Button>
+              </label>
+              <TooltipProvider delayDuration={250}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 font-display text-[10px] uppercase tracking-[0.1em] text-[#7c6a45] hover:text-[#3a2c17]"
+                    >
+                      <Sparkles className="size-3.5" />
+                      Wygeneruj portret
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <span className="text-[11px] leading-relaxed text-[#f6ead0]">
+                      Portret generuje DM w czacie (napisz np. „wygeneruj portret {character.name}").
+                      Wygenerowane obrazy używają wgranego portretu jako referencji.
+                    </span>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            {uploadError && <p className="text-xs text-[#8f1d1d]">{uploadError}</p>}
           </div>
         )}
         <div>

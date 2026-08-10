@@ -439,7 +439,7 @@ describe("SPELLS — concentration", () => {
   });
 
   it("concentration spells carry the concentration flag consistently", () => {
-    for (const [name, def] of Object.entries(SPELLS)) {
+    for (const def of Object.values(SPELLS)) {
       const flagged =
         "concentration" in def.effect && def.effect.concentration === true;
       if (flagged) {
@@ -935,9 +935,9 @@ describe("resolveSpellCast — full-HP revive (Resurrection)", () => {
 
 describe("Polish spell names", () => {
   it("gives every spell a non-empty Polish name", () => {
-    for (const [name, def] of Object.entries(SPELLS)) {
-      expect(def.namePl, name).toBeTruthy();
-      expect(def.namePl.trim().length, name).toBeGreaterThan(0);
+    for (const def of Object.values(SPELLS)) {
+      expect(def.namePl, def.name).toBeTruthy();
+      expect(def.namePl.trim().length, def.name).toBeGreaterThan(0);
     }
   });
 

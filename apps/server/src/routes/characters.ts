@@ -6,6 +6,7 @@ import { characters } from "../db/schema.js";
 import { newId, isoNow } from "../lib/ids.js";
 import { requireAuth } from "../middleware/auth.js";
 import { proficiencyBonus } from "../rules/abilities.js";
+import { updateCharacterPortrait } from "../campaign/store.js";
 import { buildCharacterSheet } from "../rules/sheet.js";
 import type { Character, CharacterSummary } from "@domino/shared";
 
@@ -169,6 +170,40 @@ characterRoutes.patch("/:id", requireAuth, async (c) => {
     .run();
   const row = db.select().from(characters).where(eq(characters.id, id)).get()!;
   return c.json({ character: rowToCharacter(row) });
+});
+
+characterRoutes.post("/:id/portrait", requireAuth, async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const existing = db
+    .select()
+    .from(characters)
+    .where(and(eq(characters.id, id), eq(characters.userId, user.id)))
+    .get();
+  if (!existing) return c.json({ error: "Nie znaleziono postaci." }, 404);
+  const body = await c.req.parseBody();
+  const file = body["file"];
+  if (!(file instanceof File)) {
+    return c.json({ error: "Brak pliku." }, 400);
+  }
+  if (!file.type.startsWith("image/")) {
+    return c.json({ error: "Plik musi być obrazem (JPEG/PNG/WebP)." }, 400);
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    return c.json({ error: "Obraz jest za duży (maks. 5 MB)." }, 400);
+  }
+  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const { mkdirSync, writeFileSync } = await import("node:fs");
+  const { resolve } = await import("node:path");
+  const { fileURLToPath } = await import("node:url");
+  const dir = fileURLToPath(new URL("../../data/images/portraits", import.meta.url));
+  mkdirSync(dir, { recursive: true });
+  const filename = `${newId()}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  writeFileSync(resolve(dir, filename), buffer);
+  const url = `/static/images/portraits/${filename}`;
+  updateCharacterPortrait(id, url);
+  return c.json({ ok: true, portraitUrl: url });
 });
 
 characterRoutes.delete("/:id", requireAuth, (c) => {
