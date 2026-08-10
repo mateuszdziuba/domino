@@ -25,6 +25,8 @@ if (isProduction) {
   try {
     migrate(db, { migrationsFolder: fileURLToPath(new URL("../drizzle", import.meta.url)) });
     console.log("Migrations applied.");
+    const { seedIfEmpty } = await import("./db/seed.js");
+    seedIfEmpty();
   } catch (error) {
     console.error("Migration failed:", error);
     process.exit(1);

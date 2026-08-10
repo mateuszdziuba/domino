@@ -7,12 +7,12 @@ import { defaultCampaignState } from "../rules/state.js";
 const username = process.env.SEED_USER ?? "demo";
 const password = process.env.SEED_PASSWORD ?? "demo1234";
 
-const existing = db.select().from(users).all();
-if (existing.length > 0) {
-  console.log("Database not empty — skipping seed.");
-  sqlite.close();
-  process.exit(0);
-}
+export function seedIfEmpty(): boolean {
+  const existing = db.select().from(users).all();
+  if (existing.length > 0) {
+    console.log("Database not empty — skipping seed.");
+    return false;
+  }
 
 const userId = newId();
 db.insert(users)
@@ -75,4 +75,15 @@ db.insert(chatMessages)
   .run();
 
 console.log(`Seeded demo user "${username}" / "${password}" with character "Elara" (Cleric 3) and campaign "The Sunken Vault".`);
-sqlite.close();
+  return true;
+}
+
+const isMain =
+  process.argv[1] !== undefined &&
+  import.meta.url ===
+    new URL(`file://${process.argv[1].startsWith("/") ? "" : process.cwd() + "/"}${process.argv[1]}`).href;
+
+if (isMain) {
+  seedIfEmpty();
+  sqlite.close();
+}
