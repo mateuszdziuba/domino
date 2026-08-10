@@ -1,10 +1,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 
 export type ImageProvider = "pollinations" | "gemini" | "off";
 
-const IMAGES_DIR = resolve(process.cwd(), "data/images");
+const IMAGES_DIR = fileURLToPath(new URL("../../data/images", import.meta.url));
 
 export function imageProvider(): ImageProvider {
   const provider = (process.env.IMAGE_PROVIDER ?? "pollinations").toLowerCase();

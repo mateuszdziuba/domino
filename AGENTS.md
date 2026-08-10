@@ -31,7 +31,9 @@
 - `pnpm test` — vitest in server (rules engine tests in `apps/server/src/rules/rules.test.ts`).
 - `pnpm lint` — eslint (flat config at repo root).
 - `pnpm db:generate` — drizzle-kit migrations from `apps/server/src/db/schema.ts`.
-- `pnpm db:migrate` — apply migrations (also needed after fresh clone; server does not auto-migrate).
+- `pnpm db:migrate` — apply migrations locally (in production the server auto-migrates on start).
+- `pnpm start` — production server (API + built web SPA on one port; needs `pnpm build` first).
+- `pnpm --filter @domino/server db:seed:prod` — seed demo user on a production DB (or `node dist/db/seed.js` inside the container).
 - `pnpm --filter @domino/server db:seed` — demo user/campaign (skips if DB non-empty).
 
 ## Gotchas

@@ -10,7 +10,8 @@
     "test": "pnpm -r --if-present test",
     "lint": "pnpm -r --if-present lint",
     "db:generate": "pnpm --filter @domino/server db:generate",
-    "db:migrate": "pnpm --filter @domino/server db:migrate"
+    "db:migrate": "pnpm --filter @domino/server db:migrate",
+    "start": "pnpm --filter @domino/server start"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
@@ -18,6 +19,9 @@
     "typescript-eslint": "^8.65.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
   }
 }

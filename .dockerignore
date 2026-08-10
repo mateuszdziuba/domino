@@ -1,0 +1,15 @@
+node_modules
+dist
+data
+.git
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env
+.env.local
+.ai
+apps/web/node_modules
+apps/server/node_modules
+apps/server/dist
+apps/web/dist
