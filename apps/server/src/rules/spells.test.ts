@@ -954,7 +954,8 @@ describe("Polish spell names", () => {
   });
 
   it("returns undefined for unknown or empty names", () => {
-    expect(findSpellByName("Fireball")).toBeUndefined();
+    expect(findSpellByName("Fireball")).toMatchObject({ name: "Fireball" });
+    expect(findSpellByName("Nieistniejące Zaklęcie")).toBeUndefined();
     expect(findSpellByName("")).toBeUndefined();
     expect(findSpellByName("   ")).toBeUndefined();
   });

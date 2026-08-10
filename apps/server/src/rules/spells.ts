@@ -31,7 +31,7 @@ export type SpellEffect =
       mod: boolean;
       range: string;
       duration: string;
-      castingTime: "action";
+      castingTime: "action" | "bonus";
       castingTimeMinutes?: number;
       flat?: number;
       concentration?: boolean;
@@ -91,11 +91,17 @@ export type SpellDef = {
 import { SPELLS_L0 } from "./spells/spells-l0.js";
 import { SPELLS_L1 } from "./spells/spells-l1.js";
 import { SPELLS_L2 } from "./spells/spells-l2.js";
+import { SPELLS_L3 } from "./spells/spells-l3.js";
+import { SPELLS_L4 } from "./spells/spells-l4.js";
+import { SPELLS_L5 } from "./spells/spells-l5.js";
 
 export const SPELLS: Record<string, SpellDef> = {
   ...SPELLS_L0,
   ...SPELLS_L1,
   ...SPELLS_L2,
+  ...SPELLS_L3,
+  ...SPELLS_L4,
+  ...SPELLS_L5,
   "Bless": {
     name: "Bless",
     namePl: "Błogosławieństwo",
