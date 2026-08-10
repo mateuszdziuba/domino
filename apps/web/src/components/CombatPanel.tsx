@@ -101,6 +101,7 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
     }
   }
 
+  const grid = combat.grid;
   const current = combat.active
     ? combat.combatants[combat.turnIndex % combat.combatants.length]
     : undefined;
@@ -133,6 +134,56 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
 
         {combat.active && (
           <>
+            {grid && grid.cols > 0 && grid.rows > 0 && (
+              <div>
+                <div
+                  className="relative w-full overflow-hidden rounded-sm border border-[#b99f6b] bg-[#efe2c4] shadow-[inset_0_2px_6px_rgba(90,60,20,0.15)]"
+                  style={{
+                    height: "11rem",
+                    backgroundImage:
+                      "repeating-linear-gradient(0deg, rgba(160,139,92,0.35) 0 1px, transparent 1px 100%), repeating-linear-gradient(90deg, rgba(160,139,92,0.35) 0 1px, transparent 1px 100%)",
+                    backgroundSize: `${100 / grid.cols}% ${100 / grid.rows}%`,
+                  }}
+                >
+                  {combat.combatants
+                    .filter((c) => c.x != null && c.y != null && c.status !== "dead")
+                    .map((c) => (
+                      <Tooltip key={c.id}>
+                        <TooltipTrigger asChild>
+                          <div
+                            className={cn(
+                              "absolute flex items-center justify-center rounded-full border text-[9px] font-display text-[#f6ead0]",
+                              c.isPlayer
+                                ? "border-[#5c4018] bg-[#a97e1f]"
+                                : "border-[#2e2113] bg-[#4a3417]",
+                              c.id === current?.id && "ring-2 ring-[#8f1d1d]",
+                              c.status === "downed" && "opacity-60",
+                            )}
+                            style={{
+                              left: `${((c.x! - 1) / grid.cols) * 100}%`,
+                              top: `${((c.y! - 1) / grid.rows) * 100}%`,
+                              width: `calc(${100 / grid.cols}% * 0.8)`,
+                              aspectRatio: "1",
+                            }}
+                            title={c.name}
+                          >
+                            {c.isPlayer ? "✦" : "•"}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <span className="text-[11px] text-[#f6ead0]">
+                            {c.name} — pole {c.x},{c.y}
+                            {c.id === current?.id ? " (aktywna tura)" : ""}
+                          </span>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                </div>
+                <p className="mt-1 text-[10px] italic text-[#7c6a45]">
+                  Pole bitwy {grid.cols}×{grid.rows} · 5 ft / pole
+                </p>
+              </div>
+            )}
             {combat.lightLevel && (
               <div className="flex flex-wrap items-center gap-2">
                 <span
@@ -217,8 +268,13 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                         </TooltipContent>
                       </Tooltip>
                     )}
-                    {c.position != null && c.position > 0 && (
-                      <span className="text-[9px] text-[#a08b5c]">{c.position} ft</span>
+                    {c.x != null && c.y != null ? (
+                      <span className="text-[9px] text-[#a08b5c]">pole {c.x},{c.y}</span>
+                    ) : (
+                      c.position != null &&
+                      c.position > 0 && (
+                        <span className="text-[9px] text-[#a08b5c]">{c.position} ft</span>
+                      )
                     )}
                     {c.speed != null && c.movementLeft != null && (
                       <span

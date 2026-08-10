@@ -597,6 +597,54 @@ describe("runDmTool encounter generation (mocked store)", () => {
     );
   });
 
+  it("generate_encounter places combatants on a pre-configured grid", async () => {
+    const state = mock.defaultState();
+    state.combat.grid = { cols: 12, rows: 8 };
+    mock.states.set("c1", state);
+    const result = await runTool("generate_encounter", {
+      description: "goblins in a cave",
+    });
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    expect(saved.combat.grid).toEqual({ cols: 12, rows: 8 });
+    const players = saved.combat.combatants.filter((c) => c.isPlayer);
+    const foes = saved.combat.combatants.filter((c) => !c.isPlayer);
+    expect(players.length).toBeGreaterThan(0);
+    expect(foes.length).toBeGreaterThan(0);
+    for (const c of players) expect(c.x).toBe(1);
+    for (const c of foes) expect(c.x).toBe(12);
+    expect(saved.combat.combatants.every((c) => c.y !== undefined)).toBe(true);
+  });
+
+  it("random_encounter places combatants on a pre-configured grid", async () => {
+    const state = mock.defaultState();
+    state.combat.grid = { cols: 10, rows: 6 };
+    mock.states.set("c1", state);
+    const result = await runTool("random_encounter", {});
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const players = saved.combat.combatants.filter((c) => c.isPlayer);
+    const foes = saved.combat.combatants.filter((c) => !c.isPlayer);
+    for (const c of players) expect(c.x).toBe(1);
+    for (const c of foes) expect(c.x).toBe(10);
+  });
+
+  it("summarizeState includes grid coordinates when present", async () => {
+    const state = stateWithCombat();
+    state.combat.grid = { cols: 12, rows: 8 };
+    state.combat.combatants[0] = { ...state.combat.combatants[0]!, x: 1, y: 1 };
+    state.combat.combatants[1] = { ...state.combat.combatants[1]!, x: 12, y: 1 };
+    mock.states.set("c1", state);
+    const result = await runTool("get_campaign_state");
+    expect(result.ok).toBe(true);
+    const data = result.data as {
+      combat: { combatants: { id: string; x: number; y: number }[] };
+    };
+    const aria = data.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(aria.x).toBe(1);
+    expect(aria.y).toBe(1);
+  });
+
   it("random_encounter filters kinds by terrain", async () => {
     const result = await runTool("random_encounter", { terrain: "cave" });
     expect(result.ok).toBe(true);
@@ -749,6 +797,129 @@ describe("runDmTool attack_combatant weapon derivation (mocked store)", () => {
     expect(result.ok).toBe(true);
     const data = result.data as { damageTotal: number };
     expect(data.damageTotal).toBe(7); // 1d4 (4) + STR 3, not the Longsword 13
+  });
+});
+
+describe("runDmTool attack_combatant ranges on the grid (mocked store)", () => {
+  function rangedState(
+    attacker: { x: number; y: number },
+    target: { x: number; y: number },
+    grid = { cols: 20, rows: 14 },
+  ): CampaignState {
+    const state = stateWithCombat();
+    state.combat.grid = grid;
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      x: attacker.x,
+      y: attacker.y,
+    };
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      x: target.x,
+      y: target.y,
+    };
+    return state;
+  }
+
+  function withWeapon(name: string) {
+    mock.characters.set("ch1", {
+      ...aria,
+      inventory: [{ id: "i1", name, quantity: 1, slot: "weapon" }],
+    });
+  }
+
+  it("rejects a Longbow shot beyond its 150-ft near range", async () => {
+    withWeapon("Longbow");
+    // (1,1) -> (20,14): (19+13)*5 = 160 ft > 150
+    mock.states.set("c1", rangedState({ x: 1, y: 1 }, { x: 20, y: 14 }));
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Poza zasięgiem");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("allows a Longbow shot within its 150-ft near range", async () => {
+    withWeapon("Longbow");
+    mock.states.set("c1", rangedState({ x: 1, y: 1 }, { x: 20, y: 7 })); // 125 ft
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+  });
+
+  it("allows a thrown Dagger at 50 ft (thrown range 60)", async () => {
+    withWeapon("Dagger");
+    mock.states.set("c1", rangedState({ x: 1, y: 1 }, { x: 1, y: 11 })); // 50 ft
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects a thrown Dagger beyond 60 ft", async () => {
+    withWeapon("Dagger");
+    mock.states.set("c1", rangedState({ x: 1, y: 1 }, { x: 1, y: 14 })); // 65 ft
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Poza zasięgiem");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Shortsword melee attack at 10 ft on the grid", async () => {
+    withWeapon("Shortsword");
+    mock.states.set("c1", rangedState({ x: 1, y: 1 }, { x: 1, y: 3 })); // 10 ft
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Poza zasięgiem");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("allows a Shortsword melee attack within 5 ft on the grid", async () => {
+    withWeapon("Shortsword");
+    mock.states.set("c1", rangedState({ x: 1, y: 1 }, { x: 1, y: 2 })); // 5 ft
+    const original = Math.random;
+    Math.random = () => 0.9;
+    const result = await runTool("attack_combatant", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    Math.random = original;
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects an out-of-range opportunity attack on the grid", async () => {
+    withWeapon("Shortsword");
+    const state = rangedState({ x: 1, y: 1 }, { x: 1, y: 4 }); // 15 ft
+    state.combat.turnIndex = 1;
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      reactionAvailable: true,
+    };
+    mock.states.set("c1", state);
+    const result = await runTool("opportunity_attack", {
+      attackerId: "char-ch1",
+      targetId: "enemy-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("poza zasięgiem ataku okazyjnego");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
   });
 });
 
@@ -1152,6 +1323,159 @@ describe("runDmTool move_combatant (mocked store)", () => {
       combatantId: "enemy-1",
       feet: 501,
     });
+    expect(result.ok).toBe(false);
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("runDmTool move_combatant on the grid (mocked store)", () => {
+  function gridState(): CampaignState {
+    const state = stateWithCombat();
+    state.combat.grid = { cols: 12, rows: 8 };
+    state.combat.combatants[0] = {
+      ...state.combat.combatants[0]!,
+      x: 1,
+      y: 1,
+      movementLeft: 30,
+      speed: 30,
+    };
+    state.combat.combatants[1] = {
+      ...state.combat.combatants[1]!,
+      x: 12,
+      y: 1,
+      movementLeft: 30,
+      speed: 30,
+    };
+    return state;
+  }
+
+  it("moves by Manhattan distance × 5 and decrements movementLeft", async () => {
+    mock.states.set("c1", gridState());
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      x: 12,
+      y: 4,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("pole (12, 4)");
+    const saved = mock.states.get("c1")!;
+    const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(goblin.x).toBe(12);
+    expect(goblin.y).toBe(4);
+    expect(goblin.movementLeft).toBe(15); // 30 - 3 squares * 5 ft
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "move", x: 12, y: 4 }),
+    );
+  });
+
+  it("supports moving only along one axis", async () => {
+    mock.states.set("c1", gridState());
+    const result = await runTool("move_combatant", {
+      combatantId: "char-ch1",
+      x: 1,
+      y: 5,
+    });
+    expect(result.ok).toBe(true);
+    const saved = mock.states.get("c1")!;
+    const aria = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    expect(aria.x).toBe(1);
+    expect(aria.y).toBe(5);
+    expect(aria.movementLeft).toBe(10); // 30 - 4 squares * 5 ft
+  });
+
+  it("rejects a target outside the grid bounds", async () => {
+    mock.states.set("c1", gridState());
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      x: 99,
+      y: 1,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Punkt poza polem bitwy");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a move beyond the movement budget", async () => {
+    mock.states.set("c1", gridState());
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      x: 1,
+      y: 1,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Za mało ruchu");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects x/y moves without a grid set", async () => {
+    const result = await runTool("move_combatant", {
+      combatantId: "enemy-1",
+      x: 3,
+      y: 3,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Punkt poza polem bitwy");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("runDmTool set_battlefield (mocked store)", () => {
+  it("sets the grid, places combatants and pushes a battlefield event", async () => {
+    const result = await runTool("set_battlefield", { cols: 12, rows: 8 });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("Pole bitwy: 12×8 (5-stopowe kwadraty)");
+    const saved = mock.states.get("c1")!;
+    expect(saved.combat.grid).toEqual({ cols: 12, rows: 8 });
+    const aria = saved.combat.combatants.find((c) => c.id === "char-ch1")!;
+    const goblin = saved.combat.combatants.find((c) => c.id === "enemy-1")!;
+    expect(aria.x).toBe(1);
+    expect(aria.y).toBe(1);
+    expect(goblin.x).toBe(12);
+    expect(goblin.y).toBe(1);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "battlefield", cols: 12, rows: 8 }),
+    );
+  });
+
+  it("accepts an optional theme in the message", async () => {
+    const result = await runTool("set_battlefield", {
+      cols: 8,
+      rows: 6,
+      theme: "Jaskinia",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("— Jaskinia");
+    const saved = mock.states.get("c1")!;
+    expect(saved.combat.grid).toEqual({ cols: 8, rows: 6 });
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "battlefield", theme: "Jaskinia" }),
+    );
+  });
+
+  it("applies grid defaults when cols/rows are omitted", async () => {
+    const result = await runTool("set_battlefield", {});
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("12×8");
+    const saved = mock.states.get("c1")!;
+    expect(saved.combat.grid).toEqual({ cols: 12, rows: 8 });
+  });
+
+  it("rejects without active combat", async () => {
+    mock.states.set("c1", mock.defaultState());
+    const result = await runTool("set_battlefield", {});
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Walka musi być w toku");
+    expect(mock.pushEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid grid dimensions", async () => {
+    const result = await runTool("set_battlefield", { cols: 2 });
     expect(result.ok).toBe(false);
     expect(mock.pushEvent).not.toHaveBeenCalled();
   });

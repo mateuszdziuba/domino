@@ -54,6 +54,9 @@ import {
   exhaustedSpeed,
   effectiveMovement,
   hasWeaponMastery,
+  gridDistanceInFeet,
+  placeCombatantsOnGrid,
+  reachSatisfied,
 } from "../rules/combat.js";
 import { abilityModifier, proficiencyBonus } from "../rules/abilities.js";
 import { buildCharacterFeatures } from "../rules/features.js";
@@ -73,6 +76,7 @@ import {
   findEquippedWeapon,
   findOffhandWeapon,
   weaponAttackStats,
+  weaponRangeInFeet,
   weaponReach,
 } from "../rules/weapons.js";
 import {
@@ -368,6 +372,19 @@ export async function runDmTool(
         speed: exhaustedSpeed(ch.speed, ch.exhaustion ?? 0),
       }));
       let state = startCombat(state0, [...combatants, ...monsters]);
+      if (state.combat.grid) {
+        state = {
+          ...state,
+          combat: {
+            ...state.combat,
+            combatants: placeCombatantsOnGrid(
+              state.combat.combatants,
+              state.combat.grid.cols,
+              state.combat.grid.rows,
+            ),
+          },
+        };
+      }
       state = saveState(campaignId, state);
       pushEvent(campaignId, "encounter.started", {
         generated: true,
@@ -417,6 +434,19 @@ export async function runDmTool(
         speed: exhaustedSpeed(ch.speed, ch.exhaustion ?? 0),
       }));
       let state = startCombat(state0, [...combatants, ...monsters]);
+      if (state.combat.grid) {
+        state = {
+          ...state,
+          combat: {
+            ...state.combat,
+            combatants: placeCombatantsOnGrid(
+              state.combat.combatants,
+              state.combat.grid.cols,
+              state.combat.grid.rows,
+            ),
+          },
+        };
+      }
       state = saveState(campaignId, state);
       const description =
         parsed.data.description?.trim() || monsters.map((m) => m.name).join(", ");
@@ -477,7 +507,7 @@ export async function runDmTool(
             ? findEquippedWeapon(character)
             : undefined;
           if (weapon) {
-            reach = weaponReach(weapon);
+            reach = weaponRangeInFeet(weapon) ?? weaponReach(weapon);
             weaponMastery = weapon.mastery;
             masteryWeapon = weapon.name;
             if (weaponMastery === "topple") {
@@ -590,7 +620,7 @@ export async function runDmTool(
             ? findEquippedWeapon(character)
             : undefined;
           if (weapon) {
-            reach = weaponReach(weapon);
+            reach = weaponRangeInFeet(weapon) ?? weaponReach(weapon);
             weaponMastery = weapon.mastery;
             if (weaponMastery === "topple") {
               toppleDc =
@@ -601,7 +631,7 @@ export async function runDmTool(
           }
         }
       }
-      if ((target.position ?? 0) > reach) {
+      if (!reachSatisfied(attacker, target, reach, state.combat.grid)) {
         return { ok: false, message: "Cel jest poza zasięgiem ataku okazyjnego." };
       }
       const mods = attackRollAdvantages(attacker, target);
@@ -737,7 +767,7 @@ export async function runDmTool(
         attackBonus: parsed.data.attackBonus ?? stats.hitBonus,
         damageNotation: parsed.data.damageNotation ?? offhandWeapon.damageDice,
         damageBonus: parsed.data.damageBonus ?? 0,
-        reach: weaponReach(offhandWeapon),
+        reach: weaponRangeInFeet(offhandWeapon) ?? weaponReach(offhandWeapon),
         mastery: offhandMastery,
         masteryWeapon: offhandMastery ? offhandWeapon.name : undefined,
         toppleDc,
@@ -781,16 +811,78 @@ export async function runDmTool(
     }
     case "move_combatant": {
       const parsed = z
-        .object({ combatantId: z.string().min(1), feet: z.number().int().min(0).max(500) })
+        .object({
+          combatantId: z.string().min(1),
+          feet: z.number().int().min(0).max(500).optional(),
+          x: z.number().int().optional(),
+          y: z.number().int().optional(),
+        })
         .safeParse(rawArgs);
       if (!parsed.success) {
-        return { ok: false, message: "Wymagane są combatantId i feet (0–500 stóp)." };
+        return {
+          ok: false,
+          message: "Wymagane są combatantId oraz feet (0–500) lub współrzędne x/y pola bitwy.",
+        };
       }
       const state = loadState(campaignId);
       if (!state.combat.active) return { ok: false, message: "Brak walki w toku." };
       const combatant = findCombatant(state, parsed.data.combatantId);
       if (!combatant) return { ok: false, message: "Nie znaleziono kombatanta." };
-      const newPosition = parsed.data.feet;
+      const gridMode = parsed.data.x !== undefined || parsed.data.y !== undefined;
+      if (gridMode) {
+        const grid = state.combat.grid;
+        if (!grid) return { ok: false, message: "Punkt poza polem bitwy." };
+        const x = parsed.data.x ?? combatant.x ?? 1;
+        const y = parsed.data.y ?? combatant.y ?? 1;
+        if (x < 1 || x > grid.cols || y < 1 || y > grid.rows) {
+          return { ok: false, message: "Punkt poza polem bitwy." };
+        }
+        // The move costs the Manhattan distance in 5-ft squares.
+        const cost = gridDistanceInFeet(
+          { x: combatant.x ?? 1, y: combatant.y ?? 1 },
+          { x, y },
+        )!;
+        const available = effectiveMovement(combatant);
+        if (cost > available) {
+          return {
+            ok: false,
+            message: `Za mało ruchu w tej turze (zostało ${available} stóp).`,
+          };
+        }
+        const movementLeft =
+          (combatant.movementLeft ?? combatant.speed ?? 30) - cost;
+        const updated: Combatant = { ...combatant, x, y, movementLeft };
+        const nextState: CampaignState = {
+          ...state,
+          combat: {
+            ...state.combat,
+            combatants: state.combat.combatants.map((c) =>
+              c.id === combatant.id ? updated : c,
+            ),
+          },
+          updatedAt: new Date().toISOString(),
+        };
+        saveState(campaignId, nextState);
+        pushEvent(campaignId, "action.resolved", {
+          type: "move",
+          combatant: combatant.name,
+          x,
+          y,
+          speed: updated.speed ?? 30,
+          movementLeft,
+        });
+        const movementNote = (combatant.conditions ?? []).some((c) =>
+          c.startsWith(SLOWED_MARKER_PREFIX),
+        )
+          ? " (Slow: dostępny ruch o 10 stóp mniejszy.)"
+          : "";
+        return {
+          ok: true,
+          message: `${combatant.name} przesuwa się na pole (${x}, ${y}).${movementNote}`,
+          data: summarizeState(nextState),
+        };
+      }
+      const newPosition = parsed.data.feet ?? 0;
       const oldPosition = combatant.position ?? 0;
       // The move costs the DELTA on the battle line, not the absolute position.
       const cost = Math.abs(newPosition - oldPosition);
@@ -836,6 +928,43 @@ export async function runDmTool(
           ? `${combatant.name} przesuwa się w sam środek walki w zwarciu.${movementNote}`
           : `${combatant.name} przesuwa się na pozycję ${newPosition} stóp od walki w zwarciu.${movementNote}`;
       return { ok: true, message, data: summarizeState(nextState) };
+    }
+    case "set_battlefield": {
+      const parsed = z
+        .object({
+          cols: z.number().int().min(4).max(20).default(12),
+          rows: z.number().int().min(4).max(14).default(8),
+          theme: z.string().max(40).optional(),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          message: "cols (4–20) i rows (4–14) muszą być liczbami całkowitymi.",
+        };
+      }
+      let state = loadState(campaignId);
+      if (!state.combat.active) {
+        return { ok: false, message: "Walka musi być w toku, aby ustawić pole bitwy." };
+      }
+      const { cols, rows, theme } = parsed.data;
+      const combatants = placeCombatantsOnGrid(state.combat.combatants, cols, rows);
+      state = saveState(campaignId, {
+        ...state,
+        combat: { ...state.combat, grid: { cols, rows }, combatants },
+        updatedAt: new Date().toISOString(),
+      });
+      pushEvent(campaignId, "action.resolved", {
+        type: "battlefield",
+        cols,
+        rows,
+        theme,
+      });
+      return {
+        ok: true,
+        message: `Pole bitwy: ${cols}×${rows} (5-stopowe kwadraty)${theme ? ` — ${theme}` : ""}.`,
+        data: summarizeState(state),
+      };
     }
     case "set_lighting": {
       const parsed = z
@@ -2311,6 +2440,8 @@ function summarizeState(state: CampaignState) {
               traits: c.traits ?? [],
               speed: c.speed ?? 30,
               movementLeft: c.movementLeft ?? c.speed ?? 30,
+              ...(c.x !== undefined ? { x: c.x } : {}),
+              ...(c.y !== undefined ? { y: c.y } : {}),
               turn: c.id === currentTurnCombatant(state)?.id,
             };
           }),

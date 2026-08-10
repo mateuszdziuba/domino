@@ -26,6 +26,8 @@ export type WeaponDef = {
   price?: string;
   versatileDice?: string;
   label: string;
+  // SRD near/far range in feet for ranged weapons (ammunition and thrown).
+  weaponRange?: [number, number];
   // Weapon Mastery (SRD 5.2.1 weapon table): every weapon carries exactly one
   // mastery. Masteries: cleave, graze, nick, push, sap, slow, topple, vex.
   mastery?: string;
@@ -165,6 +167,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "25 gp",
     label: "Lekka kusza",
     mastery: "slow",
+    weaponRange: [80, 320],
   },
   {
     name: "Dart",
@@ -177,6 +180,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "5 cp",
     label: "Strzałka",
     mastery: "vex",
+    weaponRange: [20, 60],
   },
   {
     name: "Shortbow",
@@ -189,6 +193,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "25 gp",
     label: "Krótki łuk",
     mastery: "vex",
+    weaponRange: [80, 320],
   },
   {
     name: "Sling",
@@ -200,6 +205,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "1 sp",
     label: "Proca",
     mastery: "slow",
+    weaponRange: [30, 120],
   },
   {
     name: "Battleaxe",
@@ -432,6 +438,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "10 gp",
     label: "Dmuchawka",
     mastery: "vex",
+    weaponRange: [30, 120],
   },
   {
     name: "Hand Crossbow",
@@ -444,6 +451,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "75 gp",
     label: "Kusza ręczna",
     mastery: "vex",
+    weaponRange: [30, 120],
   },
   {
     name: "Heavy Crossbow",
@@ -456,6 +464,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "50 gp",
     label: "Ciężka kusza",
     mastery: "push",
+    weaponRange: [100, 400],
   },
   {
     name: "Longbow",
@@ -468,6 +477,7 @@ export const WEAPONS: WeaponDef[] = [
     price: "50 gp",
     label: "Długi łuk",
     mastery: "slow",
+    weaponRange: [150, 600],
   },
 ];
 
@@ -487,6 +497,22 @@ export function weaponReach(weapon: WeaponDef): number {
     return 999;
   }
   return weapon.properties.includes("reach") ? 10 : 5;
+}
+
+/**
+ * Effective attack range in feet (SRD 5.2.1): ammunition weapons use their
+ * near range, thrown weapons the 60-ft far range, melee weapons null (melee
+ * attacks are governed by reach instead).
+ */
+export function weaponRangeInFeet(weapon?: WeaponDef): number | null {
+  if (!weapon) return null;
+  if (weapon.properties.includes("ammunition")) {
+    return weapon.weaponRange?.[0] ?? null;
+  }
+  if (weapon.properties.includes("thrown")) {
+    return 60;
+  }
+  return null;
 }
 
 export type WeaponAttackStats = {

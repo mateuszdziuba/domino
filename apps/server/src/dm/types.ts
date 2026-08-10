@@ -10,6 +10,7 @@ export type DmToolName =
   | "opportunity_attack"
   | "bonus_attack"
   | "move_combatant"
+  | "set_battlefield"
   | "set_lighting"
   | "cast_spell"
   | "monster_cast"
@@ -110,10 +111,22 @@ export const DM_TOOLS: DmTool[] = [
   {
     name: "move_combatant",
     description:
-      "Move a combatant on the abstract 1-D battle line: position is feet from the melee cluster (0 = in melee). The move costs the absolute distance travelled against the combatant's movement budget (movementLeft, refreshed each turn to its speed; the Slow mastery reduces it by 10 ft). Updates the authoritative combat state.",
+      "Move a combatant on the abstract 1-D battle line: position is feet from the melee cluster (0 = in melee). The move costs the absolute distance travelled against the combatant's movement budget (movementLeft, refreshed each turn to its speed; the Slow mastery reduces it by 10 ft). On a battlefield grid (set_battlefield) pass x/y grid coordinates instead; the cost is the Manhattan distance in 5-ft squares. Updates the authoritative combat state.",
     parameters: {
       combatantId: { type: "string" },
       feet: { type: "number" },
+      x: { type: "number" },
+      y: { type: "number" },
+    },
+  },
+  {
+    name: "set_battlefield",
+    description:
+      "Set up the combat grid (battlefield) for the active combat: 5-ft squares. Combatants are placed automatically — player characters along the left edge, enemies along the right edge. Coordinates start at (1,1) in the top-left corner.",
+    parameters: {
+      cols: { type: "number" },
+      rows: { type: "number" },
+      theme: { type: "string" },
     },
   },
   {

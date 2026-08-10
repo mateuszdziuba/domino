@@ -23,11 +23,13 @@ import {
   extraAttacksForClass,
   raceHasDarkvision,
   exhaustedSpeed,
+  placeCombatantsOnGrid,
 } from "../rules/combat.js";
 import { buildEncounter } from "../rules/monsters.js";
 import {
   equippedWeaponAttackInput,
   findEquippedWeapon,
+  weaponRangeInFeet,
   weaponReach,
 } from "../rules/weapons.js";
 import { xpAwardForDeadEnemies } from "../rules/advancement.js";
@@ -105,6 +107,19 @@ combatRoutes.post("/start", requireAuth, async (c) => {
   }
 
   state = startCombat(state, [...combatants, ...enemies]);
+  if (state.combat.grid) {
+    state = {
+      ...state,
+      combat: {
+        ...state.combat,
+        combatants: placeCombatantsOnGrid(
+          state.combat.combatants,
+          state.combat.grid.cols,
+          state.combat.grid.rows,
+        ),
+      },
+    };
+  }
   saveState(campaignId, state);
   pushEvent(campaignId, "encounter.started", {
     combatants: state.combat.combatants.map((c) => ({ id: c.id, name: c.name, initiative: c.initiative })),
@@ -152,6 +167,19 @@ combatRoutes.post("/generate", requireAuth, async (c) => {
   }));
 
   let state = startCombat(state0, [...combatants, ...monsters]);
+  if (state.combat.grid) {
+    state = {
+      ...state,
+      combat: {
+        ...state.combat,
+        combatants: placeCombatantsOnGrid(
+          state.combat.combatants,
+          state.combat.grid.cols,
+          state.combat.grid.rows,
+        ),
+      },
+    };
+  }
   if (parsed.data.location) {
     state = { ...state, location: parsed.data.location };
   }
@@ -263,7 +291,7 @@ combatRoutes.post("/attack", requireAuth, async (c) => {
       damageBonus ??= defaults.damageBonus;
       damageNotation ??= defaults.damageNotation;
       const weapon = findEquippedWeapon(character);
-      if (weapon) reach = weaponReach(weapon);
+      if (weapon) reach = weaponRangeInFeet(weapon) ?? weaponReach(weapon);
     }
   }
   if (attackBonus === undefined) attackBonus = 0;

@@ -42,6 +42,67 @@ export function rollInitiative(dexterityScore: number): { roll: number; total: n
   return { roll, total: roll + abilityModifier(dexterityScore) };
 }
 
+/**
+ * Distance in feet between two grid cells (Manhattan, 5 ft per square).
+ * Returns null when either combatant has no grid coordinates.
+ */
+export function gridDistanceInFeet(
+  a: { x?: number; y?: number },
+  b: { x?: number; y?: number },
+): number | null {
+  if (
+    a.x === undefined ||
+    a.y === undefined ||
+    b.x === undefined ||
+    b.y === undefined
+  ) {
+    return null;
+  }
+  return (Math.abs(a.x - b.x) + Math.abs(a.y - b.y)) * 5;
+}
+
+/**
+ * Deterministic battlefield placement: player characters line up along the
+ * LEFT column (x=1), non-players along the RIGHT column (x=cols). y wraps
+ * into rows, so larger groups stack column-wise.
+ */
+export function placeCombatantsOnGrid(
+  combatants: Combatant[],
+  cols: number,
+  rows: number,
+): Combatant[] {
+  let playerIndex = 0;
+  let enemyIndex = 0;
+  return combatants.map((c) => {
+    if (c.isPlayer) {
+      const y = (playerIndex % rows) + 1;
+      playerIndex++;
+      return { ...c, x: 1, y };
+    }
+    const y = (enemyIndex % rows) + 1;
+    enemyIndex++;
+    return { ...c, x: cols, y };
+  });
+}
+
+/**
+ * Whether the attacker can reach the target with the given reach in feet.
+ * On an active grid the Manhattan distance in 5-ft squares is used; without
+ * a grid (or when coordinates are missing) the legacy 1-D battle line wins.
+ */
+export function reachSatisfied(
+  attacker: Combatant,
+  target: Combatant,
+  reach: number,
+  grid?: { cols: number; rows: number },
+): boolean {
+  if (grid) {
+    const distance = gridDistanceInFeet(attacker, target);
+    if (distance !== null) return distance <= reach;
+  }
+  return Math.max(attacker.position ?? 0, target.position ?? 0) <= reach;
+}
+
 export function startCombat(
   state: CampaignState,
   entries: NewCombatant[],
@@ -80,12 +141,16 @@ export function startCombat(
     if (b.initiative !== a.initiative) return b.initiative - a.initiative;
     return a.id.localeCompare(b.id);
   });
+  const placed = state.combat.grid
+    ? placeCombatantsOnGrid(combatants, state.combat.grid.cols, state.combat.grid.rows)
+    : combatants;
   return {
     ...state,
     phase: "combat",
     combat: {
+      ...state.combat,
       active: true,
-      combatants,
+      combatants: placed,
       turnIndex: 0,
       round: 1,
     },
@@ -511,7 +576,10 @@ export function performAttack(
     return { ok: false, error: "To nie tura tego kombatanta." };
   }
   const reach = input.reach ?? 5;
-  if (reach < 999 && Math.max(attacker.position ?? 0, target.position ?? 0) > reach) {
+  if (
+    reach < 999 &&
+    !reachSatisfied(attacker, target, reach, state.combat.grid)
+  ) {
     return { ok: false, error: "Poza zasięgiem — cel jest za daleko." };
   }
   const mods = attackRollAdvantages(attacker, target);

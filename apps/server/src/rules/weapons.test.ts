@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { WEAPONS, findWeapon, weaponAttackStats } from "./weapons.js";
+import {
+  WEAPONS,
+  findWeapon,
+  weaponAttackStats,
+  weaponRangeInFeet,
+} from "./weapons.js";
 
 function statsCharacter(strength: number, dexterity: number, proficiencyBonus = 2) {
   return { abilityScores: { strength, dexterity }, proficiencyBonus };
@@ -225,5 +230,48 @@ describe("weaponAttackStats", () => {
   it("uses the versatile die for versatile weapons", () => {
     expect(weaponAttackStats(findWeapon("Longsword")!, statsCharacter(14, 10)).damageNotation).toBe("1d10");
     expect(weaponAttackStats(findWeapon("Battleaxe")!, statsCharacter(14, 10)).damageNotation).toBe("1d10");
+  });
+});
+
+describe("weapon ranges (SRD 5.2.1)", () => {
+  it("carries the SRD near/far range on every ranged weapon", () => {
+    const byName = new Map(WEAPONS.map((w) => [w.name, w.weaponRange]));
+    expect(byName.get("Dart")).toEqual([20, 60]);
+    expect(byName.get("Light Crossbow")).toEqual([80, 320]);
+    expect(byName.get("Shortbow")).toEqual([80, 320]);
+    expect(byName.get("Sling")).toEqual([30, 120]);
+    expect(byName.get("Longbow")).toEqual([150, 600]);
+    expect(byName.get("Heavy Crossbow")).toEqual([100, 400]);
+    expect(byName.get("Hand Crossbow")).toEqual([30, 120]);
+    expect(byName.get("Blowgun")).toEqual([30, 120]);
+  });
+
+  it("leaves melee weapons without a weapon range", () => {
+    expect(findWeapon("Longsword")!.weaponRange).toBeUndefined();
+    expect(findWeapon("Glaive")!.weaponRange).toBeUndefined();
+    expect(findWeapon("Dagger")!.weaponRange).toBeUndefined();
+  });
+
+  it("weaponRangeInFeet uses the near range for ammunition weapons", () => {
+    expect(weaponRangeInFeet(findWeapon("Longbow"))).toBe(150);
+    expect(weaponRangeInFeet(findWeapon("Light Crossbow"))).toBe(80);
+    expect(weaponRangeInFeet(findWeapon("Shortbow"))).toBe(80);
+    expect(weaponRangeInFeet(findWeapon("Sling"))).toBe(30);
+    expect(weaponRangeInFeet(findWeapon("Heavy Crossbow"))).toBe(100);
+    expect(weaponRangeInFeet(findWeapon("Hand Crossbow"))).toBe(30);
+    expect(weaponRangeInFeet(findWeapon("Blowgun"))).toBe(30);
+  });
+
+  it("weaponRangeInFeet uses the SRD thrown far range (60) for thrown weapons", () => {
+    expect(weaponRangeInFeet(findWeapon("Dart"))).toBe(60);
+    expect(weaponRangeInFeet(findWeapon("Dagger"))).toBe(60);
+    expect(weaponRangeInFeet(findWeapon("Javelin"))).toBe(60);
+    expect(weaponRangeInFeet(findWeapon("Spear"))).toBe(60);
+  });
+
+  it("weaponRangeInFeet returns null for melee weapons and unknown weapons", () => {
+    expect(weaponRangeInFeet(findWeapon("Longsword"))).toBeNull();
+    expect(weaponRangeInFeet(findWeapon("Glaive"))).toBeNull();
+    expect(weaponRangeInFeet(undefined)).toBeNull();
   });
 });

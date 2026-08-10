@@ -1,0 +1,17 @@
+{
+  "name": "DoMino — AI Dungeon Master",
+  "short_name": "DoMino",
+  "description": "Multiplayer D&D 5.2.1 z AI Dungeon Masterem",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbf3dd",
+  "theme_color": "#7a4b1d",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

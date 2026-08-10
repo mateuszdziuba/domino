@@ -118,6 +118,8 @@ export type Combatant = {
   movementLeft?: number;
   speed?: number;
   position?: number;
+  x?: number;
+  y?: number;
   darkvision?: boolean;
   status?: CombatantStatus;
   conditions?: string[];
@@ -131,6 +133,7 @@ export type CombatState = {
   turnIndex: number;
   round: number;
   lightLevel?: "bright" | "dim" | "dark";
+  grid?: { cols: number; rows: number };
 };
 
 export type CampaignState = {

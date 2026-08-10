@@ -11,6 +11,9 @@ import {
   startCombat,
   exhaustedSpeed,
   effectiveMovement,
+  gridDistanceInFeet,
+  placeCombatantsOnGrid,
+  reachSatisfied,
 } from "./combat.js";
 import { defaultCampaignState } from "./state.js";
 import type { CampaignState, Character, Combatant } from "@domino/shared";
@@ -2015,5 +2018,145 @@ describe("exhaustion and movement (SRD 5.2.1)", () => {
     if (!outcome.ok) return;
     expect(enemy(outcome.state).status).toBe("downed"); // 12 < 20
     expect(enemy(outcome.state).deathSaveFailures).toBe(1);
+  });
+});
+
+describe("combat grid (SRD 5.2.1)", () => {
+  function gridCombatant(overrides: Partial<Combatant> = {}): Combatant {
+    return {
+      id: "c1",
+      name: "C1",
+      isPlayer: true,
+      initiative: 10,
+      currentHp: 10,
+      maxHp: 10,
+      armorClass: 12,
+      ...overrides,
+    };
+  }
+
+  it("gridDistanceInFeet measures Manhattan distance in 5-ft squares", () => {
+    expect(gridDistanceInFeet({ x: 0, y: 0 }, { x: 0, y: 0 })).toBe(0);
+    expect(gridDistanceInFeet({ x: 1, y: 1 }, { x: 2, y: 3 })).toBe(15);
+    expect(gridDistanceInFeet({ x: 1, y: 1 }, { x: 12, y: 8 })).toBe(90);
+  });
+
+  it("gridDistanceInFeet returns null when either combatant lacks coordinates", () => {
+    expect(gridDistanceInFeet({}, { x: 2, y: 3 })).toBeNull();
+    expect(gridDistanceInFeet({ x: 1, y: 1 }, {})).toBeNull();
+    expect(gridDistanceInFeet({ x: 1 }, { x: 2, y: 3 })).toBeNull();
+  });
+
+  it("reachSatisfied uses the grid distance when a grid is active", () => {
+    const attacker = gridCombatant({ x: 1, y: 1 });
+    const target = gridCombatant({ x: 3, y: 1, isPlayer: false }); // 10 ft
+    expect(reachSatisfied(attacker, target, 5, { cols: 12, rows: 8 })).toBe(false);
+    expect(reachSatisfied(attacker, target, 10, { cols: 12, rows: 8 })).toBe(true);
+    // (1,1) -> (3,4): (2+3)*5 = 25 ft
+    expect(
+      reachSatisfied(
+        attacker,
+        gridCombatant({ x: 3, y: 4, isPlayer: false }),
+        10,
+        { cols: 12, rows: 8 },
+      ),
+    ).toBe(false);
+  });
+
+  it("reachSatisfied falls back to the 1-D battle line without a grid", () => {
+    const attacker = gridCombatant({ position: 4 });
+    const target = gridCombatant({ position: 4, isPlayer: false });
+    expect(reachSatisfied(attacker, target, 5)).toBe(true);
+    expect(reachSatisfied(attacker, { ...target, position: 10 }, 5)).toBe(false);
+    expect(reachSatisfied(attacker, { ...target, position: 10 }, 999)).toBe(true);
+  });
+
+  it("placeCombatantsOnGrid puts PCs on the left column and foes on the right", () => {
+    const placed = placeCombatantsOnGrid(
+      [
+        gridCombatant({ id: "p1", name: "A" }),
+        gridCombatant({ id: "p2", name: "B" }),
+        gridCombatant({ id: "p3", name: "C" }),
+        gridCombatant({ id: "e1", name: "G", isPlayer: false }),
+        gridCombatant({ id: "e2", name: "H", isPlayer: false }),
+      ],
+      12,
+      8,
+    );
+    const players = placed.filter((c) => c.isPlayer);
+    const foes = placed.filter((c) => !c.isPlayer);
+    expect(players.map((c) => c.x)).toEqual([1, 1, 1]);
+    expect(players.map((c) => c.y)).toEqual([1, 2, 3]);
+    expect(foes.map((c) => c.x)).toEqual([12, 12]);
+    expect(foes.map((c) => c.y)).toEqual([1, 2]);
+    expect(new Set(placed.map((c) => `${c.x},${c.y}`)).size).toBe(5);
+  });
+
+  it("startCombat places combatants on the grid when one is configured", () => {
+    const state = defaultCampaignState();
+    state.combat.grid = { cols: 12, rows: 8 };
+    const started = startCombat(state, [
+      { id: "c1", name: "Aelar", isPlayer: true, maxHp: 10, armorClass: 14 },
+      { id: "enemy-1", name: "Goblin", isPlayer: false, maxHp: 7, armorClass: 12 },
+    ]);
+    const byId = Object.fromEntries(started.combat.combatants.map((c) => [c.id, c]));
+    expect(byId.c1!.x).toBe(1);
+    expect(byId.c1!.y).toBe(1);
+    expect(byId["enemy-1"]!.x).toBe(12);
+    expect(byId["enemy-1"]!.y).toBe(1);
+  });
+
+  it("startCombat keeps legacy positions when no grid is configured", () => {
+    const started = startCombat(defaultCampaignState(), [
+      { id: "c1", name: "Aelar", isPlayer: true, maxHp: 10, armorClass: 14 },
+    ]);
+    expect(started.combat.combatants[0]!.x).toBeUndefined();
+    expect(started.combat.combatants[0]!.y).toBeUndefined();
+  });
+
+  it("performAttack rejects a melee attack beyond reach on the grid", () => {
+    const state = combatState(0);
+    state.combat.grid = { cols: 12, rows: 8 };
+    state.combat.combatants[0] = { ...state.combat.combatants[0]!, x: 1, y: 1 };
+    state.combat.combatants[1] = { ...state.combat.combatants[1]!, x: 3, y: 1 }; // 10 ft
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    expect(outcome).toEqual({ ok: false, error: "Poza zasięgiem — cel jest za daleko." });
+  });
+
+  it("performAttack allows a melee attack within reach on the grid", () => {
+    const state = combatState(0);
+    state.combat.grid = { cols: 12, rows: 8 };
+    state.combat.combatants[0] = { ...state.combat.combatants[0]!, x: 1, y: 1 };
+    state.combat.combatants[1] = { ...state.combat.combatants[1]!, x: 1, y: 2 }; // 5 ft
+    const original = Math.random;
+    Math.random = () => 0.5; // d20 = 11 (attack 31 >= AC 12) -> hit
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
+  });
+
+  it("performAttack allows a ranged attack across the full grid", () => {
+    const state = combatState(0);
+    state.combat.grid = { cols: 12, rows: 8 };
+    state.combat.combatants[0] = { ...state.combat.combatants[0]!, x: 1, y: 1 };
+    state.combat.combatants[1] = { ...state.combat.combatants[1]!, x: 12, y: 8 }; // 90 ft
+    const original = Math.random;
+    Math.random = () => 0.5;
+    const outcome = performAttack(state, "char-1", "enemy-1", {
+      attackBonus: 20,
+      damageNotation: "1d8",
+      damageBonus: 5,
+      reach: 999,
+    });
+    Math.random = original;
+    expect(outcome.ok).toBe(true);
   });
 });
