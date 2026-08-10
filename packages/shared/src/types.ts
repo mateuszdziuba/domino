@@ -152,6 +152,7 @@ export type Campaign = {
   name: string;
   description?: string;
   ownerId: string;
+  dmEnabled: boolean;
   createdAt: string;
   state: CampaignState;
 };

@@ -85,6 +85,7 @@ export const campaigns = sqliteTable("campaigns", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   inviteCode: text("invite_code").unique(),
+  dmEnabled: integer("dm_enabled", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),

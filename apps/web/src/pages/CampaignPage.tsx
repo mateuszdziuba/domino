@@ -236,6 +236,7 @@ export default function CampaignPage() {
 
   const showLobby = (detail?.state as { started?: boolean } | undefined)?.started === false;
   const isOwner = detail?.campaign.ownerId === user?.id;
+  const dmView = Boolean(detail?.campaign.dmEnabled);
 
   const refreshSpellbook = useCallback(() => {
     if (!member?.characterId) {
@@ -580,9 +581,11 @@ export default function CampaignPage() {
         </h1>
         <Badge variant="secondary">{detail?.state.phase ?? "…"}</Badge>
         <Badge variant="outline">{detail?.state.location ?? "…"}</Badge>
-        <Badge variant={dmMode === "preview" ? "secondary" : "default"}>
-          DM: {dmMode}
-        </Badge>
+        {dmView && (
+          <Badge variant={dmMode === "preview" ? "secondary" : "default"}>
+            DM: {dmMode}
+          </Badge>
+        )}
         <TooltipProvider delayDuration={250}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -716,6 +719,7 @@ export default function CampaignPage() {
               </ul>
             </div>
           )}
+          {dmView ? (
           <Card className="border-[#b99f6b]">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Czat z DM</CardTitle>
@@ -1156,7 +1160,38 @@ export default function CampaignPage() {
               )}
             </CardContent>
           </Card>
+          ) : (
+          <Card className="border-[#b99f6b]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Brak widoku DM</CardTitle>
+              <CardDescription className="not-italic">
+                Ta kampania działa bez narracji AI.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 text-sm">
+              <p className="text-[#7c6a45]">
+                Czat z DM i podpowiedzi akcji są wyłączone. Jeśli prowadzisz tę kampanię, włącz
+                widok DM na liście kampanii (przełącznik „DM" przy kampanii).
+              </p>
+              {isOwner && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => {
+                    campaignApi.updateDm(id, true).then(() => load()).catch(() => {});
+                  }}
+                >
+                  <Coins className="size-3.5" />
+                  Włącz widok DM
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+          )}
 
+          {dmView && (
           <Card className="border-[#b99f6b]">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Twoja tura</CardTitle>
@@ -1202,6 +1237,7 @@ export default function CampaignPage() {
               </div>
             </CardContent>
           </Card>
+          )}
         </div>
       </div>
       )}

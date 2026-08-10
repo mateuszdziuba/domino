@@ -44,6 +44,7 @@ const campaignSchema = z.object({
   name: z.string().min(1).max(64),
   description: z.string().max(500).optional(),
   adventure: z.string().max(64).optional(),
+  dmEnabled: z.boolean().optional(),
 });
 
 type StoredState = CampaignState & { started: boolean };
@@ -142,6 +143,7 @@ campaignRoutes.post("/", requireAuth, async (c) => {
         name: parsed.data.name,
         description: parsed.data.description ?? null,
         ownerId: user.id,
+        dmEnabled: parsed.data.dmEnabled ?? false,
       })
       .run();
     tx.insert(campaignStates).values({ campaignId: id, state: initial }).run();
@@ -411,6 +413,26 @@ campaignRoutes.get("/:id/stream", requireAuth, (c) => {
   });
 });
 
+campaignRoutes.patch("/:id", requireAuth, async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const campaign = db.select().from(campaigns).where(eq(campaigns.id, id)).get();
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
+  if (campaign.ownerId !== user.id) {
+    return c.json({ error: "Tylko twórca kampanii może zmieniać ustawienia." }, 403);
+  }
+  const body = await c.req.json().catch(() => null);
+  const parsed = z.object({ dmEnabled: z.boolean() }).safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: "Nieprawidłowe ustawienia." }, 400);
+  }
+  db.update(campaigns)
+    .set({ dmEnabled: parsed.data.dmEnabled })
+    .where(eq(campaigns.id, id))
+    .run();
+  return c.json({ ok: true, dmEnabled: parsed.data.dmEnabled });
+});
+
 campaignRoutes.delete("/:id", requireAuth, (c) => {
   const user = c.get("user");
   const id = c.req.param("id");
@@ -440,6 +462,7 @@ function getCampaignForUser(id: string, userId: string): Campaign | undefined {
     name: campaign.name,
     description: campaign.description ?? undefined,
     ownerId: campaign.ownerId,
+    dmEnabled: campaign.dmEnabled,
     createdAt: campaign.createdAt,
     state: loadState(id),
   };

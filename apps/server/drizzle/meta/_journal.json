@@ -78,6 +78,13 @@
       "when": 1786371743367,
       "tag": "0010_giant_nico_minoru",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1786400384838,
+      "tag": "0011_white_masked_marvel",
+      "breakpoints": true
     }
   ]
 }

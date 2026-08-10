@@ -238,10 +238,15 @@ export const adventuresApi = {
 export const campaignApi = {
   list: () => api<{ campaigns: Campaign[] }>("/campaigns"),
   get: (id: string) => api<CampaignDetail>(`/campaigns/${id}`),
-  create: (name: string, description?: string, adventure?: string) =>
+  create: (name: string, description?: string, adventure?: string, dmEnabled?: boolean) =>
     api<{ campaign: Campaign }>("/campaigns", {
       method: "POST",
-      body: JSON.stringify({ name, description, adventure }),
+      body: JSON.stringify({ name, description, adventure, dmEnabled }),
+    }),
+  updateDm: (id: string, dmEnabled: boolean) =>
+    api<{ ok: boolean; dmEnabled: boolean }>(`/campaigns/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ dmEnabled }),
     }),
   start: (id: string) =>
     api<{ state: CampaignState }>(`/campaigns/${id}/start`, { method: "POST" }),

@@ -137,6 +137,7 @@ export async function llmNarrate(
   context: DmContext,
   userMessage: string,
 ): Promise<DmReply> {
+  const { campaignCharacters } = await import("./tools.js");
   const config = providerConfig();
   const apiKey = config.apiKeyEnv ? process.env[config.apiKeyEnv] : undefined;
   if (config.apiKeyEnv && !apiKey) {
@@ -144,8 +145,14 @@ export async function llmNarrate(
   }
   const model = process.env.DM_MODEL ?? config.defaultModel;
 
+  const roster = campaignCharacters(context.campaignId)
+    .map((c) => `- ${c.name} (id: ${c.id}, ${c.race} ${c.className} poz. ${c.level}, HP ${c.currentHp}/${c.maxHp})`)
+    .join("\n");
+  const partyBlock = roster
+    ? `\n\nDRUŻYNA — użyj tych ID do get_character:\n${roster}`
+    : "";
   const messages: ApiMessage[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: SYSTEM_PROMPT + partyBlock },
     ...context.recentMessages.slice(-20).map((m): ApiMessage => ({
       role: m.role === "dm" ? "assistant" : "user",
       content: `${m.senderName}: ${m.content}`,

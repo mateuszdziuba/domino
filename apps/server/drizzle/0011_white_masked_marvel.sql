@@ -1,0 +1,1 @@
+ALTER TABLE `campaigns` ADD `dm_enabled` integer DEFAULT false NOT NULL;

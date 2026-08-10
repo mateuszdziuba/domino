@@ -33,6 +33,7 @@ export function getCampaignForUser(id: string, userId: string): Campaign | undef
     name: campaign.name,
     description: campaign.description ?? undefined,
     ownerId: campaign.ownerId,
+    dmEnabled: campaign.dmEnabled,
     createdAt: campaign.createdAt,
     state: loadState(id),
   };
