@@ -69,6 +69,13 @@ export type SpellEffect =
       range: string;
       duration: string;
       castingTime: "action";
+    }
+  | {
+      kind: "none";
+      range: string;
+      duration: string;
+      castingTime: "action" | "bonus";
+      concentration?: boolean;
     };
 
 export type SpellDef = {
@@ -82,6 +89,52 @@ export type SpellDef = {
 };
 
 export const SPELLS: Record<string, SpellDef> = {
+  "Bless": {
+    name: "Bless",
+    namePl: "Błogosławieństwo",
+    level: 1,
+    school: "Enchantment",
+    components: "V, S, M",
+    description:
+      "Wybierasz do trzech istot: każda dodaje 1k4 do rzutów ataku i rzutów obronnych na czas trwania. Efekt narracyjny — DM rozstrzyga modyfikatory.",
+    effect: {
+      kind: "none",
+      range: "30 ft",
+      duration: "1 min",
+      castingTime: "action",
+      concentration: true,
+    },
+  },
+  "Light": {
+    name: "Light",
+    namePl: "Światło",
+    level: 0,
+    school: "Evocation",
+    components: "V, M",
+    description:
+      "Dotknięty przedmiot emituje jasne światło w promieniu 20 stóp (i przyćmione o 20 więcej). Efekt narracyjny — wpływa na oświetlenie sceny.",
+    effect: {
+      kind: "none",
+      range: "Touch",
+      duration: "1 h",
+      castingTime: "action",
+    },
+  },
+  "Mage Hand": {
+    name: "Mage Hand",
+    namePl: "Czarodziejska dłoń",
+    level: 0,
+    school: "Conjuration",
+    components: "V, S",
+    description:
+      "Przywołujesz widmową dłoń w zasięgu 30 stóp, która może przenosić drobne przedmioty. Efekt narracyjny — DM rozstrzyga interakcje.",
+    effect: {
+      kind: "none",
+      range: "30 ft",
+      duration: "1 min",
+      castingTime: "action",
+    },
+  },
   "Sacred Flame": {
     name: "Sacred Flame",
     namePl: "Święty płomień",
@@ -454,7 +507,8 @@ export type SpellMeta = {
       | "condition_remove"
       | "revive"
       | "stabilize"
-      | "restore";
+      | "restore"
+      | "none";
     dice?: string;
     damageType?: string;
     attack?: boolean;
@@ -580,6 +634,17 @@ export function resolveSpellCast(
   rolls?: SpellRollInput,
 ): SpellCastResult {
   const effect = def.effect;
+
+  if (effect.kind === "none") {
+    return {
+      damageTotal: 0,
+      damageRolls: [],
+      healed: 0,
+      healRolls: [],
+      targetCurrentHp: target.currentHp,
+      targetStatus: target.status ?? "active",
+    };
+  }
 
   if (effect.kind === "heal" || effect.kind === "heal_all") {
     const healRolls =

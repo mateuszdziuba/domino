@@ -1000,14 +1000,14 @@ export async function runDmTool(
         .object({
           characterId: z.string().min(1),
           spellName: z.string().min(1),
-          targetId: z.string().min(1),
+          targetId: z.string().optional(),
           advantage: z.boolean().optional(),
           disadvantage: z.boolean().optional(),
           restoreMode: z.enum(["condition", "exhaustion"]).optional(),
         })
         .safeParse(rawArgs);
       if (!parsed.success) {
-        return { ok: false, message: "Wymagane są characterId, spellName i targetId." };
+        return { ok: false, message: "Wymagane są characterId i spellName." };
       }
       const character = getCharacterById(parsed.data.characterId);
       if (!character) return { ok: false, message: "Nie znaleziono postaci." };
@@ -1061,14 +1061,16 @@ export async function runDmTool(
             message: `Ten rytuał trwa ${def.effect.castingTimeMinutes} minut — nie można go użyć w samym środku walki.`,
           };
         }
-        targetCombatant = findCombatant(state, parsed.data.targetId);
-        if (!targetCombatant) return { ok: false, message: "Nie znaleziono celu w walce." };
-        if (def.effect.kind === "revive") {
-          if (targetCombatant.status !== "dead") {
-            return { ok: false, message: "Cel nie jest martwy." };
+        if (def.effect.kind !== "none") {
+          targetCombatant = findCombatant(state, parsed.data.targetId!);
+          if (!targetCombatant) return { ok: false, message: "Nie znaleziono celu w walce." };
+          if (def.effect.kind === "revive") {
+            if (targetCombatant.status !== "dead") {
+              return { ok: false, message: "Cel nie jest martwy." };
+            }
+          } else if (targetCombatant.status === "dead") {
+            return { ok: false, message: "Cel jest martwy." };
           }
-        } else if (targetCombatant.status === "dead") {
-          return { ok: false, message: "Cel jest martwy." };
         }
       } else {
         if (def.effect.kind === "damage") {
@@ -1083,9 +1085,11 @@ export async function runDmTool(
             message: "Spare the Dying wymaga kombatanta z 0 HP w walce.",
           };
         }
-        targetCharacter = getCharacterById(parsed.data.targetId);
-        if (!targetCharacter) {
-          return { ok: false, message: "Nie znaleziono postaci-celu." };
+        if (def.effect.kind !== "none") {
+          targetCharacter = getCharacterById(parsed.data.targetId!);
+          if (!targetCharacter) {
+            return { ok: false, message: "Nie znaleziono postaci-celu." };
+          }
         }
       }
       const castingAbility = spellcastingAbility(character.className) ?? "wisdom";
@@ -1122,6 +1126,29 @@ export async function runDmTool(
         return { ok: false, message: "Stany dotyczą tylko walki." };
       }
       if (nextUsed) updateCharacterSpellSlots(character.id, nextUsed);
+      if (def.effect.kind === "none") {
+        const targetName = parsed.data.targetId
+          ? (findCombatant(state, parsed.data.targetId)?.name ??
+            getCharacterById(parsed.data.targetId)?.name ??
+            parsed.data.targetId)
+          : "—";
+        pushEvent(campaignId, "action.resolved", {
+          type: "spell",
+          spell: def.name,
+          caster: character.name,
+          target: targetName,
+          narrative: true,
+        });
+        const concentrationNote =
+          "concentration" in def.effect && def.effect.concentration === true
+            ? " (koncentracja)"
+            : "";
+        return {
+          ok: true,
+          message: `${character.name} rzuca ${def.name}${targetName !== "—" ? ` na ${targetName}` : ""} — efekt narracyjny, rozstrzyga DM.${concentrationNote}`,
+          data: { narrative: true },
+        };
+      }
       if (def.effect.kind === "heal_all") {
         if (state.combat.active && casterCombatant) {
           const healed: { name: string; healed: number }[] = [];

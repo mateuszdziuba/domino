@@ -2716,6 +2716,52 @@ describe("runDmTool monster_cast (mocked store)", () => {
   });
 });
 
+describe("runDmTool cast_spell narrative (kind none)", () => {
+  it("casts a narrative spell without a target and consumes a slot", async () => {
+    mock.members.mockReset();
+    mock.states.set("c1", mock.defaultState());
+    mock.characters.set("ch2", {
+      id: "ch2",
+      userId: "u2",
+      name: "Elara",
+      race: "Human",
+      className: "Cleric",
+      level: 2,
+      abilityScores: {
+        strength: 10,
+        dexterity: 10,
+        constitution: 13,
+        intelligence: 10,
+        wisdom: 16,
+        charisma: 12,
+      },
+      maxHp: 20,
+      currentHp: 20,
+      armorClass: 15,
+      speed: 30,
+      proficiencyBonus: 2,
+      skills: {},
+      inventory: [],
+      spells: ["Bless"],
+      spellSlotsUsed: [],
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    });
+    const result = await runTool("cast_spell", {
+      characterId: "ch2",
+      spellName: "Bless",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("efekt narracyjny");
+    expect(mock.updateCharacterSpellSlots).toHaveBeenCalledWith("ch2", [1]);
+    expect(mock.pushEvent).toHaveBeenCalledWith(
+      "c1",
+      "action.resolved",
+      expect.objectContaining({ type: "spell", spell: "Bless", narrative: true }),
+    );
+  });
+});
+
 describe("runDmTool take_long_rest (mocked store)", () => {
   it("heals every campaign member to full and returns to exploration", async () => {
     mock.states.clear();

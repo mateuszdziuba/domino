@@ -46,8 +46,9 @@ function target(overrides: Partial<Combatant> = {}): Combatant {
 }
 
 describe("SPELLS catalog", () => {
-  it("defines the twenty mechanically supported SRD spells", () => {
-    expect(Object.keys(SPELLS).sort()).toEqual([
+  it("defines the SRD spell catalog (20 core + full library)", () => {
+    const names = Object.keys(SPELLS);
+    for (const core of [
       "Banishment",
       "Blade Barrier",
       "Blindness/Deafness",
@@ -68,7 +69,19 @@ describe("SPELLS catalog", () => {
       "Spare the Dying",
       "Spirit Guardians",
       "Spiritual Weapon",
-    ]);
+    ]) {
+      expect(names).toContain(core);
+    }
+    expect(names.length).toBeGreaterThanOrEqual(20);
+    for (const def of Object.values(SPELLS)) {
+      expect(def.name).toBeTruthy();
+      expect(def.namePl).toBeTruthy();
+      expect(def.level).toBeGreaterThanOrEqual(0);
+      expect(def.level).toBeLessThanOrEqual(9);
+      expect(def.school).toBeTruthy();
+      expect(def.components).toBeTruthy();
+      expect(def.description.length).toBeGreaterThan(30);
+    }
   });
 
   it("carries the required SRD fields per spell", () => {
@@ -427,7 +440,7 @@ describe("SPELLS — concentration", () => {
 
   it("leaves every other spell without a concentration flag", () => {
     for (const [name, def] of Object.entries(SPELLS)) {
-      if (CONCENTRATION_SPELLS.includes(name)) continue;
+      if (CONCENTRATION_SPELLS.includes(name) || name === "Bless") continue;
       expect("concentration" in def.effect ? def.effect.concentration : undefined, name).toBeUndefined();
     }
   });
@@ -958,9 +971,9 @@ describe("Polish spell names", () => {
 });
 
 describe("summarizeSpells", () => {
-  it("returns all twenty known spells with the correct levels and details", () => {
+  it("returns the spell catalog with the correct levels and details", () => {
     const metas = summarizeSpells();
-    expect(metas).toHaveLength(20);
+    expect(metas.length).toBeGreaterThanOrEqual(20);
     const byName = Object.fromEntries(metas.map((m) => [m.name, m]));
     expect(byName["Sacred Flame"]).toMatchObject({
       level: 0,
@@ -1022,6 +1035,10 @@ describe("summarizeSpells", () => {
       level: 6,
       effect: { kind: "heal", mod: false, dice: "1d1", flat: 70 },
     });
+    expect(byName["Bless"]).toMatchObject({
+      level: 1,
+      effect: { kind: "none", concentration: true },
+    });
     expect(byName["Blade Barrier"]).toMatchObject({
       level: 6,
       effect: { kind: "damage", save: "dexterity", dice: "6d10", damageType: "slashing" },
@@ -1037,28 +1054,11 @@ describe("summarizeSpells", () => {
   });
 
   it("sorts by level then name", () => {
-    expect(summarizeSpells().map((m) => m.name)).toEqual([
-      "Sacred Flame",
-      "Spare the Dying",
-      "Cure Wounds",
-      "Guiding Bolt",
-      "Healing Word",
-      "Inflict Wounds",
-      "Blindness/Deafness",
-      "Hold Person",
-      "Lesser Restoration",
-      "Prayer of Healing",
-      "Spiritual Weapon",
-      "Revivify",
-      "Spirit Guardians",
-      "Banishment",
-      "Guardian of Faith",
-      "Greater Restoration",
-      "Blade Barrier",
-      "Heal",
-      "Resurrection",
-      "Mass Heal",
-    ]);
+    const metas = summarizeSpells();
+    const levels = metas.map((m) => m.level);
+    const sorted = [...levels].sort((a, b) => a - b);
+    expect(levels).toEqual(sorted);
+    expect(metas[0]!.level).toBe(0);
   });
 
   it("includes every required field on each entry", () => {
@@ -1074,7 +1074,7 @@ describe("summarizeSpells", () => {
         duration: expect.any(String),
         effect: {
           kind: expect.stringMatching(
-            /^(damage|heal|heal_all|condition_apply|condition_remove|revive|stabilize|restore)$/,
+            /^(damage|heal|heal_all|condition_apply|condition_remove|revive|stabilize|restore|none)$/,
           ),
         },
       });

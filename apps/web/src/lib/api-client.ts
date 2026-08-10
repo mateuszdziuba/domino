@@ -65,7 +65,8 @@ export type SpellMeta = {
       | "condition_apply"
       | "condition_remove"
       | "restore"
-      | "revive";
+      | "revive"
+      | "none";
     dice?: string;
     damageType?: string;
     attack?: boolean;
