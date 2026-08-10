@@ -342,16 +342,6 @@ campaignRoutes.post("/:id/messages", requireAuth, async (c) => {
   const charactersInCampaign = getCampaignCharacters(campaign.id);
   const recent = getRecentMessages(campaign.id);
 
-  const dmEnabled = campaign.dmEnabled;
-  if (!dmEnabled) {
-    return c.json({
-      message: playerMessage,
-      dmMessage: null,
-      dmMode: "off",
-      dmEnabled: false,
-    });
-  }
-
   const dmReply = await dmNarrate(
     { campaignId: campaign.id, characters: charactersInCampaign, state, recentMessages: recent },
     parsed.data.content,
@@ -421,6 +411,41 @@ campaignRoutes.get("/:id/stream", requireAuth, (c) => {
       await stream.sleep(1000);
     }
   });
+});
+
+campaignRoutes.get("/:id/notes", requireAuth, (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const member = getMember(id, user.id);
+  const campaign = db.select().from(campaigns).where(eq(campaigns.id, id)).get();
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
+  if (campaign.ownerId !== user.id && !member) {
+    return c.json({ error: "Nie jesteś członkiem kampanii." }, 403);
+  }
+  return c.json({ notes: member?.notes ?? "" });
+});
+
+campaignRoutes.put("/:id/notes", requireAuth, async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const member = getMember(id, user.id);
+  const campaign = db.select().from(campaigns).where(eq(campaigns.id, id)).get();
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
+  if (!member && campaign.ownerId !== user.id) {
+    return c.json({ error: "Nie jesteś członkiem kampanii." }, 403);
+  }
+  const parsed = z.object({ notes: z.string().max(4000) }).safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "Notatki są za długie (maks. 4000 znaków)." }, 400);
+  db.update(campaignMembers)
+    .set({ notes: parsed.data.notes || null })
+    .where(
+      and(
+        eq(campaignMembers.campaignId, id),
+        eq(campaignMembers.userId, user.id),
+      ),
+    )
+    .run();
+  return c.json({ ok: true, notes: parsed.data.notes });
 });
 
 campaignRoutes.patch("/:id", requireAuth, async (c) => {

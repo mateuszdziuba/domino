@@ -24,7 +24,6 @@ export default function CampaignsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [adventure, setAdventure] = useState("");
-  const [dmEnabled, setDmEnabled] = useState(false);
   const [adventures, setAdventures] = useState<Adventure[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inviteCampaignId, setInviteCampaignId] = useState<string | null>(null);
@@ -59,15 +58,6 @@ export default function CampaignsPage() {
     adventuresApi.get().then(({ adventures }) => setAdventures(adventures)).catch(() => {});
   }, []);
 
-  async function onToggleDm(campaign: Campaign, next: boolean) {
-    try {
-      await campaignApi.updateDm(campaign.id, next);
-      setCampaigns((prev) => prev.map((c) => (c.id === campaign.id ? { ...c, dmEnabled: next } : c)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Nie udało się zmienić widoku DM");
-    }
-  }
-
   async function onInvite(campaign: Campaign) {
     setInviteCampaignId(campaign.id);
     setInviteUrl(null);
@@ -92,16 +82,10 @@ export default function CampaignsPage() {
     e.preventDefault();
     setError(null);
     try {
-      await campaignApi.create(
-        name,
-        description || undefined,
-        adventure || undefined,
-        dmEnabled,
-      );
+      await campaignApi.create(name, description || undefined, adventure || undefined);
       setName("");
       setDescription("");
       setAdventure("");
-      setDmEnabled(false);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nie udało się utworzyć kampanii");
@@ -162,15 +146,6 @@ export default function CampaignsPage() {
                 </Select>
               </div>
             )}
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-[#3a2c17]">
-              <input
-                type="checkbox"
-                checked={dmEnabled}
-                onChange={(e) => setDmEnabled(e.target.checked)}
-                className="accent-[#7a4b1d]"
-              />
-              Widok DM — narracja i sędziowanie przez AI
-            </label>
             {error && <p className="text-sm text-[#8f1d1d]">{error}</p>}
             <Button type="submit" className="self-start">
               <Plus className="size-4" />
@@ -205,18 +180,6 @@ export default function CampaignsPage() {
                 <div className="flex items-center gap-2">
                   {campaign.ownerId === user?.id && (
                     <>
-                      <label
-                        className="flex cursor-pointer items-center gap-1.5 text-xs text-[#7c6a45]"
-                        title="Widok DM (narracja AI)"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={campaign.dmEnabled}
-                          onChange={(e) => void onToggleDm(campaign, e.target.checked)}
-                          className="accent-[#7a4b1d]"
-                        />
-                        DM
-                      </label>
                       <Button size="sm" variant="outline" onClick={() => onInvite(campaign)}>
                         <Link2 />
                         Zaproś

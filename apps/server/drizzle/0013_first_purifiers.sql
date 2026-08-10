@@ -1,0 +1,1 @@
+ALTER TABLE `campaign_members` ADD `notes` text;

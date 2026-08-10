@@ -108,6 +108,8 @@ Combatants can have SRD conditions (blinded, frightened, poisoned, prone, restra
 
 When the party takes a short rest (about an hour) to recover, use take_short_rest so they can spend Hit Dice to heal; long rests restore full HP, spell slots, and half of their Hit Dice.
 
+When a player sells, trades, or gives away an item during roleplay, remove it from their inventory with remove_inventory_item (exact item name; add gold with the same call when a sale gives coin — typically half the item's price). Announce the removal in your narration.
+
 When the party earns treasure — loot, payment, or rewards — grant it with grant_loot (gold and/or items), and ALWAYS announce the exact additions to the players: name the character who received the items, list each item (name and quantity), state the gold amount, and explicitly say the items were added to the inventory ("X został dodany do ekwipunku"). Spells that apply or remove conditions, heal the party, or revive the fallen are resolved automatically by the engine; narrate their effects.
 
 For unique narrative treasures, artifacts, or quest items that do NOT exist in the SRD catalog, use create_custom_item instead of grant_loot: you set a sensible price in gold (0 gp for priceless plot items, up to 5000 gp for powerful artifacts) and a short description. Custom items are stored scoped to the current campaign only — they never appear in any other campaign and cannot be bought in shops; they are added directly to the named character's inventory. Use them sparingly, only when the item has real narrative meaning.

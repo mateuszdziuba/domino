@@ -92,6 +92,13 @@
       "when": 1786401296009,
       "tag": "0012_organic_karnak",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1786402333925,
+      "tag": "0013_first_purifiers",
+      "breakpoints": true
     }
   ]
 }

@@ -163,6 +163,7 @@ export type CampaignMember = {
   userId: string;
   characterId: string;
   characterName?: string;
+  notes?: string;
   joinedAt: string;
 };
 

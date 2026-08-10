@@ -18,8 +18,9 @@ import {
   grantLoot,
 } from "../campaign/store.js";
 import { db } from "../db/index.js";
-import { customItems } from "../db/schema.js";
-import { newId } from "../lib/ids.js";
+import { characters, customItems } from "../db/schema.js";
+import { newId, isoNow } from "../lib/ids.js";
+import { eq } from "drizzle-orm";
 import { buildDmSuggestion, getAvailableActions } from "../rules/actions.js";
 import {
   buildPortraitPrompt,
@@ -2295,6 +2296,63 @@ export async function runDmTool(
         message: `Drużyna zdobywa ${amount} XP (${share} na osobę)${
           reason ? ` za ${reason}` : ""
         }.${levelUpLines.length > 0 ? ` ${levelUpLines.join(" ")}` : ""}`,
+      };
+    }
+    case "remove_inventory_item": {
+      const parsed = z
+        .object({
+          characterId: z.string().min(1),
+          itemName: z.string().min(1).max(64),
+          quantity: z.number().int().min(1).max(100).default(1),
+          gold: z.number().int().min(0).max(1_000_000).optional(),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          message: "remove_inventory_item wymaga: characterId oraz itemName (dokładna nazwa przedmiotu).",
+        };
+      }
+      const { characterId, itemName, quantity, gold = 0 } = parsed.data;
+      const target = getCharacterById(characterId);
+      if (!target) return { ok: false, message: "Nie znaleziono postaci." };
+      const inventory = (target.inventory ?? []) as NonNullable<Character["inventory"]>;
+      const remaining: NonNullable<Character["inventory"]> = [];
+      let removed = 0;
+      let removedPriceTotal = 0;
+      for (const item of inventory) {
+        if (item.name === itemName && removed < quantity) {
+          const take = Math.min(item.quantity, quantity - removed);
+          removed += take;
+          removedPriceTotal += Math.floor((item.price ?? 0) / 2) * take;
+          if (item.quantity > take) {
+            remaining.push({ ...item, quantity: item.quantity - take });
+          }
+        } else {
+          remaining.push(item);
+        }
+      }
+      if (removed === 0) {
+        return { ok: false, message: `Nie znaleziono przedmiotu "${itemName}" w ekwipunku ${target.name}.` };
+      }
+      updateCharacterInventory(characterId, remaining);
+      if (gold > 0) {
+        db.update(characters)
+          .set({ gold: (target.gold ?? 0) + gold, updatedAt: isoNow() })
+          .where(eq(characters.id, characterId))
+          .run();
+      }
+      pushEvent(campaignId, "action.resolved", {
+        type: "loot",
+        characterId,
+        gold,
+        items: [{ name: itemName, quantity: removed }],
+      });
+      const goldNote = gold > 0 ? ` Postać otrzymuje ${gold} złota.` : "";
+      return {
+        ok: true,
+        message: `Usunięto ${removed}× ${itemName} z ekwipunku ${target.name}.${goldNote}`,
+        data: { removed, gold },
       };
     }
     case "create_custom_item": {

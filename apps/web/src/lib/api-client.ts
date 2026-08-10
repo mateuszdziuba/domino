@@ -264,6 +264,12 @@ export const campaignApi = {
       { method: "POST", body: JSON.stringify({ content }) },
     ),
   events: (id: string) => api<{ events: GameEvent[] }>(`/campaigns/${id}/events`),
+  notes: (id: string) => api<{ notes: string }>(`/campaigns/${id}/notes`),
+  saveNotes: (id: string, notes: string) =>
+    api<{ ok: boolean; notes: string }>(`/campaigns/${id}/notes`, {
+      method: "PUT",
+      body: JSON.stringify({ notes }),
+    }),
   remove: (id: string) => api<{ ok: boolean }>(`/campaigns/${id}`, { method: "DELETE" }),
 };
 

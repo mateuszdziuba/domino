@@ -28,6 +28,7 @@ export type DmToolName =
   | "award_xp"
   | "grant_loot"
   | "create_custom_item"
+  | "remove_inventory_item"
   | "update_world_state"
   | "start_adventure"
   | "create_adventure"
@@ -240,6 +241,17 @@ export const DM_TOOLS: DmTool[] = [
       characterId: { type: "string" },
       gold: { type: "number" },
       items: { type: "array" },
+    },
+  },
+  {
+    name: "remove_inventory_item",
+    description:
+      "Remove items from a character's inventory (e.g. when the player sells, trades, drops, or consumes a specific item during roleplay). Optionally add gold to the character (e.g. half the price for a sale). Specify the exact item name and quantity; the engine removes it from the character's backpack or equipment. Never remove items without a clear player action.",
+    parameters: {
+      characterId: { type: "string" },
+      itemName: { type: "string" },
+      quantity: { type: "number" },
+      gold: { type: "number" },
     },
   },
   {

@@ -200,6 +200,8 @@ export default function CampaignPage() {
   const [spellPl, setSpellPl] = useState(() => spellNamesPlEnabled());
   const [connState, setConnState] = useState<"connecting" | "live" | "offline">("connecting");
   const [merchantOpen, setMerchantOpen] = useState(false);
+  const [myNotes, setMyNotes] = useState("");
+  const [myNotesSaved, setMyNotesSaved] = useState("");
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [rolls, setRolls] = useState<RollEntry[]>([]);
@@ -315,6 +317,13 @@ export default function CampaignPage() {
     campaignApi
       .dmSuggestion(id)
       .then(({ suggestion }) => setSuggestion(suggestion))
+      .catch(() => {});
+    campaignApi
+      .notes(id)
+      .then(({ notes }) => {
+        setMyNotes(notes);
+        setMyNotesSaved(notes);
+      })
       .catch(() => {});
   }, [id]);
 
@@ -583,11 +592,9 @@ export default function CampaignPage() {
         </h1>
         <Badge variant="secondary">{detail?.state.phase ?? "…"}</Badge>
         <Badge variant="outline">{detail?.state.location ?? "…"}</Badge>
-        {dmView && (
-          <Badge variant={dmMode === "preview" ? "secondary" : "default"}>
-            DM: {dmMode}
-          </Badge>
-        )}
+        <Badge variant={dmMode === "preview" ? "secondary" : "default"}>
+          DM: {dmMode}
+        </Badge>
         <TooltipProvider delayDuration={250}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -723,17 +730,15 @@ export default function CampaignPage() {
           )}
           <Card className="border-[#b99f6b]">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">{dmView ? "Czat z DM" : "Czat drużyny"}</CardTitle>
-              <CardDescription className="not-italic">
-                {dmView ? "Opisz, co robi twoja postać." : "Kampania bez DM — wiadomości trafiają do pozostałych graczy."}
-              </CardDescription>
+              <CardTitle className="text-base">Czat z DM</CardTitle>
+              <CardDescription className="not-italic">Opisz, co robi twoja postać.</CardDescription>
             </CardHeader>
             <CardContent>
               <TooltipProvider delayDuration={250}>
                 <div className="scroll-parchment scroll-pretty flex max-h-[55vh] min-h-[300px] flex-col gap-3 overflow-y-auto pr-1">
                   {timeline.length === 0 && (
                     <p className="text-sm text-[#7c6a45]">
-                      {dmView ? "Przygoda jeszcze się nie zaczęła. Napisz coś do DM-a." : "Brak wiadomości. Napisz coś do drużyny."}
+                      Przygoda jeszcze się nie zaczęła. Napisz coś do DM-a.
                     </p>
                   )}
                   {timeline.map((item, i) => {
@@ -1084,6 +1089,28 @@ export default function CampaignPage() {
 
           <Card className="border-[#b99f6b]">
             <CardHeader className="pb-2">
+              <CardTitle className="text-base">Twoje notatki</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <textarea
+                value={myNotes}
+                onChange={(e) => setMyNotes(e.target.value)}
+                onBlur={() => {
+                  if (myNotes !== myNotesSaved) {
+                    campaignApi.saveNotes(id, myNotes).then(() => setMyNotesSaved(myNotes)).catch(() => {});
+                  }
+                }}
+                placeholder="Prywatne notatki do przygody — nikt inny ich nie widzi, bez spoilerów…"
+                className="min-h-[96px] w-full resize-y rounded-sm border border-[#b99f6b] bg-[#fbf3dd]/60 px-2 py-1.5 text-sm text-[#2e2113] outline-none focus:border-[#a97e1f]"
+              />
+              <p className="mt-1 text-[10px] italic text-[#a08b5c]">
+                Widoczne tylko dla Ciebie — notatki DM nie są pokazywane nikomu.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-[#b99f6b]">
+            <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="size-4 text-[#a97e1f]" />
                 Drużyna
@@ -1155,16 +1182,12 @@ export default function CampaignPage() {
               </div>
               {detail?.state.notes && (
                 <div className="flex flex-col gap-1">
-                  <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
-                    Notatki
-                  </span>
-                  <p className="text-xs leading-relaxed text-[#7c6a45]">{detail.state.notes}</p>
+                  {/* Notatki DM ukryte — spoilery */}
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {dmView && (
           <Card className="border-[#b99f6b]">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Twoja tura</CardTitle>
@@ -1210,7 +1233,6 @@ export default function CampaignPage() {
               </div>
             </CardContent>
           </Card>
-          )}
         </div>
       </div>
       )}

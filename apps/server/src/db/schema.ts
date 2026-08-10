@@ -123,6 +123,7 @@ export const campaignMembers = sqliteTable(
     characterId: text("character_id")
       .notNull()
       .references(() => characters.id, { onDelete: "cascade" }),
+    notes: text("notes"),
     joinedAt: text("joined_at")
       .notNull()
       .default(sql`(datetime('now'))`),
