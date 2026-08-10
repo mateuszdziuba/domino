@@ -12,6 +12,7 @@ import { abilityModifier, proficiencyBonus } from "./abilities.js";
 import { buildCharacterFeatures } from "./features.js";
 import { spellSlotsForLevel } from "./spells.js";
 import { findEquippedWeapon, weaponAttackStats } from "./weapons.js";
+import { martialArtsDie } from "./combat.js";
 
 export function buildCharacterSheet(character: Character): CharacterSheet {
   const level = Math.max(1, character.level);
@@ -51,22 +52,32 @@ export function buildCharacterSheet(character: Character): CharacterSheet {
   const equippedWeapon = findEquippedWeapon(character);
   const attacks: SheetAttack[] = equippedWeapon
     ? [{ name: equippedWeapon.name, ...weaponAttackStats(equippedWeapon, character) }]
-    : [
-        {
-          name: "Melee (Strength)",
-          hitBonus: prof + strengthMod,
-          damageNotation: "1d8",
-          damageBonus: strengthMod,
-          ability: "strength",
-        },
-        {
-          name: "Ranged (Dexterity)",
-          hitBonus: prof + dexterityMod,
-          damageNotation: "1d6",
-          damageBonus: dexterityMod,
-          ability: "dexterity",
-        },
-      ];
+    : character.className === "Monk"
+      ? [
+          {
+            name: "Atak bez broni (Zręczność)",
+            hitBonus: prof + dexterityMod,
+            damageNotation: martialArtsDie(character.level),
+            damageBonus: dexterityMod,
+            ability: "dexterity",
+          },
+        ]
+      : [
+          {
+            name: "Melee (Strength)",
+            hitBonus: prof + strengthMod,
+            damageNotation: "1d8",
+            damageBonus: strengthMod,
+            ability: "strength",
+          },
+          {
+            name: "Ranged (Dexterity)",
+            hitBonus: prof + dexterityMod,
+            damageNotation: "1d6",
+            damageBonus: dexterityMod,
+            ability: "dexterity",
+          },
+        ];
 
   const hasSpells = (character.spells?.length ?? 0) > 0;
   const spellcasting = hasSpells && castingAbility

@@ -135,6 +135,7 @@ export default function CharacterSheetPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [devDialogOpen, setDevDialogOpen] = useState(false);
+  const [notesDraft, setNotesDraft] = useState("");
 
   useEffect(() => {
     characterApi.imageStatus().then(({ configured }) => setImageConfigured(configured)).catch(() => {});
@@ -147,7 +148,10 @@ export default function CharacterSheetPage() {
     if (!id) return;
     characterApi
       .sheet(id)
-      .then(({ sheet }) => setSheet(sheet))
+      .then(({ sheet }) => {
+        setSheet(sheet);
+        setNotesDraft(sheet.character.notes ?? "");
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "Nie udało się wczytać karty postaci"));
   }, [id]);
 
@@ -835,6 +839,28 @@ export default function CharacterSheetPage() {
                   })}
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-[#b99f6b]">
+            <CardHeader className="pb-2">
+              <SectionTitle icon={ScrollText}>Notatki</SectionTitle>
+            </CardHeader>
+            <CardContent>
+              <textarea
+                value={notesDraft}
+                onChange={(e) => setNotesDraft(e.target.value)}
+                onBlur={() => {
+                  if (notesDraft !== (character.notes ?? "")) {
+                    characterApi.update(character.id, { notes: notesDraft }).catch(() => {});
+                  }
+                }}
+                placeholder="Twoje prywatne notatki — np. ile złota dostałaś, co znalazłaś, podejrzenia…"
+                className="min-h-[96px] w-full resize-y rounded-sm border border-[#b99f6b] bg-[#fbf3dd]/60 px-2 py-1.5 text-sm text-[#2e2113] outline-none focus:border-[#a97e1f]"
+              />
+              <p className="mt-1 text-[10px] italic text-[#a08b5c]">
+                Zapisuje się automatycznie po opuszczeniu pola. Nikt inny nie widzi tych notatek.
+              </p>
             </CardContent>
           </Card>
 

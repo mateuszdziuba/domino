@@ -991,6 +991,12 @@ export const CLASSES: ClassDef[] = [
         level: 1,
       },
       {
+        name: "Zręczne ataki (Dexterous Attacks)",
+        description:
+          "W atakach bez broni i broniami mnicha używasz modyfikatora Zręczności zamiast Siły do rzutów na atak i obrażenia. Bronie mnicha: proste bronie do walki wręcz oraz wojskowe bronie do walki wręcz z cechą Lekka. Ponadto przy Chwycie lub Odepchnięciu atakiem bez broni możesz użyć Zręczności do ST rzutu obronnego.",
+        level: 1,
+      },
+      {
         name: "Obrona bez pancerza (Unarmored Defense)",
         description:
           "Gdy nie nosisz pancerza, twój AC wynosi 10 + modyfikator Zręczności + modyfikator Mądrości.",

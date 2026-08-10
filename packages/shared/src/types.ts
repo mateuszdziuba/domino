@@ -71,6 +71,7 @@ export type Character = {
   speed: number;
   alignment?: string;
   background?: string;
+  notes?: string;
   proficiencyBonus: number;
   skills?: Partial<Record<SkillName, boolean>>;
   inventory?: InventoryItem[];

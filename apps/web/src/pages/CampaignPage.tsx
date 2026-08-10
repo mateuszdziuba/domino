@@ -426,7 +426,9 @@ export default function CampaignPage() {
         let next = prev.some((m) => m.id === result.message.id)
           ? prev
           : [...prev, result.message];
-        next = next.some((m) => m.id === result.dmMessage.id) ? next : [...next, result.dmMessage];
+        if (result.dmMessage) {
+          next = next.some((m) => m.id === result.dmMessage.id) ? next : [...next, result.dmMessage];
+        }
         return next;
       });
       load();
@@ -719,18 +721,19 @@ export default function CampaignPage() {
               </ul>
             </div>
           )}
-          {dmView ? (
           <Card className="border-[#b99f6b]">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Czat z DM</CardTitle>
-              <CardDescription className="not-italic">Opisz, co robi twoja postać.</CardDescription>
+              <CardTitle className="text-base">{dmView ? "Czat z DM" : "Czat drużyny"}</CardTitle>
+              <CardDescription className="not-italic">
+                {dmView ? "Opisz, co robi twoja postać." : "Kampania bez DM — wiadomości trafiają do pozostałych graczy."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <TooltipProvider delayDuration={250}>
                 <div className="scroll-parchment scroll-pretty flex max-h-[55vh] min-h-[300px] flex-col gap-3 overflow-y-auto pr-1">
                   {timeline.length === 0 && (
                     <p className="text-sm text-[#7c6a45]">
-                      Przygoda jeszcze się nie zaczęła. Napisz coś do DM-a.
+                      {dmView ? "Przygoda jeszcze się nie zaczęła. Napisz coś do DM-a." : "Brak wiadomości. Napisz coś do drużyny."}
                     </p>
                   )}
                   {timeline.map((item, i) => {
@@ -1058,36 +1061,6 @@ export default function CampaignPage() {
               {error && <p className="mt-2 text-sm text-[#8f1d1d]">{error}</p>}
             </CardContent>
           </Card>
-          ) : (
-          <Card className="border-[#b99f6b]">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Brak widoku DM</CardTitle>
-              <CardDescription className="not-italic">
-                Ta kampania działa bez narracji AI.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3 text-sm">
-              <p className="text-[#7c6a45]">
-                Czat z DM i podpowiedzi akcji są wyłączone. Jeśli prowadzisz tę kampanię, włącz
-                widok DM na liście kampanii (przełącznik „DM" przy kampanii).
-              </p>
-              {isOwner && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="self-start"
-                  onClick={() => {
-                    campaignApi.updateDm(id, true).then(() => load()).catch(() => {});
-                  }}
-                >
-                  <Coins className="size-3.5" />
-                  Włącz widok DM
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-          )}
 
           {!member && (
             <JoinCard

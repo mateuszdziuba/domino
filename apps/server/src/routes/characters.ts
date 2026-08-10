@@ -45,6 +45,7 @@ const characterSchema = z.object({
   speed: z.number().int().positive().default(30),
   alignment: z.string().max(32).optional(),
   background: z.string().max(128).optional(),
+  notes: z.string().max(2000).optional(),
   skills: z.record(z.boolean()).optional(),
   inventory: z.array(z.unknown()).optional(),
   spells: z.array(z.string()).optional(),
@@ -256,6 +257,7 @@ characterRoutes.post("/", requireAuth, async (c) => {
       speed,
       alignment: data.alignment ?? null,
       background: backgroundName ?? null,
+      notes: data.notes ?? null,
       proficiencyBonus: proficiencyBonus(level),
       skills: {
         ...(data.skills ?? {}),

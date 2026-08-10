@@ -181,6 +181,7 @@ export function grantLoot(
     description?: string;
     slot?: string;
     attuned?: boolean;
+    priceGp?: number;
   }[],
 ): void {
   const row = db.select().from(characters).where(eq(characters.id, characterId)).get();
@@ -203,6 +204,7 @@ export function grantLoot(
         description: item.description,
         slot: item.slot,
         attuned: item.attuned,
+        ...(item.priceGp != null ? { price: item.priceGp } : {}),
       });
     }
   }
@@ -278,6 +280,7 @@ function rowToCharacter(row: typeof characters.$inferSelect): Character {
     speed: row.speed,
     alignment: row.alignment ?? undefined,
     background: row.background ?? undefined,
+    notes: row.notes ?? undefined,
     proficiencyBonus: row.proficiencyBonus,
     skills: (row.skills ?? {}) as Character["skills"],
     inventory: (row.inventory ?? []) as Character["inventory"],

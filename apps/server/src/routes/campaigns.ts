@@ -342,6 +342,16 @@ campaignRoutes.post("/:id/messages", requireAuth, async (c) => {
   const charactersInCampaign = getCampaignCharacters(campaign.id);
   const recent = getRecentMessages(campaign.id);
 
+  const dmEnabled = campaign.dmEnabled;
+  if (!dmEnabled) {
+    return c.json({
+      message: playerMessage,
+      dmMessage: null,
+      dmMode: "off",
+      dmEnabled: false,
+    });
+  }
+
   const dmReply = await dmNarrate(
     { campaignId: campaign.id, characters: charactersInCampaign, state, recentMessages: recent },
     parsed.data.content,

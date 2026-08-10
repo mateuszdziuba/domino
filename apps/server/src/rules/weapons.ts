@@ -527,15 +527,25 @@ export function weaponAttackStats(
   character: {
     abilityScores: { strength: number; dexterity: number };
     proficiencyBonus: number;
+    className?: string;
   },
 ): WeaponAttackStats {
   const strengthMod = abilityModifier(character.abilityScores.strength);
   const dexterityMod = abilityModifier(character.abilityScores.dexterity);
+  // SRD Monk "Dexterous Attacks": monks use DEX for Unarmed Strikes and
+  // Monk weapons (Simple Melee weapons + Martial Melee weapons with Light).
+  const isMonkWeapon =
+    character.className === "Monk" &&
+    weapon.range === "melee" &&
+    (weapon.category === "simple" ||
+      (weapon.category === "martial" && weapon.properties.includes("light")));
   // SRD: finesse uses the higher of STR/DEX; other ranged attacks use DEX;
   // other melee attacks (including non-finesse thrown weapons) use STR.
-  const useDexterity = weapon.properties.includes("finesse")
-    ? dexterityMod > strengthMod
-    : weapon.range === "ranged";
+  const useDexterity = isMonkWeapon
+    ? true
+    : weapon.properties.includes("finesse")
+      ? dexterityMod > strengthMod
+      : weapon.range === "ranged";
   const mod = useDexterity ? dexterityMod : strengthMod;
   // Versatile weapons default to two-handed grip: the larger die.
   const damageNotation = weapon.versatileDice ?? weapon.damageDice;

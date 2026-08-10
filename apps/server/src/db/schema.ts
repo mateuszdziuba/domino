@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   index,
   integer,
+  real,
   sqliteTable,
   text,
   uniqueIndex,
@@ -54,6 +55,7 @@ export const characters = sqliteTable(
     speed: integer("speed").notNull().default(30),
     alignment: text("alignment"),
     background: text("background"),
+    notes: text("notes"),
     proficiencyBonus: integer("proficiency_bonus").notNull().default(2),
     skills: text("skills", { mode: "json" }).notNull().default({}),
     inventory: text("inventory", { mode: "json" }).notNull().default([]),
@@ -86,6 +88,24 @@ export const campaigns = sqliteTable("campaigns", {
     .references(() => users.id, { onDelete: "cascade" }),
   inviteCode: text("invite_code").unique(),
   dmEnabled: integer("dm_enabled", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const customItems = sqliteTable("custom_items", {
+  id: text("id").primaryKey(),
+  campaignId: text("campaign_id")
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  weight: real("weight"),
+  priceGp: integer("price_gp").notNull(),
+  category: text("category").notNull().default("magic"),
+  slot: text("slot"),
+  icon: text("icon").notNull().default("Package"),
+  attuned: integer("attuned", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),

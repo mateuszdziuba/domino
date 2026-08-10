@@ -27,6 +27,7 @@ export type DmToolName =
   | "set_inspiration"
   | "award_xp"
   | "grant_loot"
+  | "create_custom_item"
   | "update_world_state"
   | "start_adventure"
   | "create_adventure"
@@ -239,6 +240,20 @@ export const DM_TOOLS: DmTool[] = [
       characterId: { type: "string" },
       gold: { type: "number" },
       items: { type: "array" },
+    },
+  },
+  {
+    name: "create_custom_item",
+    description:
+      "Create a unique custom item that does not exist in the SRD catalog (narrative treasure, plot artifact, crafted object). You set a sensible price in gold (0 for priceless quest items, up to 5000). The item is stored scoped to this campaign only — it will never appear in any other campaign's merchant and cannot be bought anywhere; it is added directly to the named character's inventory. Use for items that have narrative meaning; for standard gear use grant_loot instead.",
+    parameters: {
+      characterId: { type: "string" },
+      name: { type: "string" },
+      description: { type: "string" },
+      priceGp: { type: "number" },
+      weight: { type: "number" },
+      slot: { type: "string" },
+      attuned: { type: "boolean" },
     },
   },
   {

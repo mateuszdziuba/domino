@@ -732,11 +732,29 @@ export function performDeathSave(state: CampaignState, combatantId: string): Dea
   };
 }
 
+export function martialArtsDie(level: number): string {
+  // SRD 5.2.1 Monk: 1d6 at 1st, 1d8 at 5th, 1d10 at 11th, 1d12 at 17th.
+  if (level >= 17) return "1d12";
+  if (level >= 11) return "1d10";
+  if (level >= 5) return "1d8";
+  return "1d6";
+}
+
 export function characterAttackInput(
   attacker: Combatant,
   character?: Character,
 ): AttackInput {
   if (character) {
+    // SRD Monk "Dexterous Attacks": unarmed strikes use DEX and the
+    // Martial Arts die instead of Strength.
+    if (character.className === "Monk") {
+      const dexterityMod = abilityModifier(character.abilityScores.dexterity);
+      return {
+        attackBonus: character.proficiencyBonus + dexterityMod,
+        damageNotation: martialArtsDie(character.level),
+        damageBonus: dexterityMod,
+      };
+    }
     return {
       attackBonus: character.proficiencyBonus + abilityModifier(character.abilityScores.strength),
       damageNotation: "1d8",

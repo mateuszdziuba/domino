@@ -17,6 +17,9 @@ import {
   grantXp,
   grantLoot,
 } from "../campaign/store.js";
+import { db } from "../db/index.js";
+import { customItems } from "../db/schema.js";
+import { newId } from "../lib/ids.js";
 import { buildDmSuggestion, getAvailableActions } from "../rules/actions.js";
 import {
   buildPortraitPrompt,
@@ -2292,6 +2295,78 @@ export async function runDmTool(
         message: `Drużyna zdobywa ${amount} XP (${share} na osobę)${
           reason ? ` za ${reason}` : ""
         }.${levelUpLines.length > 0 ? ` ${levelUpLines.join(" ")}` : ""}`,
+      };
+    }
+    case "create_custom_item": {
+      const parsed = z
+        .object({
+          characterId: z.string().min(1),
+          name: z.string().min(1).max(64),
+          description: z.string().min(1).max(300),
+          priceGp: z.number().min(0).max(5000).optional(),
+          weight: z.number().min(0).max(1000).optional(),
+          slot: z.string().optional(),
+          attuned: z.boolean().optional(),
+        })
+        .safeParse(rawArgs);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          message: "create_custom_item wymaga: characterId, name (1-64 znaki) i description.",
+        };
+      }
+      const { characterId, name, description } = parsed.data;
+      const priceGp = parsed.data.priceGp ?? 0;
+      if (parsed.data.slot !== undefined && !isSlotKey(parsed.data.slot)) {
+        return {
+          ok: false,
+          message: `Nieznany slot: ${parsed.data.slot}. Dostępne: ${EQUIPMENT_SLOTS.map(
+            (s) => s.key,
+          ).join(", ")}.`,
+        };
+      }
+      const target = getCharacterById(characterId);
+      if (!target) return { ok: false, message: "Nie znaleziono postaci." };
+      const itemId = newId();
+      db.insert(customItems)
+        .values({
+          id: itemId,
+          campaignId,
+          name,
+          description,
+          weight: parsed.data.weight ?? null,
+          priceGp,
+          category: "magic",
+          slot: parsed.data.slot ?? null,
+          icon: "Package",
+          attuned: parsed.data.attuned ?? false,
+        })
+        .run();
+      grantLoot(characterId, 0, [
+        {
+          name,
+          quantity: 1,
+          weight: parsed.data.weight ?? 1,
+          description,
+          slot: parsed.data.slot,
+          attuned: parsed.data.attuned,
+          priceGp,
+        },
+      ]);
+      pushEvent(campaignId, "action.resolved", {
+        type: "loot",
+        characterId,
+        gold: 0,
+        items: [{ name, quantity: 1 }],
+      });
+      const priceNote =
+        priceGp > 0
+          ? ` (wycenione na ${priceGp} gp — możliwe do sprzedania za połowę ceny)`
+          : " (przedmiot fabularny bez ceny sprzedaży)";
+      return {
+        ok: true,
+        message: `Stworzono unikalny przedmiot "${name}"${priceNote} i dodano go do ekwipunku ${target.name}. Przedmiot jest przypisany do tej kampanii — nie pojawi się w żadnym innym sklepie.`,
+        data: { item: { name, description, priceGp } },
       };
     }
     case "grant_loot": {
