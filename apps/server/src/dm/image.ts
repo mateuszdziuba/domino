@@ -111,7 +111,11 @@ export async function loadPortraitReference(url: string): Promise<ImageReference
   try {
     const { readFile } = await import("node:fs/promises");
     const buffer = await readFile(file);
-    return { base64: buffer.toString("base64") };
+    const absolute =
+      process.env.WEB_ORIGIN && process.env.WEB_ORIGIN.startsWith("http")
+        ? `${process.env.WEB_ORIGIN.replace(/\/$/, "")}${url}`
+        : undefined;
+    return { ...(absolute ? { url: absolute } : {}), base64: buffer.toString("base64") };
   } catch {
     return {};
   }

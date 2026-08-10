@@ -1,0 +1,302 @@
+import type { SpellDef } from "../spells.js";
+
+export const SPELLS_L7: Record<string, SpellDef> = {
+  "Conjure Celestial": {
+    name: "Conjure Celestial",
+    namePl: "Przyzwanie niebianina",
+    level: 7,
+    school: "Conjuration",
+    components: "V, S",
+    description:
+      "Przyzywasz niebiańską istotę (celestial), która ci służy lub walczy u twojego boku. Efekt narracyjny — DM rozstrzyga statystyki i zachowanie wezwanej istoty.",
+    effect: {
+      kind: "none",
+      range: "90 ft",
+      duration: "1 h",
+      castingTime: "action",
+      concentration: true,
+    },
+  },
+  "Crown of Stars": {
+    name: "Crown of Stars",
+    namePl: "Korona gwiazd",
+    level: 7,
+    school: "Evocation",
+    components: "V, S",
+    description:
+      "Nad twoją głową pojawia się siedem świetlistych gwiazd. Jako akcję dodatkową wystrzelasz jedną z nich: rzut ataku zadaje 4k12 obrażeń promienistych.",
+    effect: {
+      kind: "damage",
+      dice: "4d12",
+      damageType: "radiant",
+      attack: true,
+      range: "120 ft",
+      duration: "1 h",
+      castingTime: "bonus",
+    },
+  },
+  "Delayed Blast Fireball": {
+    name: "Delayed Blast Fireball",
+    namePl: "Opóźniona kula ognia",
+    level: 7,
+    school: "Evocation",
+    components: "V, S, M",
+    description:
+      "Tworzysz kulkę ognia, którą możesz odpalić po czasie. Nieudany rzut obronny na Zręczność oznacza 12k6 obrażeń ogniowych (kula eksploduje, gdy ją odpalisz lub po minucie).",
+    effect: {
+      kind: "damage",
+      dice: "12d6",
+      damageType: "fire",
+      attack: false,
+      save: "dexterity",
+      range: "150 ft",
+      duration: "1 min",
+      castingTime: "action",
+      concentration: true,
+    },
+  },
+  "Divine Word": {
+    name: "Divine Word",
+    namePl: "Boskie słowo",
+    level: 7,
+    school: "Evocation",
+    components: "V",
+    description:
+      "Wypowiadasz święte słowo, które oszałamia, oślepia lub wygania wrogów w promieniu 30 stóp w zależności od ich punktów życia. Efekt narracyjny — DM rozstrzyga wpływ.",
+    effect: {
+      kind: "none",
+      range: "30 ft",
+      duration: "Instantaneous",
+      castingTime: "action",
+    },
+  },
+  "Etherealness": {
+    name: "Etherealness",
+    namePl: "Eteryczność",
+    level: 7,
+    school: "Conjuration",
+    components: "V, S",
+    description:
+      "Wkraczasz na plan eteryczny, skąd widzisz świat materialny, ale nie możesz w niego ingerować. Efekt narracyjny — DM rozstrzyga sceny.",
+    effect: {
+      kind: "none",
+      range: "Self",
+      duration: "8 h",
+      castingTime: "action",
+    },
+  },
+  "Finger of Death": {
+    name: "Finger of Death",
+    namePl: "Palec śmierci",
+    level: 7,
+    school: "Necromancy",
+    components: "V, S",
+    description:
+      "Nekrotyczna energia uderza w cel: nieudany rzut obronny na Kondycję oznacza 7k8 + 30 obrażeń nekrotycznych. Humanoid zabity tym zaklęciem powstaje jako zombie pod twoją kontrolą.",
+    effect: {
+      kind: "damage",
+      dice: "7d8",
+      damageType: "necrotic",
+      attack: false,
+      save: "constitution",
+      range: "60 ft",
+      duration: "Instantaneous",
+      castingTime: "action",
+    },
+  },
+  "Fire Storm": {
+    name: "Fire Storm",
+    namePl: "Burza ognia",
+    level: 7,
+    school: "Evocation",
+    components: "V, S",
+    description:
+      "Ściany płomieni wyrastają w wybranych miejscach w promieniu 150 stóp. Istoty w nich wykonują rzut obronny na Zręczność — nieudany oznacza 7k10 obrażeń ogniowych.",
+    effect: {
+      kind: "damage",
+      dice: "7d10",
+      damageType: "fire",
+      attack: false,
+      save: "dexterity",
+      range: "150 ft",
+      duration: "Instantaneous",
+      castingTime: "action",
+    },
+  },
+  "Forcecage": {
+    name: "Forcecage",
+    namePl: "Klatka siły",
+    level: 7,
+    school: "Evocation",
+    components: "V, S, M",
+    description:
+      "Tworzysz klatkę ze ścian siły wokół celu — istota nie może z niej uciec ani zaatakować na zewnątrz. Efekt narracyjny — DM rozstrzyga uwięzienie.",
+    effect: {
+      kind: "none",
+      range: "100 ft",
+      duration: "1 h",
+      castingTime: "action",
+    },
+  },
+  "Mirage Arcane": {
+    name: "Mirage Arcane",
+    namePl: "Złudna kraina",
+    level: 7,
+    school: "Illusion",
+    components: "V, S",
+    description:
+      "Zmieniasz wygląd dużego obszaru terenu (lasy, budynki, drogi) wedle swojej woli. Efekt narracyjny — DM rozstrzyga interakcje ze złudną krainą.",
+    effect: {
+      kind: "none",
+      range: "Sight",
+      duration: "10 days",
+      castingTime: "action",
+      concentration: true,
+    },
+  },
+  "Plane Shift": {
+    name: "Plane Shift",
+    namePl: "Przesunięcie między płaszczyznami",
+    level: 7,
+    school: "Conjuration",
+    components: "V, S, M",
+    description:
+      "Przenosisz siebie i wybrane istoty na inną płaszczyznę istnienia (lub w obrębie tej samej). Efekt narracyjny — DM rozstrzyga cel i konsekwencje podróży.",
+    effect: {
+      kind: "none",
+      range: "Touch",
+      duration: "Instantaneous",
+      castingTime: "action",
+    },
+  },
+  "Power Word Fortify": {
+    name: "Power Word Fortify",
+    namePl: "Słowo mocy: Wzmocnienie",
+    level: 7,
+    school: "Enchantment",
+    components: "V",
+    description:
+      "Jedno słowo mocy wzmacnia wybrane istoty: zyskują tymczasowe punkty życia i odporność. Efekt narracyjny — DM rozstrzyga dokładne wartości.",
+    effect: { kind: "none", range: "60 ft", duration: "Instantaneous", castingTime: "action" },
+  },
+  "Power Word Pain": {
+    name: "Power Word Pain",
+    namePl: "Słowo mocy: Ból",
+    level: 7,
+    school: "Enchantment",
+    components: "V",
+    description:
+      "Jedno słowo mocy przesywa cel bólem: nieudany rzut obronny na Kondycję oznacza oszołomienie i osłabienie. Efekt narracyjny — DM rozstrzyga cierpienie.",
+    effect: { kind: "none", range: "60 ft", duration: "1 min", castingTime: "action" },
+  },
+  "Prismatic Spray": {
+    name: "Prismatic Spray",
+    namePl: "Pryzmatyczny rozprysk",
+    level: 7,
+    school: "Evocation",
+    components: "V, S",
+    description:
+      "Siedem kolorowych promieni tryska ze twojej dłoni — każdy ma inny efekt (od obrażeń po oślepienie). Efekt narracyjny — DM rozstrzyga losowy promień.",
+    effect: { kind: "none", range: "Self (60 ft stożek)", duration: "Instantaneous", castingTime: "action" },
+  },
+  "Project Image": {
+    name: "Project Image",
+    namePl: "Projekcja obrazu",
+    level: 7,
+    school: "Illusion",
+    components: "V, S, M",
+    description:
+      "Tworzysz iluzoryczną kopię siebie, przez którą widzisz i słyszysz, i przez którą możesz rzucać zaklęcia. Efekt narracyjny — DM rozstrzyga odległe interakcje.",
+    effect: { kind: "none", range: "500 miles", duration: "24 h", castingTime: "action", concentration: true },
+  },
+  "Regenerate": {
+    name: "Regenerate",
+    namePl: "Regeneracja",
+    level: 7,
+    school: "Transmutation",
+    components: "V, S, M",
+    description:
+      "Dotyk przywraca celowi 4k8 + 15 punktów życia, a potem 1 punkt na rundę przez godzinę; odrastają utracone kończyny. Efekt narracyjny — DM rozstrzyga tempo.",
+    effect: { kind: "none", range: "Touch", duration: "1 h", castingTime: "action" },
+  },
+  "Reverse Gravity": {
+    name: "Reverse Gravity",
+    namePl: "Odwrócona grawitacja",
+    level: 7,
+    school: "Transmutation",
+    components: "V, S, M",
+    description:
+      "W 50-stopowym cylindrze grawitacja działa odwrotnie — istoty spadają w górę. Efekt narracyjny — DM rozstrzyga ruch i upadki.",
+    effect: { kind: "none", range: "100 ft", duration: "1 min", castingTime: "action", concentration: true },
+  },
+  "Sequester": {
+    name: "Sequester",
+    namePl: "Odosobnienie",
+    level: 7,
+    school: "Transmutation",
+    components: "V, S, M",
+    description:
+      "Chowasz istotę lub przedmiot poza czasem i percepcją na czas trwania. Efekt narracyjny — DM rozstrzyga ukrycie.",
+    effect: { kind: "none", range: "Touch", duration: "Until dispelled", castingTime: "action" },
+  },
+  "Simulacrum": {
+    name: "Simulacrum",
+    namePl: "Symulakrum",
+    level: 7,
+    school: "Illusion",
+    components: "V, S, M",
+    description:
+      "Tworzysz iluzoryczną kopię istoty z połową jej punktów życia, służącą ci wiernie. Efekt narracyjny — DM rozstrzyga statystyki kopii.",
+    effect: { kind: "none", range: "Touch", duration: "Until dispelled", castingTime: "action" },
+  },
+  "Symbol": {
+    name: "Symbol",
+    namePl: "Symbol",
+    level: 7,
+    school: "Abjuration",
+    components: "V, S, M",
+    description:
+      "Wpisujesz szkodliwy symbol w powierzchnię — dotknięcie wyzwala efekt (strach, śmierć, obłęd). Efekt narracyjny — DM rozstrzyga pułapkę.",
+    effect: { kind: "none", range: "Touch", duration: "Until dispelled", castingTime: "action" },
+  },
+  "Teleport": {
+    name: "Teleport",
+    namePl: "Teleportacja",
+    level: 7,
+    school: "Conjuration",
+    components: "V",
+    description:
+      "Przenosisz siebie i wybrane istoty w znane miejsce; celność zależy od znajomości celu. Efekt narracyjny — DM rozstrzyga trafienie.",
+    effect: { kind: "none", range: "10 ft", duration: "Instantaneous", castingTime: "action" },
+  },
+  "Temple of the Gods": {
+    name: "Temple of the Gods",
+    namePl: "Świątynia bogów",
+    level: 7,
+    school: "Conjuration",
+    components: "V, S, M",
+    description:
+      "Wzrasta świątynia twojego bóstwa — bezpieczne schronienie i święte miejsce. Efekt narracyjny — DM rozstrzyga ochronę.",
+    effect: { kind: "none", range: "120 ft", duration: "24 h", castingTime: "action", concentration: true },
+  },
+  "Whirlwind": {
+    name: "Whirlwind",
+    namePl: "Trąba powietrzna",
+    level: 7,
+    school: "Evocation",
+    components: "V, M",
+    description:
+      "Wielka trąba powietrzna porywa istoty: nieudany rzut obronny na Siłę oznacza 10k6 obrażeń obuchowych. Efekt narracyjny — DM rozstrzyga ruch.",
+    effect: {
+      kind: "damage",
+      dice: "10d6",
+      damageType: "bludgeoning",
+      attack: false,
+      save: "strength",
+      range: "300 ft",
+      duration: "1 min",
+      castingTime: "action",
+      concentration: true,
+    },
+  },
+};

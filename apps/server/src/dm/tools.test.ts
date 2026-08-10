@@ -1669,7 +1669,7 @@ describe("runDmTool cast_spell (mocked store)", () => {
   it("rejects a spell unknown to the rules engine", async () => {
     const result = await runTool("cast_spell", {
       characterId: "ch2",
-      spellName: "Fireball",
+      spellName: "Nieistniejące Zaklęcie",
       targetId: "enemy-1",
     });
     expect(result.ok).toBe(false);

@@ -94,6 +94,9 @@ import { SPELLS_L2 } from "./spells/spells-l2.js";
 import { SPELLS_L3 } from "./spells/spells-l3.js";
 import { SPELLS_L4 } from "./spells/spells-l4.js";
 import { SPELLS_L5 } from "./spells/spells-l5.js";
+import { SPELLS_L6 } from "./spells/spells-l6.js";
+import { SPELLS_L7 } from "./spells/spells-l7.js";
+import { SPELLS_L89 } from "./spells/spells-l89.js";
 
 export const SPELLS: Record<string, SpellDef> = {
   ...SPELLS_L0,
@@ -102,6 +105,9 @@ export const SPELLS: Record<string, SpellDef> = {
   ...SPELLS_L3,
   ...SPELLS_L4,
   ...SPELLS_L5,
+  ...SPELLS_L6,
+  ...SPELLS_L7,
+  ...SPELLS_L89,
   "Bless": {
     name: "Bless",
     namePl: "Błogosławieństwo",
