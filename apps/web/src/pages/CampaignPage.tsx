@@ -3,6 +3,7 @@ import { Link, useParams } from "@tanstack/react-router";
 import {
   Map,
   Play,
+  Coins,
   Send,
   Users,
   Dices,
@@ -21,6 +22,7 @@ import {
   type SpellMeta,
 } from "../lib/api-client";
 import type { ChatMessage, DmSuggestion } from "@domino/shared";
+import { MerchantPanel } from "../components/MerchantPanel";
 import { useAuth } from "../lib/auth";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -197,6 +199,7 @@ export default function CampaignPage() {
   const [soundOn, setSoundOn] = useState(() => soundEnabled());
   const [spellPl, setSpellPl] = useState(() => spellNamesPlEnabled());
   const [connState, setConnState] = useState<"connecting" | "live" | "offline">("connecting");
+  const [merchantOpen, setMerchantOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [rolls, setRolls] = useState<RollEntry[]>([]);
@@ -1211,6 +1214,34 @@ export default function CampaignPage() {
         onClose={() => setDrawerOpen(false)}
         characterId={drawerCharacterId}
       />
+
+      {merchantOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2e2113]/60 p-4"
+          onClick={() => setMerchantOpen(false)}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-sm border border-[#b99f6b] bg-[#fbf3dd] p-4 shadow-[0_20px_60px_-20px_rgba(20,10,0,0.8)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="flex items-center gap-2 text-lg tracking-[0.08em] text-[#3a2c17]">
+                <Coins className="size-4 text-[#a97e1f]" /> Kram
+              </h3>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setMerchantOpen(false)}>
+                ✕
+              </Button>
+            </div>
+            {member?.characterId ? (
+              <MerchantPanel characterId={member.characterId} onCharacterChanged={load} />
+            ) : (
+              <p className="text-sm italic text-[#7c6a45]">
+                Przypisz swoją postać do tej kampanii, aby odwiedzić kram.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

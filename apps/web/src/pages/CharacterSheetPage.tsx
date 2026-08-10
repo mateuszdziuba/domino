@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { ArrowLeft, Coins, ScrollText, Shield, Sparkles, Swords, Wand2 , Upload } from "lucide-react";
+import { ArrowLeft, ScrollText, Shield, Sparkles, Swords, Wand2, Upload } from "lucide-react";
 import {
   characterApi,
   equipmentApi,
@@ -50,6 +50,13 @@ const XP_BY_LEVEL = [
   140000, 165000, 195000, 265000, 305000, 355000,
 ];
 
+const GEAR_CATEGORY_LABELS: Record<SrdGearItem["category"], string> = {
+  armor: "Zbroje",
+  weapon: "Broń",
+  gear: "Wyposażenie",
+  magic: "Magiczne przedmioty",
+};
+
 const SLOT_FALLBACK: EquipmentSlotInfo[] = [
   { key: "head", label: "Głowa" },
   { key: "neck", label: "Szyja" },
@@ -62,15 +69,6 @@ const SLOT_FALLBACK: EquipmentSlotInfo[] = [
   { key: "ring", label: "Pierścień" },
   { key: "weapon", label: "Broń" },
 ];
-
-const GEAR_CATEGORY_LABELS: Record<SrdGearItem["category"], string> = {
-  armor: "Zbroje",
-  weapon: "Bronie",
-  gear: "Sprzęt",
-  magic: "Magiczne przedmioty",
-};
-
-const GEAR_CATEGORY_ORDER: SrdGearItem["category"][] = ["armor", "weapon", "gear", "magic"];
 
 const ATTUNEMENT_LIMIT_DEFAULT = 3;
 
@@ -133,8 +131,6 @@ export default function CharacterSheetPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [shopError, setShopError] = useState<string | null>(null);
-  const [shopSuccess, setShopSuccess] = useState<string | null>(null);
   const [devDialogOpen, setDevDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -227,12 +223,13 @@ export default function CharacterSheetPage() {
   const gearByName = new Map(
     (equipment?.gear ?? []).map((gear) => [gear.name.toLowerCase(), gear]),
   );
-  const gearGroups = GEAR_CATEGORY_ORDER.map((category) => ({
-    category,
-    label: GEAR_CATEGORY_LABELS[category],
-    items: (equipment?.gear ?? []).filter((g) => g.category === category),
-  })).filter((group) => group.items.length > 0);
-
+  const gearGroups = (["armor", "weapon", "gear", "magic"] as const)
+    .map((category) => ({
+      category,
+      label: GEAR_CATEGORY_LABELS[category],
+      items: (equipment?.gear ?? []).filter((g) => g.category === category),
+    }))
+    .filter((group) => group.items.length > 0);
   function suggestedSlotFor(item: InventoryItem): string {
     return gearByName.get(item.name.toLowerCase())?.slot ?? "";
   }
@@ -312,79 +309,6 @@ export default function CharacterSheetPage() {
     return slotOptions.find((s) => s.key === slot)?.label;
   }
 
-  async function buyGear(gear: SrdGearItem) {
-    if (saving) return;
-    const priceGp = gear.priceGp;
-    if (priceGp == null) return;
-    const gold = character.gold ?? 0;
-    if (gold < priceGp) {
-      setShopError("Za mało złota");
-      return;
-    }
-    const attuned = gear.attuned ?? false;
-    if (attuned && attunedCount >= attunementLimit) {
-      setShopError("Maksymalnie 3 atunementy (SRD).");
-      return;
-    }
-    setShopError(null);
-    setShopSuccess(null);
-    setSaving(true);
-    try {
-      const { character: updated } = await characterApi.update(character.id, {
-        gold: gold - priceGp,
-        inventory: [
-          ...inventory,
-          {
-            id: crypto.randomUUID(),
-            name: gear.name,
-            quantity: 1,
-            weight: gear.weight,
-            description: gear.description,
-            slot: gear.slot,
-            attuned,
-            price: priceGp,
-          },
-        ],
-      });
-      setSheet((prev) => (prev ? { ...prev, character: updated } : prev));
-      setShopSuccess(`Kupiono: ${gear.name}`);
-      window.setTimeout(() => setShopSuccess(null), 2500);
-    } catch (err) {
-      setShopError(err instanceof Error ? err.message : "Nie udało się kupić");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function sellItem(item: InventoryItem) {
-    if (saving) return;
-    const half = Math.floor((item.price ?? 0) / 2);
-    if (half <= 0) return;
-    setShopError(null);
-    setShopSuccess(null);
-    setSaving(true);
-    try {
-      const next = inventory.flatMap((i) =>
-        i.id === item.id
-          ? i.quantity > 1
-            ? [{ ...i, quantity: i.quantity - 1 }]
-            : []
-          : [i],
-      );
-      const { character: updated } = await characterApi.update(character.id, {
-        gold: (character.gold ?? 0) + half,
-        inventory: next,
-      });
-      setSheet((prev) => (prev ? { ...prev, character: updated } : prev));
-      setShopSuccess(`Sprzedano: ${item.name}`);
-      window.setTimeout(() => setShopSuccess(null), 2500);
-    } catch (err) {
-      setShopError(err instanceof Error ? err.message : "Nie udało się sprzedać");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   const xp = character.xp ?? 0;
   const maxedOut = character.level >= 20;
   const nextThreshold = XP_BY_LEVEL[Math.min(character.level - 1, XP_BY_LEVEL.length - 1)]!;
@@ -447,14 +371,15 @@ export default function CharacterSheetPage() {
         <Link to="/app/characters" className="text-[#7c6a45] hover:text-[#4a3417]">
           <ArrowLeft className="size-4" />
         </Link>
-        {character.portraitUrl && (
-          <div className="flex flex-col items-center gap-1.5">
+        <div className="flex flex-col items-center gap-1.5">
+          {character.portraitUrl && (
             <img
               src={character.portraitUrl}
               alt={`Portret ${character.name}`}
               className="h-24 w-24 shrink-0 rounded-sm border border-[#b99f6b] object-cover object-top shadow-[0_4px_12px_-4px_rgba(60,40,10,0.4)]"
             />
-            <div className="flex items-center gap-1">
+          )}
+          <div className="flex items-center gap-1">
               <label className="cursor-pointer">
                 <input
                   type="file"
@@ -514,7 +439,6 @@ export default function CharacterSheetPage() {
             </div>
             {uploadError && <p className="text-xs text-[#8f1d1d]">{uploadError}</p>}
           </div>
-        )}
         <div>
           <h1 className="text-2xl tracking-[0.1em] text-[#3a2c17]">{character.name}</h1>
           <p className="text-sm text-[#7c6a45]">
@@ -968,7 +892,7 @@ export default function CharacterSheetPage() {
                                   e.stopPropagation();
                                   unequipItem(equipped.id);
                                 }}
-                                className="shrink-0 text-[10px] text-[#7c6a45] opacity-0 transition-opacity group-hover:opacity-100 hover:text-[#8f1d1d]"
+                                className="shrink-0 text-[10px] text-[#7c6a45] opacity-100 transition-opacity hover:text-[#8f1d1d] lg:opacity-0 lg:group-hover:opacity-100"
                               >
                                 ✕
                               </button>
@@ -1148,134 +1072,6 @@ export default function CharacterSheetPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-[#b99f6b]">
-            <CardHeader className="pb-2">
-              <SectionTitle icon={Coins}>Kupiec</SectionTitle>
-            </CardHeader>
-            <CardContent className={cn("flex flex-col gap-4", saving && "pointer-events-none opacity-60")}>
-              <div className="flex items-center justify-between">
-                <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#a97e1f]">
-                  Złoto: {character.gold ?? 0} szt.
-                </span>
-                {shopSuccess && <span className="text-xs text-[#3f6b34]">{shopSuccess}</span>}
-              </div>
-              <div className="flex flex-col gap-3">
-                <div className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
-                  Kup
-                </div>
-                <TooltipProvider delayDuration={250}>
-                  {gearGroups.map((group) => (
-                    <div key={group.category} className="flex flex-col gap-1">
-                      <div className="font-display text-[9px] uppercase tracking-[0.12em] text-[#a08b5c]">
-                        {group.label}
-                      </div>
-                      {group.items.map((gear) => (
-                        <div
-                          key={gear.name}
-                          className="flex items-center justify-between gap-2 border-b border-dotted border-[#c8b184] py-1"
-                        >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="flex min-w-0 items-center gap-1.5">
-                                  <ItemIcon icon={gear.icon} className="size-3.5 shrink-0 text-[#a97e1f]" />
-                                  <span className="truncate text-sm text-[#2e2113]">{gear.name}</span>
-                                </span>
-                              </TooltipTrigger>
-                              {gear.description && (
-                                <TooltipContent>
-                                  <span className="text-[11px] leading-relaxed text-[#f6ead0]">
-                                    {gear.description}
-                                  </span>
-                                </TooltipContent>
-                              )}
-                            </Tooltip>
-                            {gear.price && (
-                              <span className="shrink-0 text-xs text-[#7c6a45]">{gear.price}</span>
-                            )}
-                          </span>
-                          <Button
-                            size="sm"
-                            disabled={saving || gear.priceGp == null}
-                            title={gear.priceGp == null ? "Brak ceny" : undefined}
-                            onClick={() => buyGear(gear)}
-                            className="shrink-0"
-                          >
-                            {gear.priceGp == null ? "brak ceny" : "Kup"}
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </TooltipProvider>
-              </div>
-              <div className="flex flex-col gap-1">
-                <div className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">
-                  Sprzedaj
-                </div>
-                {(() => {
-                  const sellable = inventory.filter((item) => (item.price ?? 0) > 0);
-                  if (sellable.length === 0) {
-                    return <p className="text-sm italic text-[#7c6a45]">Brak przedmiotów na sprzedaż.</p>;
-                  }
-                  return (
-                    <TooltipProvider delayDuration={250}>
-                      <div className="flex flex-col gap-1">
-                        {sellable.map((item) => {
-                          const half = Math.floor((item.price ?? 0) / 2);
-                          return (
-                            <div
-                              key={item.id}
-                              className="flex items-center justify-between gap-2 border-b border-dotted border-[#c8b184] py-1"
-                            >
-                              <span className="flex min-w-0 items-center gap-2">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="flex min-w-0 items-center gap-1.5">
-                                      <ItemIcon icon={item.icon} className="size-3.5 shrink-0 text-[#a97e1f]" />
-                                      <span className="truncate text-sm text-[#2e2113]">{item.name}</span>
-                                    </span>
-                                  </TooltipTrigger>
-                                  {item.description && (
-                                    <TooltipContent>
-                                      <span className="text-[11px] leading-relaxed text-[#f6ead0]">
-                                        {item.description}
-                                      </span>
-                                    </TooltipContent>
-                                  )}
-                                </Tooltip>
-                                {item.quantity > 1 && (
-                                  <span className="shrink-0 italic text-xs text-[#7c6a45]">
-                                    ×{item.quantity}
-                                  </span>
-                                )}
-                                <span className="shrink-0 text-xs text-[#7c6a45]">
-                                  za {half} szt.
-                                </span>
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={saving}
-                                onClick={() => sellItem(item)}
-                                className="shrink-0"
-                              >
-                                Sprzedaj
-                              </Button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </TooltipProvider>
-                  );
-                })()}
-              </div>
-              <p className="text-[10px] italic text-[#a08b5c]">
-                Kupione przedmioty trafiają do plecaka; sprzedaż odbywa się za połowę ceny.
-              </p>
-              {shopError && <p className="text-xs text-[#8f1d1d]">{shopError}</p>}
-            </CardContent>
-          </Card>
         </div>
       </div>
 

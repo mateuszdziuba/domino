@@ -15,6 +15,7 @@ import {
   pointBuyCost,
 } from "../rules/creation.js";
 import { maxHpForLevel } from "../rules/advancement.js";
+import { findFeat } from "../rules/features.js";
 import { SRD_GEAR } from "../rules/equipment.js";
 import { updateCharacterPortrait } from "../campaign/store.js";
 import { buildCharacterSheet } from "../rules/sheet.js";
@@ -47,6 +48,8 @@ const characterSchema = z.object({
   spells: z.array(z.string()).optional(),
   gold: z.number().int().min(0).optional(),
   portraitUrl: z.string().min(1).max(500).optional(),
+  startingFeat: z.string().min(1).max(64).optional(),
+  featAbility: z.string().optional(),
 });
 
 const patchAbilityScoresSchema = z.object({
@@ -125,18 +128,38 @@ characterRoutes.post("/", requireAuth, async (c) => {
   const now = isoNow();
   const id = newId();
   const level = data.level;
-  const maxHp = maxHpForLevel(data.className, level, abilityModifier(data.abilityScores.constitution));
+  let abilityScores = data.abilityScores;
+  let feats: string[] = [];
+  if (data.startingFeat) {
+    const feat = findFeat(data.startingFeat);
+    if (!feat) {
+      return c.json({ error: "Nieznany feat: " + data.startingFeat }, 400);
+    }
+    const bonusAbilities = feat.abilityBonus ?? [];
+    const chosen =
+      data.featAbility && bonusAbilities.includes(data.featAbility as never)
+        ? data.featAbility
+        : bonusAbilities[0];
+    if (chosen) {
+      abilityScores = {
+        ...abilityScores,
+        [chosen]: Math.min(20, abilityScores[chosen as keyof typeof abilityScores] + 1),
+      };
+    }
+    feats = [feat.name];
+  }
+  const maxHp = maxHpForLevel(data.className, level, abilityModifier(abilityScores.constitution));
   const starting = STARTING_EQUIPMENT[data.className] ?? STARTING_EQUIPMENT.Fighter!;
   const equippedArmor = starting.items.find((item) => ARMOR_AC[item.name])?.name;
   const shield = starting.items.some((item) => item.name === "Shield");
   const armorClass = computeArmorClass({
-    dexterityMod: abilityModifier(data.abilityScores.dexterity),
+    dexterityMod: abilityModifier(abilityScores.dexterity),
     equippedArmor,
     shield,
     className: data.className,
     abilityScores: {
-      constitution: data.abilityScores.constitution,
-      wisdom: data.abilityScores.wisdom,
+      constitution: abilityScores.constitution,
+      wisdom: abilityScores.wisdom,
     },
   });
   const speed = RACE_SPEED[data.race] ?? 30;
@@ -164,7 +187,8 @@ characterRoutes.post("/", requireAuth, async (c) => {
       className: data.className,
       subclass: data.subclass ?? null,
       level,
-      abilityScores: data.abilityScores,
+      abilityScores,
+      feats,
       maxHp,
       currentHp: maxHp,
       armorClass,

@@ -17,7 +17,7 @@ export default function AppLayout() {
   return (
     <div className="flex min-h-screen">
       {guard}
-      <aside className="flex w-56 flex-col border-r border-[#5a3d1c] bg-[#241708] px-3 py-4 text-[#e8d3a0] shadow-[inset_-10px_0_18px_-14px_rgba(0,0,0,0.7)]">
+      <aside className="hidden w-56 flex-col border-r border-[#5a3d1c] bg-[#241708] px-3 py-4 text-[#e8d3a0] shadow-[inset_-10px_0_18px_-14px_rgba(0,0,0,0.7)] lg:flex">
         <div className="mb-6 flex items-center gap-2 px-2">
           <Dices className="size-5 text-[#e5cfa0]" />
           <span className="font-display text-lg tracking-[0.14em] text-[#e5cfa0]">DoMino</span>
@@ -47,6 +47,27 @@ export default function AppLayout() {
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto p-6">
+        <div className="mb-4 flex items-center justify-between gap-2 lg:hidden">
+          <Link to="/app/campaigns" className="flex items-center gap-2">
+            <Dices className="size-5 text-[#a97e1f]" />
+            <span className="font-display text-sm tracking-[0.14em] text-[#3a2c17]">DoMino</span>
+          </Link>
+          <nav className="flex items-center gap-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={cn(
+                  "rounded-sm border border-[#c8b184] bg-[#fbf3dd] px-2 py-1 font-display text-[10px] uppercase tracking-[0.1em] text-[#7c6a45]",
+                  "data-[status=active]:border-[#a97e1f] data-[status=active]:text-[#7a4b1d]",
+                )}
+                activeOptions={{ exact: true }}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
         <Outlet />
       </main>
     </div>

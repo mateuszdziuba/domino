@@ -16,8 +16,8 @@ describe("RACE_SPEED", () => {
     expect(RACE_SPEED).toEqual({
       Human: 30,
       Elf: 30,
-      Dwarf: 25,
-      Halfling: 25,
+      Dwarf: 30,
+      Halfling: 30,
       Gnome: 30,
       Dragonborn: 30,
       Orc: 30,

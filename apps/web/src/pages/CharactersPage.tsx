@@ -66,6 +66,8 @@ export default function CharactersPage() {
   const [skills, setSkills] = useState<Set<SkillName>>(new Set());
   const [catalog, setCatalog] = useState<FeaturesCatalog | null>(null);
   const [subclass, setSubclass] = useState("");
+  const [startingFeat, setStartingFeat] = useState("");
+  const [featAbility, setFeatAbility] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const skillLimit = startingSkillCount(className);
@@ -76,6 +78,8 @@ export default function CharactersPage() {
   const conMod = scoreModifier(scores.constitution);
   const dexMod = scoreModifier(scores.dexterity);
   const hitDie = HIT_DICE[className] ?? 8;
+  const featDef = catalog?.feats?.find((f) => f.name === startingFeat) ?? null;
+  const featBonusAbilities = featDef?.abilityBonus ?? [];
 
   function load() {
     characterApi.list().then(({ characters }) => setCharacters(characters)).catch(() => {});
@@ -123,11 +127,14 @@ export default function CharactersPage() {
         abilityScores: scores,
         skills: Object.fromEntries([...skills].map((s) => [s, true])),
         ...(subclass ? { subclass } : {}),
+        ...(startingFeat ? { startingFeat, ...(featAbility ? { featAbility } : {}) } : {}),
       });
       setName("");
       setScores({ ...BASE_SCORES });
       setSkills(new Set());
       setSubclass("");
+      setStartingFeat("");
+      setFeatAbility("");
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nie udało się utworzyć postaci");
@@ -196,6 +203,53 @@ export default function CharactersPage() {
                   ))}
                 </Select>
               </div>
+            </div>
+
+            <div className="flex flex-col gap-2 rounded-sm border border-[#b99f6b] bg-[#fbf3dd]/40 p-3">
+              <Label htmlFor="char-feat">Feat startowy (opcjonalnie)</Label>
+              <Select
+                id="char-feat"
+                value={startingFeat}
+                onChange={(e) => {
+                  setStartingFeat(e.target.value);
+                  setFeatAbility("");
+                }}
+              >
+                <option value="">Brak</option>
+                {(catalog?.feats ?? []).map((f) => (
+                  <option key={f.name} value={f.name}>
+                    {f.label}
+                    {f.abilityBonus && f.abilityBonus.length > 0
+                      ? ` (+1 ${ABILITY_LABELS_PL[f.abilityBonus[0]!]})`
+                      : ""}
+                  </option>
+                ))}
+              </Select>
+              {featDef && (
+                <>
+                  <p className="text-[11px] italic text-[#7c6a45]">{featDef.description}</p>
+                  {featBonusAbilities.length > 1 && (
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">
+                        +1 do cechy (wybierz, jeśli nie chcesz domyślnej)
+                      </Label>
+                      <Select value={featAbility} onChange={(e) => setFeatAbility(e.target.value)}>
+                        {featBonusAbilities.map((a) => (
+                          <option key={a} value={a}>
+                            {ABILITY_LABELS_PL[a]} ({scores[a as keyof typeof scores] ?? 8} → {Math.min(20, (scores[a as keyof typeof scores] ?? 8) + 1)})
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
+                  {featBonusAbilities.length === 1 && (
+                    <p className="text-[11px] text-[#7c6a45]">
+                      +1 do {ABILITY_LABELS_PL[featBonusAbilities[0]!]} ({scores[featBonusAbilities[0] as keyof typeof scores] ?? 8} →{" "}
+                      {Math.min(20, (scores[featBonusAbilities[0] as keyof typeof scores] ?? 8) + 1)}) — doliczane po Point Buy.
+                    </p>
+                  )}
+                </>
+              )}
             </div>
 
             <div className="flex flex-col gap-3 rounded-sm border border-[#b99f6b] bg-[#fbf3dd]/40 p-3">
