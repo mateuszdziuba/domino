@@ -411,6 +411,22 @@ campaignRoutes.get("/:id/stream", requireAuth, (c) => {
   });
 });
 
+campaignRoutes.delete("/:id", requireAuth, (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const campaign = db.select().from(campaigns).where(eq(campaigns.id, id)).get();
+  if (!campaign) return c.json({ error: "Nie znaleziono kampanii." }, 404);
+  if (campaign.ownerId !== user.id) {
+    return c.json({ error: "Tylko twórca kampanii może ją usunąć." }, 403);
+  }
+  db.delete(gameEvents).where(eq(gameEvents.campaignId, id)).run();
+  db.delete(chatMessages).where(eq(chatMessages.campaignId, id)).run();
+  db.delete(campaignStates).where(eq(campaignStates.campaignId, id)).run();
+  db.delete(campaignMembers).where(eq(campaignMembers.campaignId, id)).run();
+  db.delete(campaigns).where(eq(campaigns.id, id)).run();
+  return c.json({ ok: true });
+});
+
 campaignRoutes.route("/:id/combat", combatRoutes);
 
 function getCampaignForUser(id: string, userId: string): Campaign | undefined {

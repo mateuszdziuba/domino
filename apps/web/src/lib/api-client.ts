@@ -259,6 +259,7 @@ export const campaignApi = {
       { method: "POST", body: JSON.stringify({ content }) },
     ),
   events: (id: string) => api<{ events: GameEvent[] }>(`/campaigns/${id}/events`),
+  remove: (id: string) => api<{ ok: boolean }>(`/campaigns/${id}`, { method: "DELETE" }),
 };
 
 export const inviteApi = {

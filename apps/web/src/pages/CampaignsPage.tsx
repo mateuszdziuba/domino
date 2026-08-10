@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { Link2, Plus, Swords } from "lucide-react";
+import { Link2, Plus, Swords, Trash2 } from "lucide-react";
 import { adventuresApi, campaignApi, inviteApi, type Adventure } from "../lib/api-client";
 import type { Campaign } from "@domino/shared";
 import { useAuth } from "../lib/auth";
@@ -30,6 +30,23 @@ export default function CampaignsPage() {
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function onDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await campaignApi.remove(deleteTarget.id);
+      setDeleteTarget(null);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nie udało się usunąć kampanii");
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   function load() {
     campaignApi.list().then(({ campaigns }) => setCampaigns(campaigns)).catch(() => {});
@@ -162,10 +179,24 @@ export default function CampaignsPage() {
                 </Badge>
                 <div className="flex items-center gap-2">
                   {campaign.ownerId === user?.id && (
-                    <Button size="sm" variant="outline" onClick={() => onInvite(campaign)}>
-                      <Link2 />
-                      Zaproś
-                    </Button>
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => onInvite(campaign)}>
+                        <Link2 />
+                        Zaproś
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-[#8f1d1d] hover:text-[#8f1d1d]"
+                        onClick={() => {
+                          setError(null);
+                          setDeleteTarget(campaign);
+                        }}
+                      >
+                        <Trash2 />
+                        Usuń
+                      </Button>
+                    </>
                   )}
                   <Button asChild size="sm">
                     <Link to="/app/campaigns/$id" params={{ id: campaign.id }}>
@@ -221,6 +252,34 @@ export default function CampaignsPage() {
                 Zamknij
               </Button>
             </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2e2113]/60 p-4"
+          onClick={() => setDeleteTarget(null)}
+        >
+          <Card
+            className="w-full max-w-md border-[#b99f6b]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg text-[#8f1d1d]">Usunąć kampanię?</CardTitle>
+              <CardDescription className="not-italic">
+                „{deleteTarget.name}" zostanie usunięta na stałe — razem ze stanem, czatem i
+                członkami. Tej operacji nie można cofnąć.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setDeleteTarget(null)}>
+                Anuluj
+              </Button>
+              <Button size="sm" className="bg-[#8f1d1d] hover:bg-[#7a1818]" disabled={deleting} onClick={onDelete}>
+                {deleting ? "Usuwanie…" : "Usuń"}
+              </Button>
+            </CardFooter>
           </Card>
         </div>
       )}
