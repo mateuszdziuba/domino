@@ -625,6 +625,7 @@ export type SpellCastResult = {
   saveTotal?: number;
   damageTotal: number;
   damageRolls: number[];
+  damageNotation?: string;
   healed: number;
   healRolls: number[];
   targetCurrentHp: number;
@@ -802,6 +803,7 @@ export function resolveSpellCast(
       riderApplied,
       damageTotal,
       damageRolls: [...first, ...second],
+      damageNotation: effect.kind === "damage" ? effect.dice : undefined,
       healed: 0,
       healRolls: [],
       targetCurrentHp: applied.currentHp,
@@ -823,6 +825,7 @@ export function resolveSpellCast(
     saveTotal,
     damageTotal,
     damageRolls: allDice,
+    damageNotation: effect.dice,
     healed: 0,
     healRolls: [],
     targetCurrentHp: applied.currentHp,

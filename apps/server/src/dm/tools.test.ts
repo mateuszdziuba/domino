@@ -2536,6 +2536,7 @@ describe("runDmTool monster_cast (mocked store)", () => {
       saveTotal: 1,
       damageTotal: 3,
       damageRolls: [1, 1, 1],
+      damageNotation: "3d8",
       healed: 0,
       healRolls: [],
       targetCurrentHp: 7,

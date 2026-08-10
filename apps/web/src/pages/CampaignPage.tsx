@@ -61,6 +61,9 @@ type RollEntry = {
   dice?: DiceSpec[];
   bonus?: number;
   total?: number;
+  damageDice?: DiceSpec[];
+  damageBonus?: number;
+  damageTotal?: number;
 };
 
 type LevelUpInfo = {
@@ -242,7 +245,6 @@ export default function CampaignPage() {
 
   const showLobby = (detail?.state as { started?: boolean } | undefined)?.started === false;
   const isOwner = detail?.campaign.ownerId === user?.id;
-  const dmView = Boolean(detail?.campaign.dmEnabled);
 
   const refreshSpellbook = useCallback(() => {
     if (!member?.characterId) {
@@ -462,6 +464,9 @@ export default function CampaignPage() {
     dice?: DiceSpec[];
     bonus?: number;
     total?: number;
+    damageDice?: DiceSpec[];
+    damageBonus?: number;
+    damageTotal?: number;
   } | null {
     const type = payload.type;
     if (type === "image") {
@@ -494,6 +499,24 @@ export default function CampaignPage() {
     let dice: DiceSpec[] | undefined;
     let bonus: number | undefined;
     let diceTotal: number | undefined;
+    let damageDice: DiceSpec[] | undefined;
+    let damageBonus: number | undefined;
+    let damageTotal: number | undefined;
+
+    function parseNotation(notation: string): { count: number; sides: number } | null {
+      const match = notation.match(/^(\d*)d(\d+)/i);
+      if (!match) return null;
+      return { count: Number(match[1] ?? "1") || 1, sides: Number(match[2]) };
+    }
+    function buildDamageDice(notation: string, rolls: number[]) {
+      const parsed = parseNotation(notation);
+      if (!parsed || rolls.length === 0) return;
+      damageDice = rolls.map((value) => ({ sides: parsed.sides, value }));
+      damageBonus =
+        damageTotal === undefined
+          ? undefined
+          : damageTotal - rolls.reduce((a, b) => a + b, 0);
+    }
     if (type === "attack") {
       const attackRoll = Number(payload.attackRoll ?? 0);
       const attackTotal = Number(payload.attackTotal ?? 0);
@@ -527,10 +550,26 @@ export default function CampaignPage() {
           : saved
             ? " — Udany rzut obronny"
             : " — Nieudany rzut obronny";
+      if (typeof payload.attackRoll === "number") {
+        const rolls = (payload.attackRolls as number[] | undefined) ?? [payload.attackRoll];
+        dice = rolls.map((r) => ({ sides: 20, value: r }));
+        diceTotal = Number(payload.attackTotal ?? 0);
+        bonus = diceTotal - (payload.attackRoll as number);
+      } else if (typeof payload.saveTotal === "number") {
+        dice = [{ sides: 20, value: payload.saveTotal }];
+        diceTotal = payload.saveTotal;
+      }
       const damage = Number(payload.damageTotal ?? 0);
       const healed = Number(payload.healed ?? 0);
       if (healed > 0) label += ` · Leczenie: ${healed}`;
       else if (damage > 0) label += ` · Obrażenia: ${damage}`;
+      if (damage > 0) {
+        damageTotal = damage;
+        buildDamageDice(
+          String(payload.damageNotation ?? "1d6"),
+          (payload.damageRolls as number[] | undefined) ?? [],
+        );
+      }
     } else if (type === "skill-check") {
       const skillKey = String(payload.skill ?? "?");
       const skill = SKILL_LABELS_PL[skillKey] ?? skillKey;
@@ -553,7 +592,17 @@ export default function CampaignPage() {
       detail = `${String(payload.character ?? "?")} odzyskuje ${Number(payload.healed ?? 0)} punktów życia`;
     }
     const kind = type === "skill-check" ? "skill" : type === "item-use" ? "item" : type;
-    return { kind, label, detail, dice, bonus, total: diceTotal };
+    return {
+      kind,
+      label,
+      detail,
+      dice,
+      bonus,
+      total: diceTotal,
+      damageDice,
+      damageBonus,
+      damageTotal,
+    };
   }
 
   function hashPayload(payload: Record<string, unknown>): string {
@@ -818,6 +867,18 @@ export default function CampaignPage() {
                       >
                         {roll.dice && roll.dice.length > 0 && (
                           <DiceRollDisplay dice={roll.dice} bonus={roll.bonus ?? 0} total={roll.total} />
+                        )}
+                        {roll.damageDice && roll.damageDice.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <DiceRollDisplay
+                              dice={roll.damageDice}
+                              bonus={roll.damageBonus ?? 0}
+                              total={roll.damageTotal}
+                            />
+                            <span className="font-display text-[9px] uppercase tracking-[0.1em] text-[#a08b5c]">
+                              obrażenia
+                            </span>
+                          </div>
                         )}
                         <span className="flex items-center gap-1.5">
                           <Dices

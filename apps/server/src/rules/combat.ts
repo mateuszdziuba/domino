@@ -273,6 +273,7 @@ export type AttackResult = {
   attackTotal: number;
   damageTotal: number;
   damageRolls: number[];
+  damageNotation: string;
   targetCurrentHp: number;
   targetStatus: Combatant["status"];
   concentrationBroken?: boolean;
@@ -320,6 +321,7 @@ export function resolveAttack(
       attackTotal,
       damageTotal: 0,
       damageRolls: [],
+      damageNotation: input.damageNotation,
       targetCurrentHp: target.currentHp,
       targetStatus: target.status ?? "active",
     };
@@ -342,6 +344,7 @@ export function resolveAttack(
     attackTotal,
     damageTotal,
     damageRolls,
+    damageNotation: input.damageNotation,
     targetCurrentHp,
     targetStatus,
   };
