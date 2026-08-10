@@ -12,6 +12,8 @@ import { featureRoutes } from "./routes/features.js";
 import { equipmentRoutes } from "./routes/equipment.js";
 import { adventureRoutes } from "./routes/adventures.js";
 
+console.log("DoMino booting...", { node: process.version, cwd: process.cwd() });
+
 const app = new Hono();
 const isProduction = process.env.NODE_ENV === "production";
 const dataDir = fileURLToPath(new URL("../data", import.meta.url));
