@@ -197,20 +197,28 @@ export async function llmNarrate(
     : "";
   const recent = context.recentMessages.slice(-20);
   let historyMessages: ApiMessage[] = [];
+  let activeSummary = "";
+
+  // Builds (or reuses from cache) a campaign summary covering the given
+  // messages and stores it in the per-campaign cache keyed by the first id
+  // of the "recent" window it was produced for.
+  async function getSummaryFor(older: DmContext["recentMessages"], firstId: string): Promise<string> {
+    const cached = summaryCache.get(context.campaignId);
+    if (cached && cached.firstId === firstId) return cached.summary;
+    const summary = await summarizeHistory(config.baseUrl, model, apiKey, older);
+    summaryCache.set(context.campaignId, { summary, firstId });
+    return summary;
+  }
+
   const longHistory = contentLength(recent) > COMPACT_CHARS;
   if (longHistory && recent.length > KEEP_RECENT) {
     const older = recent.slice(0, -KEEP_RECENT);
     const newer = recent.slice(-KEEP_RECENT);
-    const firstId = newer[0]?.id ?? "";
-    let summary = summaryCache.get(context.campaignId)?.summary ?? "";
-    if (!summary || summaryCache.get(context.campaignId)?.firstId !== firstId) {
-      summary = await summarizeHistory(config.baseUrl, model, apiKey, older);
-      summaryCache.set(context.campaignId, { summary, firstId });
-    }
+    activeSummary = await getSummaryFor(older, newer[0]?.id ?? "");
     historyMessages = [
       {
         role: "user",
-        content: `[Streszczenie wcześniejszych wydarzeń kampanii — traktuj jako kanon, nie powtarzaj tych wydarzeń w narracji]:\n${summary}`,
+        content: `[Streszczenie wcześniejszych wydarzeń kampanii — traktuj jako kanon, nie powtarzaj tych wydarzeń w narracji]:\n${activeSummary}`,
       },
       ...newer.map((m): ApiMessage => ({
         role: m.role === "dm" ? "assistant" : "user",
@@ -234,11 +242,32 @@ export async function llmNarrate(
     try {
       return await callLlm(config.baseUrl, model, apiKey, currentMessages);
     } catch (err) {
-      console.error("[dm] LLM call failed, retrying with reduced context:", String(err).slice(0, 200));
-      const slim = [
-        currentMessages[0]!,
-        ...currentMessages.slice(-6),
-      ] as ApiMessage[];
+      console.error("[dm] LLM call failed, retrying with compacted context:", String(err).slice(0, 200));
+      // Keep an accurate overview: summarize the whole available history
+      // (minus the last 6 messages, which stay verbatim) instead of just
+      // trimming the window blindly.
+      const keepVerbatim = recent.slice(-6);
+      const older = recent.slice(0, -6);
+      let summary = activeSummary;
+      if (!summary && older.length > 0) {
+        summary = await getSummaryFor(older, keepVerbatim[0]?.id ?? "");
+      }
+      const slim: ApiMessage[] = [
+        { role: "system", content: SYSTEM_PROMPT + partyBlock },
+        ...(summary
+          ? [
+              {
+                role: "user" as const,
+                content: `[Streszczenie wcześniejszych wydarzeń kampanii — traktuj jako kanon]:\n${summary}`,
+              },
+            ]
+          : []),
+        ...keepVerbatim.map((m): ApiMessage => ({
+          role: m.role === "dm" ? "assistant" : "user",
+          content: `${m.senderName}: ${m.content}`.slice(0, 2_000),
+        })),
+        { role: "user", content: userMessage.slice(0, 2_000) },
+      ];
       return await callLlm(config.baseUrl, model, apiKey, slim);
     }
   }
