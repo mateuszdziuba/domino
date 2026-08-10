@@ -53,7 +53,7 @@ export default function JoinPage() {
   }
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
+    return <div className="flex min-h-screen items-center justify-center">Czytam…</div>;
   }
 
   const alreadyMember = error === ALREADY_MEMBER;

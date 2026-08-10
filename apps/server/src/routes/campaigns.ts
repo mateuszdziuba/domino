@@ -182,7 +182,10 @@ campaignRoutes.post("/:id/invite", requireAuth, (c) => {
     code = generateInviteCode();
     db.update(campaigns).set({ inviteCode: code }).where(eq(campaigns.id, campaign.id)).run();
   }
-  const url = `${process.env.WEB_ORIGIN ?? "http://localhost:5173"}/join?code=${code}`;
+  const origin =
+    process.env.WEB_ORIGIN ??
+    (c.req.url.startsWith("http") ? new URL(c.req.url).origin : "http://localhost:5173");
+  const url = `${origin}/join?code=${code}`;
   return c.json({ code, url });
 });
 
