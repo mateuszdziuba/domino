@@ -73,7 +73,7 @@ const patchAbilityScoresSchema = z.object({
 const characterPatchSchema = characterSchema
   .omit({ abilityScores: true })
   .partial()
-  .extend({ abilityScores: patchAbilityScoresSchema.partial() });
+  .extend({ abilityScores: patchAbilityScoresSchema.partial().optional() });
 
 export const characterRoutes = new Hono();
 
