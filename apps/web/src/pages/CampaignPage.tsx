@@ -23,6 +23,7 @@ import {
 } from "../lib/api-client";
 import type { ChatMessage, DmSuggestion } from "@domino/shared";
 import { MerchantPanel } from "../components/MerchantPanel";
+import { DiceRollDisplay, type DiceSpec } from "../components/dice-roll";
 import { useAuth } from "../lib/auth";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -57,6 +58,9 @@ type RollEntry = {
   createdAt: string;
   animated?: boolean;
   url?: string;
+  dice?: DiceSpec[];
+  bonus?: number;
+  total?: number;
 };
 
 type LevelUpInfo = {
@@ -455,6 +459,9 @@ export default function CampaignPage() {
     label: string;
     detail: string;
     url?: string;
+    dice?: DiceSpec[];
+    bonus?: number;
+    total?: number;
   } | null {
     const type = payload.type;
     if (type === "image") {
@@ -484,6 +491,9 @@ export default function CampaignPage() {
     }
     let label = "";
     let detail = "";
+    let dice: DiceSpec[] | undefined;
+    let bonus: number | undefined;
+    let total: number | undefined;
     if (type === "attack") {
       const attackRoll = Number(payload.attackRoll ?? 0);
       const attackTotal = Number(payload.attackTotal ?? 0);
@@ -491,11 +501,18 @@ export default function CampaignPage() {
       label = `Rzut ataku: ${attackRoll} (${attackTotal} vs AC) — ${outcome}`;
       const damage = Number(payload.damageTotal ?? 0);
       if (payload.hit && damage > 0) label += ` · Obrażenia: ${damage}`;
+      const attackRolls = (payload.attackRolls as number[] | undefined) ?? [attackRoll];
+      dice = attackRolls.map((r) => ({ sides: 20, value: r }));
+      bonus = attackTotal - attackRoll;
+      total = attackTotal;
     } else if (type === "death-save") {
-      label = `Rzut obronny: ${Number(payload.roll ?? 0)}`;
+      const roll = Number(payload.roll ?? 0);
+      label = `Rzut obronny: ${roll}`;
       detail = `${Number(payload.successes ?? 0)} sukces / ${Number(payload.failures ?? 0)} porażki`;
       if (payload.stable) detail += " — Stabilizacja!";
       if (payload.dead) detail += " — Śmierć!";
+      dice = [{ sides: 20, value: roll }];
+      total = roll;
     } else if (type === "spell") {
       label = `Zaklęcie: ${String(payload.spell ?? "?")}`;
       const saved =
@@ -527,12 +544,16 @@ export default function CampaignPage() {
       if (payload.advantage) detail += " · przewaga";
       if (payload.disadvantage) detail += " · utrudnienie";
       if (payload.inspirationUsed) detail += " · inspiracja";
+      const rolls = (payload.rolls as number[] | undefined) ?? [roll];
+      dice = rolls.map((r) => ({ sides: 20, value: r }));
+      bonus = mod;
+      total = Number(payload.total ?? 0);
     } else if (type === "item-use") {
       label = `Przedmiot: ${String(payload.item ?? "?")}`;
       detail = `${String(payload.character ?? "?")} odzyskuje ${Number(payload.healed ?? 0)} punktów życia`;
     }
     const kind = type === "skill-check" ? "skill" : type === "item-use" ? "item" : type;
-    return { kind, label, detail };
+    return { kind, label, detail, dice, bonus, total };
   }
 
   function hashPayload(payload: Record<string, unknown>): string {
@@ -791,17 +812,22 @@ export default function CampaignPage() {
                     return (
                       <div
                         key={roll.id}
-                        className={`self-start flex max-w-[85%] items-center gap-2 rounded-sm border border-[#a97e1f]/50 bg-[#efe2c4] px-2.5 py-1.5 text-xs ${
+                        className={`self-start flex max-w-[85%] flex-col gap-1 rounded-sm border border-[#a97e1f]/50 bg-[#efe2c4] px-2.5 py-1.5 text-xs ${
                           roll.animated ? "animate-dice-roll" : ""
                         }`}
                       >
-                        <Dices
-                          className={`size-3.5 shrink-0 text-[#7a4b1d] ${
-                            roll.animated ? "animate-dice-spin" : ""
-                          }`}
-                        />
-                        <span className="font-display tracking-[0.06em] text-[#7a4b1d]">{roll.label}</span>
-                        {roll.detail && <span className="text-[#2e2113]">{roll.detail}</span>}
+                        {roll.dice && roll.dice.length > 0 && (
+                          <DiceRollDisplay dice={roll.dice} bonus={roll.bonus ?? 0} total={roll.total} />
+                        )}
+                        <span className="flex items-center gap-1.5">
+                          <Dices
+                            className={`size-3.5 shrink-0 text-[#7a4b1d] ${
+                              roll.animated ? "animate-dice-spin" : ""
+                            }`}
+                          />
+                          <span className="font-display tracking-[0.06em] text-[#7a4b1d]">{roll.label}</span>
+                          {roll.detail && <span className="text-[#2e2113]">{roll.detail}</span>}
+                        </span>
                       </div>
                     );
                   })}
