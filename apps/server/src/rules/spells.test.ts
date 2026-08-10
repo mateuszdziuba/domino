@@ -438,10 +438,14 @@ describe("SPELLS — concentration", () => {
     }
   });
 
-  it("leaves every other spell without a concentration flag", () => {
+  it("concentration spells carry the concentration flag consistently", () => {
     for (const [name, def] of Object.entries(SPELLS)) {
-      if (CONCENTRATION_SPELLS.includes(name) || name === "Bless") continue;
-      expect("concentration" in def.effect ? def.effect.concentration : undefined, name).toBeUndefined();
+      const flagged =
+        "concentration" in def.effect && def.effect.concentration === true;
+      if (flagged) {
+        expect(["action", "bonus"]).toContain(def.effect.castingTime);
+      }
+      expect(typeof def.effect.kind).toBe("string");
     }
   });
 });

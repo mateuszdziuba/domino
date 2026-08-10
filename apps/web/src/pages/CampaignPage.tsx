@@ -142,6 +142,8 @@ function spellEffectSummary(meta: SpellMeta): string {
       return effect.fullHp ? "wskrzeszenie z pełnym HP" : "wskrzeszenie";
     case "stabilize":
       return "stabilizacja";
+    case "none":
+      return "efekt narracyjny";
     default:
       return "—";
   }

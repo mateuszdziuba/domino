@@ -88,7 +88,14 @@ export type SpellDef = {
   effect: SpellEffect;
 };
 
+import { SPELLS_L0 } from "./spells/spells-l0.js";
+import { SPELLS_L1 } from "./spells/spells-l1.js";
+import { SPELLS_L2 } from "./spells/spells-l2.js";
+
 export const SPELLS: Record<string, SpellDef> = {
+  ...SPELLS_L0,
+  ...SPELLS_L1,
+  ...SPELLS_L2,
   "Bless": {
     name: "Bless",
     namePl: "Błogosławieństwo",

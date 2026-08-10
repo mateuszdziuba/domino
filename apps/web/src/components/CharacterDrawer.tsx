@@ -56,6 +56,7 @@ function spellEffectDescriptionLocal(meta: SpellMeta): string {
   if (e.kind === "restore") return "Leczy stany i wyczerpanie.";
   if (e.kind === "revive") return e.fullHp ? "Wskrzeszenie z pełnym HP." : "Wskrzeszenie.";
   if (e.kind === "stabilize") return "Stabilizuje istotę na 0 punktach życia.";
+  if (e.kind === "none") return "Efekt narracyjny — rozstrzyga DM.";
   return "—";
 }
 
