@@ -21,7 +21,13 @@ app.use(
     credentials: true,
   }),
 );
-app.use("/static/*", serveStatic({ root: "./data" }));
+app.use(
+  "/static/*",
+  serveStatic({
+    root: "./data",
+    rewriteRequestPath: (path) => path.replace(/^\/static/, ""),
+  }),
+);
 
 app.get("/api/health", (c) => c.json({ ok: true, service: "domino-server" }));
 
