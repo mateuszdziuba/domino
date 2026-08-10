@@ -26,5 +26,4 @@ COPY --from=build /app/apps/web/dist apps/web/dist
 COPY --from=build /app/apps/server/package.json apps/server/package.json
 WORKDIR /app/apps/server
 EXPOSE 3001
-VOLUME ["/app/apps/server/data"]
 CMD ["node", "--env-file-if-exists=.env", "dist/index.js"]
