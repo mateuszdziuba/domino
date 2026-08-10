@@ -57,6 +57,24 @@ const MAX_TOOL_RESULT_CHARS = 4_000;
 // server restart it is simply recomputed when the threshold is crossed again.
 const summaryCache = new Map<string, { summary: string; firstId: string }>();
 
+function extractTextToolCalls(content: string): { name: string; arguments: string }[] {
+  // Some models (e.g. Anthropic-style fine-tunes) emit tool calls as literal
+  // <tool_use> blocks in the reply text instead of structured tool_calls.
+  const calls: { name: string; arguments: string }[] = [];
+  const re = /<tool_use>\s*<name>([^<]+)<\/name>\s*(?:<arguments>([\s\S]*?)<\/arguments>)?\s*<\/tool_use>/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(content)) !== null) {
+    let args = match[2] ?? "{}";
+    try {
+      JSON.parse(args);
+    } catch {
+      args = "{}";
+    }
+    calls.push({ name: match[1]!.trim(), arguments: args });
+  }
+  return calls;
+}
+
 function contentLength(messages: DmContext["recentMessages"]): number {
   return messages.reduce((sum, m) => sum + m.content.length, 0);
 }
@@ -272,13 +290,29 @@ export async function llmNarrate(
     }
   }
 
+  let textCallCounter = 0;
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const response = await callWithRetry(messages);
-    const toolCalls = response.tool_calls ?? [];
+    let toolCalls = response.tool_calls ?? [];
+    if (toolCalls.length === 0 && response.content) {
+      const textCalls = extractTextToolCalls(response.content);
+      if (textCalls.length > 0) {
+        toolCalls = textCalls.map((c) => ({
+          id: `text-${textCallCounter++}`,
+          type: "function" as const,
+          function: { name: c.name, arguments: c.arguments },
+        }));
+      }
+    }
 
     if (toolCalls.length === 0) {
-      const narration = stripMarkdown(response.content ?? "(no response)");
-      return { narration, toolCalls: mapToolCalls(toolCalls) };
+      const narration = stripMarkdown(response.content ?? "(no response)")
+        .replace(/<tool_use>[\s\S]*?<\/tool_use>\s*/g, "")
+        .trim();
+      return {
+        narration: narration || "(DM milczy — zapytaj ponownie.)",
+        toolCalls: mapToolCalls(toolCalls),
+      };
     }
 
     messages.push({
