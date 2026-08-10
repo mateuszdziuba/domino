@@ -22,6 +22,7 @@ ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 ENV NODE_ENV=production
 WORKDIR /app
+COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/apps/server/node_modules apps/server/node_modules
 COPY --from=build /app/apps/web/node_modules apps/web/node_modules
 COPY --from=build /app/packages/shared packages/shared
