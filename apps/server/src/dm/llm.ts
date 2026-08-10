@@ -48,6 +48,42 @@ export function isDmConfigured(): boolean {
 }
 
 const MAX_TOOL_ROUNDS = 8;
+const COMPACT_CHARS = 12_000;
+const KEEP_RECENT = 8;
+const MAX_TOOL_RESULT_CHARS = 4_000;
+
+// In-memory rolling summary per campaign (key: first message id of the
+// "recent" window the summary covers). Survives a campaign's lifetime; on
+// server restart it is simply recomputed when the threshold is crossed again.
+const summaryCache = new Map<string, { summary: string; firstId: string }>();
+
+function contentLength(messages: DmContext["recentMessages"]): number {
+  return messages.reduce((sum, m) => sum + m.content.length, 0);
+}
+
+async function summarizeHistory(
+  baseUrl: string,
+  model: string,
+  apiKey: string | undefined,
+  messages: DmContext["recentMessages"],
+): Promise<string> {
+  const transcript = messages
+    .map((m) => `${m.role === "dm" ? "DM" : m.senderName}: ${m.content}`)
+    .join("\n");
+  try {
+    const response = await callLlm(baseUrl, model, apiKey, [
+      {
+        role: "system",
+        content:
+          "You are a campaign chronicler. Summarize the D&D session history below in Polish (plain text, no markup). Keep it compact but complete: location and scene, key NPCs and names, current quest and plot threads, loot and gold gained, injuries/HP state, spells cast, and anything unresolved the players must still decide. Max 600 words.",
+      },
+      { role: "user", content: transcript.slice(0, 24_000) },
+    ]);
+    return (response.content ?? "(brak streszczenia)").slice(0, 6_000);
+  } catch {
+    return "(brak streszczenia — historia starsza niż okno kontekstu)";
+  }
+}
 
 type ApiMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -61,6 +97,8 @@ type ApiMessage = {
 };
 
 const SYSTEM_PROMPT = `You are the Dungeon Master of a D&D 5.2.1 game (SRD rules).
+
+A "[Streszczenie wcześniejszych wydarzeń kampanii]" marker may appear in the history — treat it as canonical memory of earlier events and do NOT repeat them; continue the story naturally from it.
 
 NARRATE IN POLISH (pl-PL). The players are Polish — all narration, questions, and descriptions must be written in Polish, vividly and naturally. Spell names and mechanical terms may stay in English.
 
@@ -157,12 +195,38 @@ export async function llmNarrate(
   const partyBlock = roster
     ? `\n\nDRUŻYNA — użyj tych ID do get_character:\n${roster}`
     : "";
-  const messages: ApiMessage[] = [
-    { role: "system", content: SYSTEM_PROMPT + partyBlock },
-    ...context.recentMessages.slice(-20).map((m): ApiMessage => ({
+  const recent = context.recentMessages.slice(-20);
+  let historyMessages: ApiMessage[] = [];
+  const longHistory = contentLength(recent) > COMPACT_CHARS;
+  if (longHistory && recent.length > KEEP_RECENT) {
+    const older = recent.slice(0, -KEEP_RECENT);
+    const newer = recent.slice(-KEEP_RECENT);
+    const firstId = newer[0]?.id ?? "";
+    let summary = summaryCache.get(context.campaignId)?.summary ?? "";
+    if (!summary || summaryCache.get(context.campaignId)?.firstId !== firstId) {
+      summary = await summarizeHistory(config.baseUrl, model, apiKey, older);
+      summaryCache.set(context.campaignId, { summary, firstId });
+    }
+    historyMessages = [
+      {
+        role: "user",
+        content: `[Streszczenie wcześniejszych wydarzeń kampanii — traktuj jako kanon, nie powtarzaj tych wydarzeń w narracji]:\n${summary}`,
+      },
+      ...newer.map((m): ApiMessage => ({
+        role: m.role === "dm" ? "assistant" : "user",
+        content: `${m.senderName}: ${m.content}`,
+      })),
+    ];
+  } else {
+    historyMessages = recent.map((m): ApiMessage => ({
       role: m.role === "dm" ? "assistant" : "user",
       content: `${m.senderName}: ${m.content}`,
-    })),
+    }));
+  }
+
+  const messages: ApiMessage[] = [
+    { role: "system", content: SYSTEM_PROMPT + partyBlock },
+    ...historyMessages,
     { role: "user", content: userMessage },
   ];
 
@@ -197,11 +261,24 @@ export async function llmNarrate(
       messages.push({
         role: "tool",
         tool_call_id: call.id,
-        content: JSON.stringify(result),
+        content: JSON.stringify(result).slice(0, MAX_TOOL_RESULT_CHARS),
       });
     }
   }
 
+  // Tool loop exhausted: give the model one last chance without tools so the
+  // session never ends on a silent failure.
+  try {
+    const response = await callLlm(config.baseUrl, model, apiKey, messages, false);
+    if (response.content) {
+      return {
+        narration: stripMarkdown(response.content),
+        toolCalls: [],
+      };
+    }
+  } catch {
+    // fall through to the canned reply
+  }
   return {
     narration:
       "(DM) The story bends under the weight of too many machinations — the tools have been consulted, but the scene is still unfolding. Try asking again.",
@@ -213,6 +290,7 @@ async function callLlm(
   model: string,
   apiKey: string | undefined,
   messages: ApiMessage[],
+  withTools = true,
 ): Promise<{
   content: string | null;
   tool_calls: NonNullable<ApiMessage["tool_calls"]>;
@@ -226,18 +304,21 @@ async function callLlm(
     body: JSON.stringify({
       model,
       messages,
-      tools: DM_TOOLS.map((t) => ({
-        type: "function",
-        function: {
-          name: t.name,
-          description: t.description,
-          parameters: {
-            type: "object",
-            properties: t.parameters,
-          },
-        },
-      })),
-      tool_choice: "auto",
+      ...(withTools
+        ? {
+            tools: DM_TOOLS.map((t) => ({
+              type: "function",
+              function: {
+                name: t.name,
+                description: t.description,
+                parameters: {
+                  type: "object",
+                  properties: t.parameters,
+                },
+              },
+            })),
+          }
+        : {}),
     }),
   });
 
