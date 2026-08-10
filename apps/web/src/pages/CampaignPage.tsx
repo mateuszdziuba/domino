@@ -80,6 +80,7 @@ type PartyChar = {
   maxHp: number;
   level: number;
   gold?: number;
+  portraitUrl?: string;
 };
 
 const ACTION_PROMPTS: Record<string, string> = {
@@ -300,6 +301,7 @@ export default function CampaignPage() {
             maxHp: character.maxHp,
             level: character.level,
             gold: character.gold,
+            portraitUrl: character.portraitUrl,
           }))
           .catch(() => null),
       ),
@@ -814,25 +816,46 @@ export default function CampaignPage() {
                   {timeline.map((item, i) => {
                     if (item.kind === "message") {
                       const { message } = item;
+                      const speakerPortrait = partyChars.find(
+                        (p) => p.name === message.senderName,
+                      )?.portraitUrl;
                       return (
                         <div
                           key={message.id}
-                          className={`max-w-[85%] animate-fade-up px-3.5 py-2.5 text-[15px] leading-relaxed shadow-[0_2px_6px_-3px_rgba(60,40,10,0.4)] ${
-                            message.role === "dm"
-                              ? "self-start rounded-r-md rounded-tl-sm border border-[#c8b184] border-l-2 border-l-[#a97e1f] bg-[#efe2c4] text-[#2e2113]"
-                              : "self-end rounded-l-md rounded-tr-sm border border-[#4a3417] bg-[#2e2113] text-[#f6ead0]"
+                          className={`flex max-w-[85%] items-end gap-1.5 ${
+                            message.role === "dm" ? "self-start" : "self-end"
                           }`}
                           style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
                         >
+                          {message.role === "dm" && (
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#a97e1f]/60 bg-[#241708] text-[10px] text-[#e5cfa0]">
+                              <Dices className="size-3.5" />
+                            </div>
+                          )}
+                          {message.role !== "dm" && speakerPortrait && (
+                            <img
+                              src={speakerPortrait}
+                              alt={message.senderName}
+                              className="h-7 w-7 shrink-0 rounded-full border border-[#a97e1f]/60 object-cover object-top"
+                            />
+                          )}
                           <div
-                            className={`mb-1 font-display text-[10px] uppercase tracking-[0.18em] ${
-                              message.role === "dm" ? "text-[#8a5a20]" : "text-[#c9b183]"
+                            className={`animate-fade-up px-3.5 py-2.5 text-[15px] leading-relaxed shadow-[0_2px_6px_-3px_rgba(60,40,10,0.4)] ${
+                              message.role === "dm"
+                                ? "rounded-r-md rounded-tl-sm border border-[#c8b184] border-l-2 border-l-[#a97e1f] bg-[#efe2c4] text-[#2e2113]"
+                                : "rounded-l-md rounded-tr-sm border border-[#4a3417] bg-[#2e2113] text-[#f6ead0]"
                             }`}
                           >
-                            {message.senderName}
-                          </div>
-                          <div className="whitespace-pre-wrap">
-                            <RichMessageText text={message.content} spellRegistry={spellRegistry} />
+                            <div
+                              className={`mb-1 font-display text-[10px] uppercase tracking-[0.18em] ${
+                                message.role === "dm" ? "text-[#8a5a20]" : "text-[#c9b183]"
+                              }`}
+                            >
+                              {message.senderName}
+                            </div>
+                            <div className="whitespace-pre-wrap">
+                              <RichMessageText text={message.content} spellRegistry={spellRegistry} />
+                            </div>
                           </div>
                         </div>
                       );
