@@ -58,6 +58,18 @@ export function maxHpIncrement(className: string, constitutionModifier: number):
   return Math.ceil((hitDieForClass(className) + 1) / 2) + constitutionModifier;
 }
 
+export function maxHpForLevel(
+  className: string,
+  level: number,
+  constitutionModifier: number,
+): number {
+  return (
+    hitDieForClass(className) +
+    constitutionModifier +
+    (level - 1) * maxHpIncrement(className, constitutionModifier)
+  );
+}
+
 export function xpAwardForDeadEnemies(
   combatants: { cr?: number; status?: string }[],
 ): number {

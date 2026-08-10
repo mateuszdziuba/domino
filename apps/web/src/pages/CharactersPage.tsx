@@ -32,14 +32,37 @@ const ABILITY_LABELS_PL: Record<string, string> = {
   charisma: "Charyzma",
 };
 
+const POINT_BUY_COSTS: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
+const POINT_BUY_BUDGET = 27;
+const MIN_SCORE = 8;
+const MAX_SCORE = 15;
+const HIT_DICE: Record<string, number> = {
+  Barbarian: 12,
+  Fighter: 10,
+  Paladin: 10,
+  Ranger: 10,
+  Bard: 8,
+  Cleric: 8,
+  Druid: 8,
+  Monk: 8,
+  Rogue: 8,
+  Warlock: 8,
+  Sorcerer: 6,
+  Wizard: 6,
+};
+
+const BASE_SCORES = { strength: 8, dexterity: 8, constitution: 8, intelligence: 8, wisdom: 8, charisma: 8 };
+
+function scoreModifier(score: number) {
+  return Math.floor((score - 10) / 2);
+}
+
 export default function CharactersPage() {
   const [characters, setCharacters] = useState<CharacterSummary[]>([]);
   const [name, setName] = useState("");
   const [race, setRace] = useState(RACES[0]!);
   const [className, setClassName] = useState(CLASSES[0]!);
-  const [maxHp, setMaxHp] = useState(10);
-  const [armorClass, setArmorClass] = useState(12);
-  const [scores, setScores] = useState({ strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 });
+  const [scores, setScores] = useState({ ...BASE_SCORES });
   const [skills, setSkills] = useState<Set<SkillName>>(new Set());
   const [catalog, setCatalog] = useState<FeaturesCatalog | null>(null);
   const [subclass, setSubclass] = useState("");
@@ -48,6 +71,11 @@ export default function CharactersPage() {
   const skillLimit = startingSkillCount(className);
   const selectedCount = skills.size;
   const classSubclasses = catalog?.subclasses[className] ?? [];
+  const remainingPoints =
+    POINT_BUY_BUDGET - ABILITIES.reduce((sum, a) => sum + (POINT_BUY_COSTS[scores[a]] ?? 0), 0);
+  const conMod = scoreModifier(scores.constitution);
+  const dexMod = scoreModifier(scores.dexterity);
+  const hitDie = HIT_DICE[className] ?? 8;
 
   function load() {
     characterApi.list().then(({ characters }) => setCharacters(characters)).catch(() => {});
@@ -71,6 +99,18 @@ export default function CharactersPage() {
     });
   }
 
+  function adjustScore(ability: (typeof ABILITIES)[number], delta: number) {
+    setScores((prev) => {
+      const next = prev[ability] + delta;
+      if (next < MIN_SCORE || next > MAX_SCORE) return prev;
+      return { ...prev, [ability]: next };
+    });
+  }
+
+  function resetScores() {
+    setScores({ ...BASE_SCORES });
+  }
+
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -81,18 +121,13 @@ export default function CharactersPage() {
         className,
         level: 1,
         abilityScores: scores,
-        maxHp,
-        armorClass,
-        speed: 30,
         skills: Object.fromEntries([...skills].map((s) => [s, true])),
         ...(subclass ? { subclass } : {}),
       });
       setName("");
-      setScores({ strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 });
+      setScores({ ...BASE_SCORES });
       setSkills(new Set());
       setSubclass("");
-      setMaxHp(10);
-      setArmorClass(12);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nie udało się utworzyć postaci");
@@ -161,35 +196,72 @@ export default function CharactersPage() {
                   ))}
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="char-hp">Maks. HP</Label>
-                  <Input id="char-hp" type="number" min={1} value={maxHp} onChange={(e) => setMaxHp(Number(e.target.value))} required />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="char-ac">AC</Label>
-                  <Input id="char-ac" type="number" min={1} value={armorClass} onChange={(e) => setArmorClass(Number(e.target.value))} required />
-                </div>
-              </div>
             </div>
 
-            <div>
-              <Label className="mb-2 block">Wartości cech</Label>
-              <div className="grid grid-cols-6 gap-3">
-                {ABILITIES.map((ability) => (
-                  <div key={ability} className="flex flex-col items-center gap-1">
-                    <Label className="text-xs text-muted-foreground">{ABILITY_LABELS_PL[ability]}</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={scores[ability]}
-                      onChange={(e) => setScores((prev) => ({ ...prev, [ability]: Number(e.target.value) }))}
-                      className="text-center"
-                    />
-                  </div>
-                ))}
+            <div className="flex flex-col gap-3 rounded-sm border border-[#b99f6b] bg-[#fbf3dd]/40 p-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-base">Cechy (Point Buy)</Label>
+                <Button type="button" variant="outline" size="sm" onClick={resetScores} disabled={remainingPoints === POINT_BUY_BUDGET}>
+                  Resetuj
+                </Button>
               </div>
+              <p className="text-[11px] italic text-[#7c6a45]">
+                SRD Point Buy: 27 punktów, cechy 8–15 (modyfikatory rasowe doliczasz samodzielnie w grze — w tej wersji
+                silnik ich nie aplikuje).
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {ABILITIES.map((ability) => {
+                  const value = scores[ability];
+                  const cost = POINT_BUY_COSTS[value] ?? 0;
+                  return (
+                    <div key={ability} className="flex items-center justify-between gap-2">
+                      <span className="text-sm text-[#3a2c17]">{ABILITY_LABELS_PL[ability]}</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => adjustScore(ability, -1)}
+                          disabled={value <= MIN_SCORE}
+                          aria-label={`Zmniejsz ${ABILITY_LABELS_PL[ability]}`}
+                        >
+                          −
+                        </Button>
+                        <span className="w-8 text-center font-display text-base text-[#3a2c17]">{value}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => adjustScore(ability, 1)}
+                          disabled={value >= MAX_SCORE}
+                          aria-label={`Zwiększ ${ABILITY_LABELS_PL[ability]}`}
+                        >
+                          +
+                        </Button>
+                        <span className="w-10 text-right text-xs text-[#7c6a45]">{cost} pkt</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#b99f6b]/60 pt-2 text-sm">
+                <span className={cn("font-display tracking-[0.06em]", remainingPoints < 0 ? "text-[#8f1d1d]" : "text-[#3a2c17]")}>
+                  Pozostałe punkty: {remainingPoints}/{POINT_BUY_BUDGET}
+                </span>
+                <span className="text-[#7c6a45]">
+                  HP: K{hitDie} + {conMod >= 0 ? `+${conMod}` : conMod} = {hitDie + conMod}
+                </span>
+                <span className="text-[#7c6a45]">
+                  AC bazowe: {10 + dexMod} (zbroja/tarcza ze startowego zestawu doda więcej)
+                </span>
+              </div>
+              {className && (
+                <p className="text-[11px] italic text-[#7c6a45]">
+                  Startowy zestaw ({className}) zostanie przydzielony automatycznie.
+                </p>
+              )}
             </div>
 
             <div>

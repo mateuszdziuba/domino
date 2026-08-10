@@ -29,11 +29,20 @@ export const authApi = {
   logout: () => api<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 };
 
+export type CreateCharacterInput = Omit<
+  Character,
+  "id" | "userId" | "currentHp" | "proficiencyBonus" | "createdAt" | "updatedAt" | "maxHp" | "armorClass" | "speed"
+> & {
+  maxHp?: number;
+  armorClass?: number;
+  speed?: number;
+};
+
 export const characterApi = {
   list: () => api<{ characters: CharacterSummary[] }>("/characters"),
   get: (id: string) => api<{ character: Character }>(`/characters/${id}`),
   sheet: (id: string) => api<{ sheet: CharacterSheet }>(`/characters/${id}/sheet`),
-  create: (input: Omit<Character, "id" | "userId" | "currentHp" | "proficiencyBonus" | "createdAt" | "updatedAt">) =>
+  create: (input: CreateCharacterInput) =>
     api<{ character: Character }>("/characters", {
       method: "POST",
       body: JSON.stringify(input),

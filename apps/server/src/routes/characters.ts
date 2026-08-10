@@ -5,18 +5,28 @@ import { db } from "../db/index.js";
 import { characters } from "../db/schema.js";
 import { newId, isoNow } from "../lib/ids.js";
 import { requireAuth } from "../middleware/auth.js";
-import { proficiencyBonus } from "../rules/abilities.js";
+import { abilityModifier, proficiencyBonus } from "../rules/abilities.js";
+import {
+  ARMOR_AC,
+  POINT_BUY_TOTAL,
+  RACE_SPEED,
+  STARTING_EQUIPMENT,
+  computeArmorClass,
+  pointBuyCost,
+} from "../rules/creation.js";
+import { maxHpForLevel } from "../rules/advancement.js";
+import { SRD_GEAR } from "../rules/equipment.js";
 import { updateCharacterPortrait } from "../campaign/store.js";
 import { buildCharacterSheet } from "../rules/sheet.js";
 import type { Character, CharacterSummary } from "@domino/shared";
 
 const abilityScoresSchema = z.object({
-  strength: z.number().int().min(1).max(30),
-  dexterity: z.number().int().min(1).max(30),
-  constitution: z.number().int().min(1).max(30),
-  intelligence: z.number().int().min(1).max(30),
-  wisdom: z.number().int().min(1).max(30),
-  charisma: z.number().int().min(1).max(30),
+  strength: z.number().int().min(8).max(15),
+  dexterity: z.number().int().min(8).max(15),
+  constitution: z.number().int().min(8).max(15),
+  intelligence: z.number().int().min(8).max(15),
+  wisdom: z.number().int().min(8).max(15),
+  charisma: z.number().int().min(8).max(15),
 });
 
 const characterSchema = z.object({
@@ -26,9 +36,9 @@ const characterSchema = z.object({
   subclass: z.string().max(64).optional(),
   level: z.number().int().min(1).max(20).default(1),
   abilityScores: abilityScoresSchema,
-  maxHp: z.number().int().positive(),
+  maxHp: z.number().int().positive().optional(),
   currentHp: z.number().int().min(0).optional(),
-  armorClass: z.number().int().positive(),
+  armorClass: z.number().int().positive().optional(),
   speed: z.number().int().positive().default(30),
   alignment: z.string().max(32).optional(),
   background: z.string().max(128).optional(),
@@ -38,6 +48,20 @@ const characterSchema = z.object({
   gold: z.number().int().min(0).optional(),
   portraitUrl: z.string().min(1).max(500).optional(),
 });
+
+const patchAbilityScoresSchema = z.object({
+  strength: z.number().int().min(1).max(30),
+  dexterity: z.number().int().min(1).max(30),
+  constitution: z.number().int().min(1).max(30),
+  intelligence: z.number().int().min(1).max(30),
+  wisdom: z.number().int().min(1).max(30),
+  charisma: z.number().int().min(1).max(30),
+});
+
+const characterPatchSchema = characterSchema
+  .omit({ abilityScores: true })
+  .partial()
+  .extend({ abilityScores: patchAbilityScoresSchema.partial() });
 
 export const characterRoutes = new Hono();
 
@@ -92,8 +116,45 @@ characterRoutes.post("/", requireAuth, async (c) => {
     return c.json({ error: "Nieprawidłowa postać.", details: parsed.error.flatten() }, 400);
   }
   const data = parsed.data;
+  if (pointBuyCost(data.abilityScores) > POINT_BUY_TOTAL) {
+    return c.json(
+      { error: "Wartości cech muszą spełniać zasady Point Buy (27 punktów, 8–15)." },
+      400,
+    );
+  }
   const now = isoNow();
   const id = newId();
+  const level = data.level;
+  const maxHp = maxHpForLevel(data.className, level, abilityModifier(data.abilityScores.constitution));
+  const starting = STARTING_EQUIPMENT[data.className] ?? STARTING_EQUIPMENT.Fighter!;
+  const equippedArmor = starting.items.find((item) => ARMOR_AC[item.name])?.name;
+  const shield = starting.items.some((item) => item.name === "Shield");
+  const armorClass = computeArmorClass({
+    dexterityMod: abilityModifier(data.abilityScores.dexterity),
+    equippedArmor,
+    shield,
+    className: data.className,
+    abilityScores: {
+      constitution: data.abilityScores.constitution,
+      wisdom: data.abilityScores.wisdom,
+    },
+  });
+  const speed = RACE_SPEED[data.race] ?? 30;
+  const inventory = starting.items
+    .map((item) => {
+      const gear = SRD_GEAR.find((g) => g.name === item.name);
+      if (!gear) return null;
+      return {
+        id: newId(),
+        name: item.name,
+        quantity: item.quantity ?? 1,
+        weight: gear.weight,
+        description: gear.description,
+        slot: item.slot ?? gear.slot,
+        icon: gear.icon,
+      };
+    })
+    .filter((item) => item !== null);
   db.insert(characters)
     .values({
       id,
@@ -102,18 +163,19 @@ characterRoutes.post("/", requireAuth, async (c) => {
       race: data.race,
       className: data.className,
       subclass: data.subclass ?? null,
-      level: data.level,
+      level,
       abilityScores: data.abilityScores,
-      maxHp: data.maxHp,
-      currentHp: data.maxHp,
-      armorClass: data.armorClass,
-      speed: data.speed,
+      maxHp,
+      currentHp: maxHp,
+      armorClass,
+      speed,
       alignment: data.alignment ?? null,
       background: data.background ?? null,
-      proficiencyBonus: proficiencyBonus(data.level),
+      proficiencyBonus: proficiencyBonus(level),
       skills: data.skills ?? {},
-      inventory: data.inventory ?? [],
+      inventory: data.inventory ?? inventory,
       spells: data.spells ?? null,
+      gold: data.gold ?? starting.gold,
       createdAt: now,
       updatedAt: now,
     })
@@ -132,7 +194,7 @@ characterRoutes.patch("/:id", requireAuth, async (c) => {
     .get();
   if (!existing) return c.json({ error: "Nie znaleziono postaci." }, 404);
 
-  const parsed = characterSchema.partial().safeParse(await c.req.json().catch(() => null));
+  const parsed = characterPatchSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
     return c.json({ error: "Nieprawidłowa postać.", details: parsed.error.flatten() }, 400);
   }

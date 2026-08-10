@@ -5,6 +5,7 @@ import {
   applyLevelUp,
   hitDieForClass,
   levelForXp,
+  maxHpForLevel,
   maxHpIncrement,
   xpAwardForDeadEnemies,
   xpForCr,
@@ -54,6 +55,23 @@ describe("maxHpIncrement", () => {
     expect(maxHpIncrement("Barbarian", 2)).toBe(9);
     expect(maxHpIncrement("Wizard", 3)).toBe(7);
     expect(maxHpIncrement("Fighter", 0)).toBe(6);
+  });
+});
+
+describe("maxHpForLevel", () => {
+  it("level 1 is the hit die maximum plus the constitution modifier", () => {
+    expect(maxHpForLevel("Cleric", 1, 1)).toBe(9);
+    expect(maxHpForLevel("Barbarian", 1, 3)).toBe(15);
+    expect(maxHpForLevel("Wizard", 1, 0)).toBe(6);
+  });
+
+  it("each further level adds the SRD average (rounded up) plus the con modifier", () => {
+    expect(maxHpForLevel("Cleric", 3, 1)).toBe(9 + 2 * 6);
+  });
+
+  it("matches the grantXp level-up math when leveled from 1", () => {
+    const levelUp = applyLevelUp({ xp: 6500, level: 1, className: "Cleric", constitution: 13 });
+    expect(maxHpForLevel("Cleric", levelUp.newLevel, 1)).toBe(9 + levelUp.maxHpDelta);
   });
 });
 
