@@ -217,6 +217,17 @@ export default function CampaignPage() {
   const [startError, setStartError] = useState<string | null>(null);
 
   const member = detail?.members.find((m) => m.userId === user?.id);
+  const amOwner = detail?.campaign.ownerId === user?.id;
+  const combat = detail?.state.combat;
+  const currentCombatant = combat?.active
+    ? combat.combatants[combat.turnIndex % combat.combatants.length]
+    : undefined;
+  const myCombatant = combat?.active && member
+    ? combat.combatants.find((c) => c.characterId === member.characterId)
+    : undefined;
+  const chatBlocked = Boolean(
+    combat?.active && !amOwner && (!myCombatant || currentCombatant?.id !== myCombatant.id),
+  );
 
   const showLobby = (detail?.state as { started?: boolean } | undefined)?.started === false;
   const isOwner = detail?.campaign.ownerId === user?.id;
@@ -1016,13 +1027,19 @@ export default function CampaignPage() {
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={`${member ? "Twoja tura, awanturniku" : "Najpierw dołącz postacią"}…`}
+                  placeholder={
+                    !member
+                      ? "Najpierw dołącz postacią…"
+                      : chatBlocked
+                        ? `Czekaj na swoją turę${currentCombatant ? ` (teraz: ${currentCombatant.name})` : ""}…`
+                        : "Twoja tura, awanturniku…"
+                  }
                   className="min-h-[60px] min-w-0 flex-1"
-                  disabled={!member || sending}
+                  disabled={!member || sending || chatBlocked}
                 />
                 <Button
                   type="submit"
-                  disabled={!member || sending}
+                  disabled={!member || sending || chatBlocked}
                   className="h-10 shrink-0"
                 >
                   <Send className="size-4" />

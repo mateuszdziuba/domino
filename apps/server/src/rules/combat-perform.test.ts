@@ -831,9 +831,9 @@ describe("lethal damage at 0 HP and stable status", () => {
     Math.random = original;
   });
 
-  it("does not instantly kill a 0-HP target when damage equals its max HP", () => {
+  it("instantly kills a 0-HP target when damage equals or exceeds its max HP", () => {
     const original = Math.random;
-    Math.random = () => 0.3; // d20 = 7 -> hit; 10d1 = 10 damage == maxHp 10
+    Math.random = () => 0.3; // d20 = 7 -> hit; 10d1 = 10 damage == maxHp 10 -> SRD: equals or exceeds
     const state = combatState(0);
     state.combat.combatants[1] = downedTarget({ maxHp: 10 });
     const outcome = performAttack(state, "char-1", "enemy-1", {
@@ -846,8 +846,8 @@ describe("lethal damage at 0 HP and stable status", () => {
     if (!outcome.ok) return;
     expect(outcome.result.hit).toBe(true);
     expect(outcome.result.damageTotal).toBe(10);
-    expect(enemy(outcome.state).status).toBe("downed");
-    expect(enemy(outcome.state).deathSaveFailures).toBe(1);
+    expect(enemy(outcome.state).status).toBe("dead");
+    expect(enemy(outcome.state).deathSaveFailures).toBe(3);
     expect(enemy(outcome.state).currentHp).toBe(0);
   });
 

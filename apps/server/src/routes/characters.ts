@@ -57,6 +57,7 @@ characterRoutes.get("/", requireAuth, (c) => {
     maxHp: r.maxHp,
     currentHp: r.currentHp,
     skills: (r.skills ?? {}) as CharacterSummary["skills"],
+    portraitUrl: (r.portraitUrl as string | undefined) ?? undefined,
   }));
   return c.json({ characters: summaries });
 });

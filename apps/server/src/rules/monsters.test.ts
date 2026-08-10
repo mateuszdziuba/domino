@@ -104,9 +104,9 @@ describe("monster catalog", () => {
     expect(priestAcolyte.cr).toBe(0.25);
     expect(priestAcolyte.maxHp).toBe(11);
     expect(priestAcolyte.armorClass).toBe(13);
-    expect(priestAcolyte.attackBonus).toBe(3);
-    expect(priestAcolyte.damageNotation).toBe("1d4");
-    expect(priestAcolyte.damageBonus).toBe(1);
+    expect(priestAcolyte.attackBonus).toBe(4);
+    expect(priestAcolyte.damageNotation).toBe("1d6");
+    expect(priestAcolyte.damageBonus).toBe(2);
     expect(priestAcolyte.attacks).toBe(1);
     expect(priestAcolyte.spells).toEqual(["Sacred Flame", "Cure Wounds", "Guiding Bolt"]);
     expect(priestAcolyte.spellSaveDc).toBe(12);
@@ -134,7 +134,7 @@ describe("monster catalog", () => {
       "Lesser Restoration",
       "Spirit Guardians",
     ]);
-    expect(priest.spellSaveDc).toBe(12);
+    expect(priest.spellSaveDc).toBe(13);
     expect(priest.spellAttackBonus).toBe(5);
   });
 

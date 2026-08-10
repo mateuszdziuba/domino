@@ -120,13 +120,16 @@ export function nextTurn(state: CampaignState): CampaignState {
       ? Math.min(nextCombatant.maxHp, nextCombatant.currentHp + 10) -
         nextCombatant.currentHp
       : 0;
-  // Slow lasts "until the start of the wielder's next turn": when wielder X's
-  // turn starts, remove every slowed:X marker on any target.
+  // Slow/vex last "until the start of the wielder's next turn": when wielder
+  // X's turn starts, remove every slowed:X / vexed:X marker on any combatant.
+  // (Sap is consumed by the target's next attack roll instead.)
   const expiredSlowed = `${SLOWED_MARKER_PREFIX}${nextCombatant.id}`;
+  const expiredVexed = `${VEXED_MARKER_PREFIX}${nextCombatant.id}`;
+  const expiredMarkers = [expiredSlowed, expiredVexed];
   const combatants = combat.combatants.map((c) => {
     const conditions =
-      c.id === nextCombatant.id || (c.conditions ?? []).includes(expiredSlowed)
-        ? (c.conditions ?? []).filter((cond) => cond !== expiredSlowed)
+      c.id === nextCombatant.id || expiredMarkers.some((m) => (c.conditions ?? []).includes(m))
+        ? (c.conditions ?? []).filter((cond) => !expiredMarkers.includes(cond))
         : c.conditions;
     return c.id === nextCombatant.id
       ? {
@@ -402,7 +405,7 @@ export function applyHitToTarget(
         ? Math.floor(target.maxHp / 2)
         : target.maxHp;
     // SRD: instant death requires damage that EXCEEDS max HP (not equal).
-    const dead = damageTotal > effectiveMaxHp || failures >= 3;
+    const dead = damageTotal >= effectiveMaxHp || failures >= 3;
     const status: Combatant["status"] = dead
       ? "dead"
       : target.status === "stable"

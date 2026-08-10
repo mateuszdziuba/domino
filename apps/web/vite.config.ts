@@ -13,6 +13,10 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_API_PROXY ?? "http://localhost:3101",
           changeOrigin: true,
         },
+        "/static": {
+          target: env.VITE_API_PROXY ?? "http://localhost:3101",
+          changeOrigin: true,
+        },
       },
     },
   };

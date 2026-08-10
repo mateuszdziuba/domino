@@ -1096,6 +1096,16 @@ export async function runDmTool(
             ? { bonusActionAvailable: false }
             : { attacksLeft: (casterCombatant.attacksLeft ?? 1) - 1 }),
         };
+        const ownVexed = `${VEXED_MARKER_PREFIX}${casterCombatant.id}`;
+        const wasSapped = (casterCombatant.conditions ?? []).includes(SAPPED_MARKER);
+        const casterFinal: Combatant = wasSapped
+          ? {
+              ...casterUpdated,
+              conditions: (casterUpdated.conditions ?? []).filter(
+                (c) => c !== SAPPED_MARKER,
+              ),
+            }
+          : casterUpdated;
         let updated: Combatant = {
           ...targetCombatant,
           currentHp: result.targetCurrentHp,
@@ -1103,21 +1113,17 @@ export async function runDmTool(
         };
         if (result.riderApplied) {
           updated = applySpellRider(updated, def) ?? updated;
-        } else if (result.hit) {
-          // Vex is consumed by the wielder's own attack roll, including spell
-          // attacks: only the caster's own vexed marker is cleared here.
-          const ownVexed = `${VEXED_MARKER_PREFIX}${casterCombatant.id}`;
-          if (
-            (targetCombatant.conditions ?? []).includes(GUIDING_BOLT_MARKER) ||
-            (targetCombatant.conditions ?? []).includes(ownVexed)
-          ) {
-            updated = {
-              ...updated,
-              conditions: (targetCombatant.conditions ?? []).filter(
-                (c) => c !== GUIDING_BOLT_MARKER && c !== ownVexed,
-              ),
-            };
-          }
+        }
+        if (
+          (targetCombatant.conditions ?? []).includes(GUIDING_BOLT_MARKER) ||
+          (targetCombatant.conditions ?? []).includes(ownVexed)
+        ) {
+          updated = {
+            ...updated,
+            conditions: (targetCombatant.conditions ?? []).filter(
+              (c) => c !== GUIDING_BOLT_MARKER && c !== ownVexed,
+            ),
+          };
         }
         if (result.conditionApplied) {
           const existing = updated.conditions ?? [];
@@ -1155,10 +1161,11 @@ export async function runDmTool(
             return c.id === targetCombatant.id
               ? {
                   ...updated,
-                  attacksLeft: casterUpdated.attacksLeft,
-                  bonusActionAvailable: casterUpdated.bonusActionAvailable,
+                  attacksLeft: casterFinal.attacksLeft,
+                  bonusActionAvailable: casterFinal.bonusActionAvailable,
+                  conditions: casterFinal.conditions,
                 }
-              : casterUpdated;
+              : casterFinal;
           }
           return c.id === targetCombatant.id ? updated : c;
         });

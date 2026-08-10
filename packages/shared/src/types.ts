@@ -91,7 +91,7 @@ export type Character = {
 export type CharacterSummary = Pick<
   Character,
   "id" | "name" | "race" | "className" | "level" | "maxHp" | "currentHp"
-> & { skills?: Partial<Record<SkillName, boolean>> };
+> & { skills?: Partial<Record<SkillName, boolean>>; portraitUrl?: string };
 
 export type CampaignPhase = "exploration" | "combat" | "rest" | "dialogue";
 

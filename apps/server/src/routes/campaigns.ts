@@ -17,6 +17,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { defaultCampaignState } from "../rules/state.js";
 import { ADVENTURES, buildAdventureState, findAdventure } from "../rules/adventures.js";
 import { buildDmSuggestion } from "../rules/actions.js";
+import { combatantByCharacter, currentTurnCombatant } from "../rules/combat.js";
 import { dmNarrate } from "../dm/index.js";
 import { dmProvider, isDmConfigured } from "../dm/llm.js";
 import {
@@ -307,6 +308,18 @@ campaignRoutes.post("/:id/messages", requireAuth, async (c) => {
   if (!parsed.success) return c.json({ error: "Wiadomość jest pusta lub za długa." }, 400);
 
   const member = getMember(campaign.id, user.id);
+  const chatState = loadState(campaign.id);
+  const isOwner = campaign.ownerId === user.id;
+  if (!isOwner && chatState.combat.active) {
+    const combatant = member ? combatantByCharacter(chatState, member.characterId) : undefined;
+    const current = currentTurnCombatant(chatState);
+    if (!combatant || !current || current.id !== combatant.id) {
+      return c.json(
+        { error: "To nie Twoja tura — poczekaj, aż DM odda Ci głos." },
+        403,
+      );
+    }
+  }
 
   const playerMessage: ChatMessage = {
     id: newId(),

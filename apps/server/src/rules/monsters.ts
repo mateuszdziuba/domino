@@ -31,11 +31,11 @@ export const MONSTERS: Monster[] = [
   { key: "cultist", name: "Cultist", maxHp: 9, armorClass: 12, attackBonus: 2, damageNotation: "1d6", damageBonus: 0, cr: 0.125, attacks: 1, tags: ["cultist", "cult", "ritual", "shrine", "fanatic", "kultysta", "kultysci", "kult"], traits: [], speed: 30 },
   // SRD 5.2.1 has no "Acolyte" monster (it is a background), only the CR 1/4
   // Priest Acolyte NPC.
-  { key: "priest-acolyte", name: "Priest Acolyte", maxHp: 11, armorClass: 13, attackBonus: 3, damageNotation: "1d4", damageBonus: 1, cr: 0.25, attacks: 1, tags: ["priest", "acolyte", "temple", "cleric", "holy"], traits: [], speed: 30, spells: ["Sacred Flame", "Cure Wounds", "Guiding Bolt"], spellSaveDc: 12, spellAttackBonus: 4 },
+  { key: "priest-acolyte", name: "Priest Acolyte", maxHp: 11, armorClass: 13, attackBonus: 4, damageNotation: "1d6", damageBonus: 2, cr: 0.25, attacks: 1, tags: ["priest", "acolyte", "temple", "cleric", "holy"], traits: [], speed: 30, spells: ["Sacred Flame", "Cure Wounds", "Guiding Bolt"], spellSaveDc: 12, spellAttackBonus: 4 },
   // SRD 5.2.1 Priest: Multiattack (2 mace attacks, 1d6+3 bludgeoning; the SRD
   // radiant 2d4 rider is flavor — not encoded), Divine Aid as flavor, spells
   // mapped onto our registry.
-  { key: "priest", name: "Priest", maxHp: 38, armorClass: 13, attackBonus: 5, damageNotation: "1d6", damageBonus: 3, cr: 2, attacks: 2, tags: ["priest", "temple", "cleric", "holy"], traits: [], speed: 30, spells: ["Sacred Flame", "Healing Word", "Lesser Restoration", "Spirit Guardians"], spellSaveDc: 12, spellAttackBonus: 5 },
+  { key: "priest", name: "Priest", maxHp: 38, armorClass: 13, attackBonus: 5, damageNotation: "1d6", damageBonus: 3, cr: 2, attacks: 2, tags: ["priest", "temple", "cleric", "holy"], traits: [], speed: 30, spells: ["Sacred Flame", "Healing Word", "Lesser Restoration", "Spirit Guardians"], spellSaveDc: 13, spellAttackBonus: 5 },
   { key: "giant-spider", name: "Giant Spider", maxHp: 26, armorClass: 14, attackBonus: 5, damageNotation: "1d8", damageBonus: 3, cr: 1, attacks: 1, tags: ["spider", "web", "forest", "cave", "pająk", "pajaki"], traits: ["web"], speed: 30 },
   { key: "hobgoblin", name: "Hobgoblin", maxHp: 11, armorClass: 18, attackBonus: 3, damageNotation: "1d8", damageBonus: 1, cr: 0.5, attacks: 1, tags: ["hobgoblin", "soldier", "war", "goblin", "hobgobliny"], traits: [], speed: 30 },
   { key: "orc", name: "Orc", maxHp: 15, armorClass: 13, attackBonus: 5, damageNotation: "1d12", damageBonus: 3, cr: 0.5, attacks: 1, tags: ["orc", "warband", "camp", "raider", "warrior", "ork", "orki"], traits: [], speed: 30 },

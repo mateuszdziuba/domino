@@ -2184,7 +2184,7 @@ describe("runDmTool monster_cast (mocked store)", () => {
 
   it("a Priest casts Spirit Guardians at a player, applying damage and the event payload", async () => {
     const original = Math.random;
-    Math.random = () => 0; // save 1 < DC 12 -> hit, 3d8 = 3 damage
+    Math.random = () => 0; // save 1 < DC 13 -> hit, 3d8 = 3 damage
     const result = await runTool("monster_cast", {
       combatantId: "priest-0",
       spellName: "Spirit Guardians",
@@ -2208,7 +2208,7 @@ describe("runDmTool monster_cast (mocked store)", () => {
     expect(result.data).toEqual({
       hit: true,
       critical: false,
-      saveDc: 12,
+      saveDc: 13,
       saveTotal: 1,
       damageTotal: 3,
       damageRolls: [1, 1, 1],
@@ -2226,7 +2226,7 @@ describe("runDmTool monster_cast (mocked store)", () => {
         caster: "Priest",
         target: "Aria",
         damageTotal: 3,
-        saveDc: 12,
+        saveDc: 13,
         saveTotal: 1,
         concentration: true,
       }),
