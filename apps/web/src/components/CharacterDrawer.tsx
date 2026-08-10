@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Users, X } from "lucide-react";
 import type { CharacterSheet } from "@domino/shared";
 import { characterApi, spellbookApi, type SpellMeta } from "../lib/api-client";
 import { Badge } from "./ui/badge";
@@ -22,6 +22,42 @@ const ABILITY_LABELS_PL: Record<string, string> = {
   wisdom: "Mądrość",
   charisma: "Charyzma",
 };
+
+const ABILITY_SHORT_PL: Record<string, string> = {
+  strength: "SIŁ",
+  dexterity: "ZRĘ",
+  constitution: "KON",
+  intelligence: "INT",
+  wisdom: "MĄD",
+  charisma: "CHA",
+};
+
+function spellEffectDescriptionLocal(meta: SpellMeta): string {
+  const e = meta.effect as SpellMeta["effect"] & {
+    flat?: number;
+    condition?: string;
+    fullHp?: boolean;
+  };
+  if (e.kind === "damage") {
+    const dice = [e.dice, e.damageType].filter(Boolean).join(" ");
+    const extra = e.attack
+      ? "rzut ataku"
+      : e.save
+        ? `rzut obronny (${e.save})`
+        : "";
+    return `Obrażenia: ${dice}${extra ? ` — ${extra}` : ""}`;
+  }
+  if (e.kind === "heal" || e.kind === "heal_all") {
+    const amount = e.flat != null ? `${e.flat}` : `${e.dice ?? ""}${e.mod ? " + modyfikator" : ""}`;
+    return `Leczenie: ${amount} punktów życia`;
+  }
+  if (e.kind === "condition_apply") return `Nakłada stan: ${e.condition ?? "—"} — rzut obronny (${e.save ?? "—"})`;
+  if (e.kind === "condition_remove") return "Usuwa jeden stan.";
+  if (e.kind === "restore") return "Leczy stany i wyczerpanie.";
+  if (e.kind === "revive") return e.fullHp ? "Wskrzeszenie z pełnym HP." : "Wskrzeszenie.";
+  if (e.kind === "stabilize") return "Stabilizuje istotę na 0 punktach życia.";
+  return "—";
+}
 
 const SLOT_LABELS: { key: string; label: string }[] = [
   { key: "head", label: "Głowa" },
@@ -166,22 +202,38 @@ function DrawerContent({
     <div className="flex flex-col">
       <header className="sticky top-0 z-10 border-b border-[#a97e1f]/40 bg-[#fbf3dd]/95 px-5 pb-4 pt-5 backdrop-blur-sm">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            {character.portraitUrl && (
+          <div className="flex min-w-0 items-start gap-4">
+            {character.portraitUrl ? (
               <img
                 src={character.portraitUrl}
                 alt={`Portret ${character.name}`}
-                className="h-16 w-16 shrink-0 rounded-sm border border-[#b99f6b] object-cover shadow-[0_4px_12px_-4px_rgba(60,40,10,0.4)]"
+                className="h-36 w-28 shrink-0 rounded-sm border border-[#b99f6b] bg-[#efe2c4] object-cover object-top shadow-[0_6px_16px_-6px_rgba(60,40,10,0.5)]"
               />
+            ) : (
+              <div className="flex h-36 w-28 shrink-0 items-center justify-center rounded-sm border border-[#b99f6b] bg-[#efe2c4]">
+                <Users className="size-8 text-[#a08b5c]" />
+              </div>
             )}
             <div className="min-w-0">
-              <h2 className="font-display text-lg tracking-[0.08em] text-[#3a2c17]">
+              <h2 className="font-display text-xl tracking-[0.08em] text-[#3a2c17]">
                 {character.name}
               </h2>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 <Badge variant="secondary">{character.race}</Badge>
                 <Badge variant="secondary">{character.className}</Badge>
                 <Badge variant="outline">poz. {character.level}</Badge>
+                {character.subclass && <Badge variant="outline">{character.subclass}</Badge>}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-[#7c6a45]">
+                <span className="font-display text-[#3a2c17]">AC {character.armorClass}</span>
+                <span>·</span>
+                <span>Szybkość {character.speed}</span>
+                <span>·</span>
+                <span>Biegłość +{character.proficiencyBonus}</span>
+                <span>·</span>
+                <span>Złoto {character.gold ?? 0}</span>
+                <span>·</span>
+                <span>XP {character.xp ?? 0}</span>
               </div>
             </div>
           </div>
@@ -203,9 +255,9 @@ function DrawerContent({
               {character.currentHp}/{character.maxHp}
             </span>
           </div>
-          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#dcc89a]">
+          <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#dcc89a]">
             <span
-              className={cn("block h-full rounded-full", hpPct === 0 ? "bg-[#8f1d1d]" : "bg-[#7a4b1d]")}
+              className={cn("block h-full rounded-full", hpPct === 0 ? "bg-[#8f1d1d]" : "bg-[#2e4d3a]")}
               style={{ width: `${hpPct}%` }}
             />
           </div>
@@ -258,19 +310,19 @@ function DrawerContent({
 
       <section className="px-5 py-4">
         <SectionLabel>Cechy</SectionLabel>
-        <div className="mt-2 grid grid-cols-3 gap-2">
+        <div className="mt-2 grid grid-cols-6 gap-1.5">
           {Object.entries(character.abilityScores).map(([ability, score]) => {
             const mod = abilityModifiers[ability as keyof typeof abilityModifiers];
             return (
               <div
                 key={ability}
-                className="rounded-sm border border-[#b99f6b] bg-[#fbf3dd]/70 p-2 text-center shadow-[inset_0_1px_3px_rgba(90,60,20,0.1)]"
+                className="rounded-sm border border-[#b99f6b] bg-[#fbf3dd]/70 px-1 py-1.5 text-center shadow-[inset_0_1px_3px_rgba(90,60,20,0.1)]"
               >
-                <div className="font-display text-[9px] uppercase tracking-[0.12em] text-[#7c6a45]">
-                  {ABILITY_LABELS_PL[ability]}
+                <div className="font-display text-[8px] uppercase tracking-[0.1em] text-[#7c6a45]">
+                  {ABILITY_SHORT_PL[ability]}
                 </div>
-                <div className="font-display text-xl text-[#2e2113]">{score}</div>
-                <div className="text-xs text-[#a97e1f]">{mod >= 0 ? "+" : ""}{mod}</div>
+                <div className="font-display text-sm leading-tight text-[#2e2113]">{score}</div>
+                <div className="text-[10px] leading-tight text-[#a97e1f]">{mod >= 0 ? "+" : ""}{mod}</div>
               </div>
             );
           })}
@@ -376,7 +428,7 @@ function DrawerContent({
 
       {spellcasting && character.spells && character.spells.length > 0 && (
         <section className="border-t border-dotted border-[#c8b184] px-5 py-4">
-          <SectionLabel>Zaklęcia</SectionLabel>
+          <SectionLabel>Zaklęcia (przygotowane)</SectionLabel>
           {spellSlots.filter((s) => s.max > 0).length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {spellSlots
@@ -389,17 +441,48 @@ function DrawerContent({
                     Poziom {s.level}: {s.used}/{s.max}
                   </span>
                 ))}
+              <span className="rounded-sm border border-[#a97e1f]/50 bg-[#e8d3a0]/60 px-1.5 py-0.5 font-display text-[9px] uppercase tracking-[0.1em] text-[#5c4018]">
+                Cantripy ∞
+              </span>
             </div>
           )}
-          <div className="mt-2 flex flex-wrap gap-1">
-            {character.spells.map((spell) => (
-              <span
-                key={spell}
-                className="rounded-sm border border-[#a97e1f]/50 bg-[#e8d3a0]/60 px-1.5 py-0.5 font-display text-[10px] tracking-[0.05em] text-[#3a2c17]"
-              >
-                {spellDisplayName(spellRegistry?.find((m) => m.name === spell), spell)}
-              </span>
-            ))}
+          <div className="mt-3 flex flex-col gap-2.5">
+            {character.spells.map((spell) => {
+              const meta = spellRegistry?.find((m) => m.name === spell);
+              const displayName = spellDisplayName(meta, spell);
+              return (
+                <div
+                  key={spell}
+                  className="rounded-sm border border-[#b99f6b] bg-[#fbf3dd]/70 p-3 shadow-[inset_0_1px_3px_rgba(90,60,20,0.08)]"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-display text-sm tracking-[0.05em] text-[#2e2113]">
+                      {displayName}
+                    </span>
+                    {meta && (
+                      <span className="shrink-0 font-display text-[9px] uppercase tracking-[0.12em] text-[#a97e1f]">
+                        {meta.level === 0 ? "Cantrip" : `Poziom ${meta.level}`} · {meta.school}
+                      </span>
+                    )}
+                  </div>
+                  {meta?.description && (
+                    <p className="mt-1.5 text-xs leading-relaxed text-[#3a2c17]">
+                      {meta.description}
+                    </p>
+                  )}
+                  <div className="mt-1.5 text-[10px] text-[#7c6a45]">
+                    {meta
+                      ? `${meta.castingTime} · ${meta.range} · ${meta.duration} · ${meta.components}`
+                      : "—"}
+                  </div>
+                  {meta && (
+                    <div className="mt-1 border-t border-dotted border-[#c8b184] pt-1 font-display text-[10px] uppercase tracking-[0.08em] text-[#7a4b1d]">
+                      {spellEffectDescriptionLocal(meta)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

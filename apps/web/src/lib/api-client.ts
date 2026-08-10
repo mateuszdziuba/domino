@@ -57,7 +57,15 @@ export type SpellMeta = {
   duration: string;
   description?: string;
   effect: {
-    kind: "damage" | "heal" | "stabilize";
+    kind:
+      | "damage"
+      | "heal"
+      | "heal_all"
+      | "stabilize"
+      | "condition_apply"
+      | "condition_remove"
+      | "restore"
+      | "revive";
     dice?: string;
     damageType?: string;
     attack?: boolean;
@@ -65,6 +73,7 @@ export type SpellMeta = {
     mod?: boolean;
     flat?: number;
     fullHp?: boolean;
+    condition?: string;
   };
 };
 
