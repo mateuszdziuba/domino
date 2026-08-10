@@ -493,7 +493,7 @@ export default function CampaignPage() {
     let detail = "";
     let dice: DiceSpec[] | undefined;
     let bonus: number | undefined;
-    let total: number | undefined;
+    let diceTotal: number | undefined;
     if (type === "attack") {
       const attackRoll = Number(payload.attackRoll ?? 0);
       const attackTotal = Number(payload.attackTotal ?? 0);
@@ -504,7 +504,7 @@ export default function CampaignPage() {
       const attackRolls = (payload.attackRolls as number[] | undefined) ?? [attackRoll];
       dice = attackRolls.map((r) => ({ sides: 20, value: r }));
       bonus = attackTotal - attackRoll;
-      total = attackTotal;
+      diceTotal = attackTotal;
     } else if (type === "death-save") {
       const roll = Number(payload.roll ?? 0);
       label = `Rzut obronny: ${roll}`;
@@ -512,7 +512,7 @@ export default function CampaignPage() {
       if (payload.stable) detail += " — Stabilizacja!";
       if (payload.dead) detail += " — Śmierć!";
       dice = [{ sides: 20, value: roll }];
-      total = roll;
+      diceTotal = roll;
     } else if (type === "spell") {
       label = `Zaklęcie: ${String(payload.spell ?? "?")}`;
       const saved =
@@ -547,13 +547,13 @@ export default function CampaignPage() {
       const rolls = (payload.rolls as number[] | undefined) ?? [roll];
       dice = rolls.map((r) => ({ sides: 20, value: r }));
       bonus = mod;
-      total = Number(payload.total ?? 0);
+      diceTotal = Number(payload.total ?? 0);
     } else if (type === "item-use") {
       label = `Przedmiot: ${String(payload.item ?? "?")}`;
       detail = `${String(payload.character ?? "?")} odzyskuje ${Number(payload.healed ?? 0)} punktów życia`;
     }
     const kind = type === "skill-check" ? "skill" : type === "item-use" ? "item" : type;
-    return { kind, label, detail, dice, bonus, total };
+    return { kind, label, detail, dice, bonus, total: diceTotal };
   }
 
   function hashPayload(payload: Record<string, unknown>): string {
