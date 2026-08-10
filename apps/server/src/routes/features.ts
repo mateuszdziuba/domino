@@ -7,6 +7,7 @@ import {
   subclassDetails,
   subclassNames,
 } from "../rules/features.js";
+import { BACKGROUNDS } from "../rules/backgrounds.js";
 
 export const featureRoutes = new Hono();
 
@@ -21,6 +22,18 @@ featureRoutes.get("/", requireAuth, (c) =>
       label: f.label,
       description: f.description,
       abilityBonus: f.abilityBonus,
+    })),
+    backgrounds: BACKGROUNDS.map((b) => ({
+      name: b.name,
+      label: b.label,
+      description: b.description,
+      feat: b.feat,
+      featSpellList: b.featSpellList,
+      abilityOptions: b.abilityOptions,
+      skills: b.skills,
+      tool: b.tool,
+      equipment: b.equipment,
+      gold: b.gold,
     })),
   }),
 );

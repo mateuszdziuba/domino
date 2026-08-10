@@ -53,6 +53,11 @@ export const characterApi = {
       body: JSON.stringify(input),
     }),
   remove: (id: string) => api<{ ok: boolean }>(`/characters/${id}`, { method: "DELETE" }),
+  imageStatus: () => api<{ configured: boolean }>("/characters/image-status"),
+  generatePortrait: (id: string) =>
+    api<{ ok: boolean; portraitUrl?: string }>(`/characters/${id}/portrait/generate`, {
+      method: "POST",
+    }),
   uploadPortrait: (id: string, file: File) => {
     const form = new FormData();
     form.append("file", file);
@@ -126,12 +131,26 @@ export type FeatInfo = {
   abilityBonus?: string[];
 };
 
+export type BackgroundInfo = {
+  name: string;
+  label: string;
+  description: string;
+  feat: string;
+  featSpellList?: string;
+  abilityOptions: string[];
+  skills: string[];
+  tool: string;
+  equipment: { name: string; quantity: number }[];
+  gold: number;
+};
+
 export type FeaturesCatalog = {
   subclasses: Record<string, string[]>;
   subclassDetails?: Record<string, SubclassInfo[]>;
   races: string[];
   classes: string[];
   feats?: FeatInfo[];
+  backgrounds?: BackgroundInfo[];
 };
 
 export const featuresApi = {

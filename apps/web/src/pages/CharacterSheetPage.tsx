@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft, ScrollText, Shield, Sparkles, Swords, Wand2, Upload } from "lucide-react";
 import {
@@ -129,11 +129,15 @@ export default function CharacterSheetPage() {
   const [attuneError, setAttuneError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [imageConfigured, setImageConfigured] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [devDialogOpen, setDevDialogOpen] = useState(false);
 
   useEffect(() => {
+    characterApi.imageStatus().then(({ configured }) => setImageConfigured(configured)).catch(() => {});
     spellbookApi.list().then((r) => setRegistry(r.spells)).catch(() => {});
     featuresApi.get().then(setFeaturesCatalog).catch(() => {});
     equipmentApi.get().then(setEquipment).catch(() => {});
@@ -380,41 +384,41 @@ export default function CharacterSheetPage() {
             />
           )}
           <div className="flex items-center gap-1">
-              <label className="cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  disabled={uploading}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    setUploading(true);
-                    setUploadError(null);
-                    characterApi
-                      .uploadPortrait(character.id, file)
-                      .then(({ portraitUrl }) => {
-                        loadSheet();
-                        void portraitUrl;
-                      })
-                      .catch((err) =>
-                        setUploadError(err instanceof Error ? err.message : "Nie udało się przesłać"),
-                      )
-                      .finally(() => setUploading(false));
-                    e.target.value = "";
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 font-display text-[10px] uppercase tracking-[0.1em] text-[#7c6a45] hover:text-[#3a2c17]"
-                  disabled={uploading}
-                >
-                  <Upload className="size-3.5" />
-                  {uploading ? "Wysyłanie…" : "Prześlij"}
-                </Button>
-              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setUploading(true);
+                  setUploadError(null);
+                  characterApi
+                    .uploadPortrait(character.id, file)
+                    .then(({ portraitUrl }) => {
+                      loadSheet();
+                      void portraitUrl;
+                    })
+                    .catch((err) =>
+                      setUploadError(err instanceof Error ? err.message : "Nie udało się przesłać"),
+                    )
+                    .finally(() => setUploading(false));
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 font-display text-[10px] uppercase tracking-[0.1em] text-[#7c6a45] hover:text-[#3a2c17]"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="size-3.5" />
+                {uploading ? "Wysyłanie…" : "Prześlij"}
+              </Button>
               <TooltipProvider delayDuration={250}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -423,15 +427,27 @@ export default function CharacterSheetPage() {
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 font-display text-[10px] uppercase tracking-[0.1em] text-[#7c6a45] hover:text-[#3a2c17]"
+                      disabled={generating || !imageConfigured}
+                      onClick={() => {
+                        setGenerating(true);
+                        setUploadError(null);
+                        characterApi
+                          .generatePortrait(character.id)
+                          .then(() => loadSheet())
+                          .catch((err) =>
+                            setUploadError(err instanceof Error ? err.message : "Nie udało się wygenerować"),
+                          )
+                          .finally(() => setGenerating(false));
+                      }}
                     >
                       <Sparkles className="size-3.5" />
-                      Wygeneruj portret
+                      {generating ? "Generuję…" : "Wygeneruj portret"}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <span className="text-[11px] leading-relaxed text-[#f6ead0]">
-                      Portret generuje DM w czacie (napisz np. „wygeneruj portret {character.name}").
-                      Wygenerowane obrazy używają wgranego portretu jako referencji.
+                      Generuje portret postaci w stylu olejnym; wgrany portret (jeśli jest) służy jako
+                      referencja.
                     </span>
                   </TooltipContent>
                 </Tooltip>
@@ -442,7 +458,8 @@ export default function CharacterSheetPage() {
         <div>
           <h1 className="text-2xl tracking-[0.1em] text-[#3a2c17]">{character.name}</h1>
           <p className="text-sm text-[#7c6a45]">
-            {character.race} {character.className} · poziom {character.level}
+            {character.race} {character.className}
+            {character.background ? ` · ${character.background}` : ""} · poziom {character.level}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="font-display text-[10px] uppercase tracking-[0.14em] text-[#7c6a45]">

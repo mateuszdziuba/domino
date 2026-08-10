@@ -1,4 +1,5 @@
-import type { AbilityScore, SheetFeature } from "@domino/shared";
+import type { AbilityScore, SheetFeature, SkillName } from "@domino/shared";
+import { BACKGROUNDS } from "./backgrounds.js";
 
 export type RaceDef = { name: string; features: SheetFeature[] };
 
@@ -14,6 +15,31 @@ export type ClassDef = {
     features: { name: string; description: string; level: number }[];
   }[];
 };
+
+const SKILL_LABEL_PL: Record<SkillName, string> = {
+  acrobatics: "Akrobatyka",
+  animalHandling: "Opieka nad zwierzętami",
+  arcana: "Tajemnice",
+  athletics: "Atletyka",
+  deception: "Oszustwo",
+  history: "Historia",
+  insight: "Intuicja",
+  intimidation: "Zastraszanie",
+  investigation: "Śledztwo",
+  medicine: "Medycyna",
+  nature: "Natura",
+  perception: "Percepcja",
+  performance: "Występy",
+  persuasion: "Perswazja",
+  religion: "Religia",
+  sleightOfHand: "Zwinne dłonie",
+  stealth: "Skradanie",
+  survival: "Przetrwanie",
+};
+
+function skillLabelPL(skill: SkillName): string {
+  return SKILL_LABEL_PL[skill] ?? skill;
+}
 
 export const RACES: RaceDef[] = [
   {
@@ -2160,6 +2186,12 @@ export const FEATS: FeatDef[] = [
       "Uczysz się dwóch manewrów z zestawu mistrza wojennego oraz jednej kości walki k6, którą odzyskujesz na krótkim odpoczynku.",
   },
   {
+    name: "Savage Attacker",
+    label: "Dzikie uderzenie",
+    description:
+      "Raz na turę, gdy trafisz bronią, możesz rzucić kośćmi obrażeń broni dwukrotnie i użyć wyższego wyniku.",
+  },
+  {
     name: "Medium Armor Master",
     label: "Mistrz średnich pancerzy",
     description:
@@ -2267,6 +2299,7 @@ export function buildCharacterFeatures(character: {
   race: string;
   className: string;
   subclass?: string;
+  background?: string;
   level: number;
   feats?: string[];
   asiLevels?: number[];
@@ -2298,6 +2331,17 @@ export function buildCharacterFeatures(character: {
           category: "subclass",
         });
       }
+    }
+  }
+  if (character.background) {
+    const background = BACKGROUNDS.find((b) => b.name === character.background);
+    if (background) {
+      features.push({
+        name: background.label,
+        description: `Biegłości: ${background.skills.map(skillLabelPL).join(", ")}; narzędzie: ${background.tool}.`,
+        level: 1,
+        category: "background",
+      });
     }
   }
   const asiLevels = character.asiLevels ?? [];

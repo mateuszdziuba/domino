@@ -16,8 +16,10 @@ import {
 } from "../rules/creation.js";
 import { maxHpForLevel } from "../rules/advancement.js";
 import { findFeat } from "../rules/features.js";
+import { findBackground } from "../rules/backgrounds.js";
 import { SRD_GEAR } from "../rules/equipment.js";
 import { updateCharacterPortrait } from "../campaign/store.js";
+import { generateImage, isImageConfigured, loadPortraitReference } from "../dm/image.js";
 import { buildCharacterSheet } from "../rules/sheet.js";
 import type { Character, CharacterSummary } from "@domino/shared";
 
@@ -50,6 +52,13 @@ const characterSchema = z.object({
   portraitUrl: z.string().min(1).max(500).optional(),
   startingFeat: z.string().min(1).max(64).optional(),
   featAbility: z.string().optional(),
+  backgroundScores: z
+    .object({
+      pattern: z.enum(["2+1", "1+1+1"]),
+      primary: z.string(),
+      secondary: z.string().optional(),
+    })
+    .optional(),
 });
 
 const patchAbilityScoresSchema = z.object({
@@ -128,9 +137,59 @@ characterRoutes.post("/", requireAuth, async (c) => {
   const now = isoNow();
   const id = newId();
   const level = data.level;
-  let abilityScores = data.abilityScores;
+  let abilityScores = { ...data.abilityScores };
   let feats: string[] = [];
-  if (data.startingFeat) {
+  let backgroundName: string | undefined = data.background;
+  let backgroundSkills: string[] = [];
+  let backgroundGold = 0;
+  let backgroundEquipment: { name: string; quantity: number }[] = [];
+
+  const background = backgroundName ? findBackground(backgroundName) : undefined;
+  if (backgroundName && !background) {
+    return c.json({ error: "Nieznany background: " + backgroundName }, 400);
+  }
+  if (background) {
+    backgroundName = background.name;
+    backgroundSkills = background.skills;
+    backgroundGold = background.gold;
+    backgroundEquipment = background.equipment;
+
+    const chosen = data.startingFeat ? findFeat(data.startingFeat) : undefined;
+    if (data.startingFeat && !chosen) {
+      return c.json({ error: "Nieznany feat: " + data.startingFeat }, 400);
+    }
+    if (chosen && chosen.name !== background.feat) {
+      return c.json(
+        { error: `Background ${background.label} daje feat: ${background.feat} (SRD).` },
+        400,
+      );
+    }
+    feats = [background.feat];
+
+    const boosts = data.backgroundScores ?? { pattern: "2+1" as const, primary: background.abilityOptions[0]! };
+    if (boosts.pattern === "2+1") {
+      const secondary = boosts.secondary ?? background.abilityOptions[1]!;
+      for (const [ability, delta] of [
+        [boosts.primary, 2],
+        [secondary, 1],
+      ] as const) {
+        if (!background.abilityOptions.includes(ability as (typeof background.abilityOptions)[number])) {
+          return c.json({ error: `Background ${background.label} zwiększa tylko: ${background.abilityOptions.join(", ")}.` }, 400);
+        }
+        abilityScores[ability as keyof typeof abilityScores] = Math.min(
+          20,
+          (abilityScores[ability as keyof typeof abilityScores] ?? 10) + delta,
+        );
+      }
+    } else {
+      for (const ability of background.abilityOptions) {
+        abilityScores[ability] = Math.min(
+          20,
+          (abilityScores[ability] ?? 10) + 1,
+        );
+      }
+    }
+  } else if (data.startingFeat) {
     const feat = findFeat(data.startingFeat);
     if (!feat) {
       return c.json({ error: "Nieznany feat: " + data.startingFeat }, 400);
@@ -163,21 +222,23 @@ characterRoutes.post("/", requireAuth, async (c) => {
     },
   });
   const speed = RACE_SPEED[data.race] ?? 30;
-  const inventory = starting.items
-    .map((item) => {
-      const gear = SRD_GEAR.find((g) => g.name === item.name);
-      if (!gear) return null;
-      return {
-        id: newId(),
-        name: item.name,
-        quantity: item.quantity ?? 1,
-        weight: gear.weight,
-        description: gear.description,
-        slot: item.slot ?? gear.slot,
-        icon: gear.icon,
-      };
-    })
-    .filter((item) => item !== null);
+  const toInventoryItem = (item: { name: string; quantity?: number; slot?: string }) => {
+    const gear = SRD_GEAR.find((g) => g.name === item.name);
+    if (!gear) return null;
+    return {
+      id: newId(),
+      name: item.name,
+      quantity: item.quantity ?? 1,
+      weight: gear.weight,
+      description: gear.description,
+      slot: item.slot ?? gear.slot,
+      icon: gear.icon,
+    };
+  };
+  const inventory = [
+    ...starting.items.map(toInventoryItem),
+    ...backgroundEquipment.map(toInventoryItem),
+  ].filter((item) => item !== null);
   db.insert(characters)
     .values({
       id,
@@ -194,12 +255,15 @@ characterRoutes.post("/", requireAuth, async (c) => {
       armorClass,
       speed,
       alignment: data.alignment ?? null,
-      background: data.background ?? null,
+      background: backgroundName ?? null,
       proficiencyBonus: proficiencyBonus(level),
-      skills: data.skills ?? {},
+      skills: {
+        ...(data.skills ?? {}),
+        ...Object.fromEntries(backgroundSkills.map((skill) => [skill, true])),
+      } as Character["skills"],
       inventory: data.inventory ?? inventory,
       spells: data.spells ?? null,
-      gold: data.gold ?? starting.gold,
+      gold: data.gold ?? backgroundGold ?? starting.gold,
       createdAt: now,
       updatedAt: now,
     })
@@ -256,6 +320,34 @@ characterRoutes.patch("/:id", requireAuth, async (c) => {
     .run();
   const row = db.select().from(characters).where(eq(characters.id, id)).get()!;
   return c.json({ character: rowToCharacter(row) });
+});
+
+characterRoutes.get("/image-status", requireAuth, (c) => {
+  return c.json({ configured: isImageConfigured() });
+});
+
+characterRoutes.post("/:id/portrait/generate", requireAuth, async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const existing = db
+    .select()
+    .from(characters)
+    .where(and(eq(characters.id, id), eq(characters.userId, user.id)))
+    .get();
+  if (!existing) return c.json({ error: "Nie znaleziono postaci." }, 404);
+  if (!isImageConfigured()) {
+    return c.json({ error: "Generowanie obrazów jest wyłączone (brak IMAGE_PROVIDER/klucza)." }, 400);
+  }
+  const reference = existing.portraitUrl
+    ? await loadPortraitReference(existing.portraitUrl)
+    : undefined;
+  const result = await generateImage(
+    `Fantasy character portrait, oil painting style: ${existing.name}, a level ${existing.level} ${existing.race} ${existing.className} adventurer, detailed face, heroic pose, warm parchment-toned background`,
+    reference ? { reference } : undefined,
+  );
+  if (!result.ok) return c.json({ error: result.error }, 502);
+  updateCharacterPortrait(id, result.url);
+  return c.json({ ok: true, portraitUrl: result.url });
 });
 
 characterRoutes.post("/:id/portrait", requireAuth, async (c) => {

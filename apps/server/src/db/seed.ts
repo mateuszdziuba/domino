@@ -37,6 +37,8 @@ function buildElaraPayload(userId: string, characterId: string, now: string) {
     race: "Human",
     className: "Cleric",
     subclass: "Domena Życia (Life Domain)",
+    background: "Acolyte",
+    feats: ["Magic Initiate"],
     level: 3,
     abilityScores: {
       strength: 14,
@@ -72,6 +74,8 @@ function repairDemoCharacter(now: string): void {
   const payload = buildElaraPayload(existing.userId, existing.id, now);
   db.update(characters)
     .set({
+      background: payload.background,
+      feats: payload.feats,
       maxHp: payload.maxHp,
       currentHp: payload.maxHp,
       armorClass: payload.armorClass,

@@ -19,6 +19,27 @@ import { Select } from "../components/ui/select";
 import { cn } from "../lib/utils";
 import { SKILL_ALIASES } from "../lib/chat-tooltips";
 
+const SKILL_LABELS_PL: Record<string, string> = {
+  acrobatics: "Akrobatyka",
+  animalHandling: "Opieka nad zwierzętami",
+  arcana: "Tajemnice",
+  athletics: "Atletyka",
+  deception: "Oszustwo",
+  history: "Historia",
+  insight: "Intuicja",
+  intimidation: "Zastraszanie",
+  investigation: "Śledztwo",
+  medicine: "Medycyna",
+  nature: "Natura",
+  perception: "Percepcja",
+  performance: "Występy",
+  persuasion: "Perswazja",
+  religion: "Religia",
+  sleightOfHand: "Zwinne dłonie",
+  stealth: "Skradanie",
+  survival: "Przetrwanie",
+};
+
 const RACES = ["Dwarf", "Elf", "Halfling", "Human", "Dragonborn", "Gnome", "Half-Elf", "Half-Orc", "Tiefling"];
 const CLASSES = ["Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk", "Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard"];
 const ABILITIES = ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"] as const;
@@ -66,8 +87,10 @@ export default function CharactersPage() {
   const [skills, setSkills] = useState<Set<SkillName>>(new Set());
   const [catalog, setCatalog] = useState<FeaturesCatalog | null>(null);
   const [subclass, setSubclass] = useState("");
-  const [startingFeat, setStartingFeat] = useState("");
-  const [featAbility, setFeatAbility] = useState("");
+  const [background, setBackground] = useState("Acolyte");
+  const [scorePattern, setScorePattern] = useState<"2+1" | "1+1+1">("2+1");
+  const [primaryAbility, setPrimaryAbility] = useState("wisdom");
+  const [secondaryAbility, setSecondaryAbility] = useState("charisma");
   const [error, setError] = useState<string | null>(null);
 
   const skillLimit = startingSkillCount(className);
@@ -78,8 +101,10 @@ export default function CharactersPage() {
   const conMod = scoreModifier(scores.constitution);
   const dexMod = scoreModifier(scores.dexterity);
   const hitDie = HIT_DICE[className] ?? 8;
-  const featDef = catalog?.feats?.find((f) => f.name === startingFeat) ?? null;
-  const featBonusAbilities = featDef?.abilityBonus ?? [];
+  const backgroundDef = catalog?.backgrounds?.find((b) => b.name === background) ?? null;
+  const backgroundFeat = backgroundDef
+    ? catalog?.feats?.find((f) => f.name === backgroundDef.feat)
+    : null;
 
   function load() {
     characterApi.list().then(({ characters }) => setCharacters(characters)).catch(() => {});
@@ -127,14 +152,24 @@ export default function CharactersPage() {
         abilityScores: scores,
         skills: Object.fromEntries([...skills].map((s) => [s, true])),
         ...(subclass ? { subclass } : {}),
-        ...(startingFeat ? { startingFeat, ...(featAbility ? { featAbility } : {}) } : {}),
+        ...(backgroundDef ? { background: backgroundDef.name } : {}),
+        ...(backgroundDef
+          ? {
+              startingFeat: backgroundDef.feat,
+              backgroundScores: {
+                pattern: scorePattern,
+                primary: primaryAbility,
+                ...(scorePattern === "2+1" ? { secondary: secondaryAbility } : {}),
+              },
+            }
+          : {}),
       });
       setName("");
       setScores({ ...BASE_SCORES });
       setSkills(new Set());
       setSubclass("");
-      setStartingFeat("");
-      setFeatAbility("");
+      setBackground("Acolyte");
+      setScorePattern("2+1");
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nie udało się utworzyć postaci");
@@ -206,48 +241,94 @@ export default function CharactersPage() {
             </div>
 
             <div className="flex flex-col gap-2 rounded-sm border border-[#b99f6b] bg-[#fbf3dd]/40 p-3">
-              <Label htmlFor="char-feat">Feat startowy (opcjonalnie)</Label>
+              <Label htmlFor="char-background">Pochodzenie (background — wymagane)</Label>
               <Select
-                id="char-feat"
-                value={startingFeat}
+                id="char-background"
+                value={background}
                 onChange={(e) => {
-                  setStartingFeat(e.target.value);
-                  setFeatAbility("");
+                  const next = catalog?.backgrounds?.find((b) => b.name === e.target.value);
+                  setBackground(e.target.value);
+                  setPrimaryAbility(next?.abilityOptions[0] ?? "wisdom");
+                  setSecondaryAbility(next?.abilityOptions[1] ?? "charisma");
                 }}
               >
-                <option value="">Brak</option>
-                {(catalog?.feats ?? []).map((f) => (
-                  <option key={f.name} value={f.name}>
-                    {f.label}
-                    {f.abilityBonus && f.abilityBonus.length > 0
-                      ? ` (+1 ${ABILITY_LABELS_PL[f.abilityBonus[0]!]})`
-                      : ""}
+                {(catalog?.backgrounds ?? []).map((b) => (
+                  <option key={b.name} value={b.name}>
+                    {b.label}
                   </option>
                 ))}
               </Select>
-              {featDef && (
+              {backgroundDef && (
                 <>
-                  <p className="text-[11px] italic text-[#7c6a45]">{featDef.description}</p>
-                  {featBonusAbilities.length > 1 && (
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-xs">
-                        +1 do cechy (wybierz, jeśli nie chcesz domyślnej)
-                      </Label>
-                      <Select value={featAbility} onChange={(e) => setFeatAbility(e.target.value)}>
-                        {featBonusAbilities.map((a) => (
-                          <option key={a} value={a}>
-                            {ABILITY_LABELS_PL[a]} ({scores[a as keyof typeof scores] ?? 8} → {Math.min(20, (scores[a as keyof typeof scores] ?? 8) + 1)})
-                          </option>
-                        ))}
-                      </Select>
+                  <p className="text-[11px] italic text-[#7c6a45]">{backgroundDef.description}</p>
+                  <p className="text-[11px] text-[#3a2c17]">
+                    Feat pochodzenia (SRD):{" "}
+                    <strong>
+                      {backgroundFeat?.label ?? backgroundDef.feat}
+                      {backgroundDef.featSpellList ? ` (${backgroundDef.featSpellList})` : ""}
+                    </strong>
+                  </p>
+                  <p className="text-[11px] text-[#3a2c17]">
+                    Biegłości: {backgroundDef.skills.map((sk) => SKILL_LABELS_PL[sk] ?? sk).join(", ")}; narzędzie: {backgroundDef.tool}
+                  </p>
+                  <div className="flex flex-col gap-1.5 border-t border-[#b99f6b]/60 pt-2">
+                    <Label className="text-xs">Cechy z backgroundu (SRD):</Label>
+                    <div className="flex flex-wrap gap-2">
+                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[#3a2c17]">
+                        <input
+                          type="radio"
+                          name="score-pattern"
+                          checked={scorePattern === "2+1"}
+                          onChange={() => setScorePattern("2+1")}
+                          className="accent-[#7a4b1d]"
+                        />
+                        +2 i +1
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[#3a2c17]">
+                        <input
+                          type="radio"
+                          name="score-pattern"
+                          checked={scorePattern === "1+1+1"}
+                          onChange={() => setScorePattern("1+1+1")}
+                          className="accent-[#7a4b1d]"
+                        />
+                        +1 do wszystkich trzech
+                      </label>
                     </div>
-                  )}
-                  {featBonusAbilities.length === 1 && (
-                    <p className="text-[11px] text-[#7c6a45]">
-                      +1 do {ABILITY_LABELS_PL[featBonusAbilities[0]!]} ({scores[featBonusAbilities[0] as keyof typeof scores] ?? 8} →{" "}
-                      {Math.min(20, (scores[featBonusAbilities[0] as keyof typeof scores] ?? 8) + 1)}) — doliczane po Point Buy.
+                    {scorePattern === "2+1" ? (
+                      <div className="flex flex-wrap gap-2">
+                        <Select
+                          value={primaryAbility}
+                          onChange={(e) => setPrimaryAbility(e.target.value)}
+                          className="h-8 w-40"
+                        >
+                          {backgroundDef.abilityOptions.map((a) => (
+                            <option key={a} value={a}>
+                              +2 {ABILITY_LABELS_PL[a]}
+                            </option>
+                          ))}
+                        </Select>
+                        <Select
+                          value={secondaryAbility}
+                          onChange={(e) => setSecondaryAbility(e.target.value)}
+                          className="h-8 w-40"
+                        >
+                          {backgroundDef.abilityOptions.map((a) => (
+                            <option key={a} value={a} disabled={a === primaryAbility}>
+                              +1 {ABILITY_LABELS_PL[a]}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-[#7c6a45]">
+                        +1 do: {backgroundDef.abilityOptions.map((a) => ABILITY_LABELS_PL[a]).join(", ")}
+                      </p>
+                    )}
+                    <p className="text-[10px] italic text-[#a08b5c]">
+                      Zestaw: {backgroundDef.equipment.map((e) => (e.quantity > 1 ? `${e.name} ×${e.quantity}` : e.name)).join(", ")} — łącznie z {backgroundDef.gold} gp zamiast 50 gp (SRD).
                     </p>
-                  )}
+                  </div>
                 </>
               )}
             </div>

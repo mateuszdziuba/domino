@@ -91,6 +91,6 @@ export function buildCharacterSheet(character: Character): CharacterSheet {
         max,
       }))
       .filter((s) => s.max > 0),
-    features: buildCharacterFeatures(character),
+    features: buildCharacterFeatures({ ...character, background: character.background }),
   };
 }

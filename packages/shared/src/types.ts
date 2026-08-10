@@ -338,7 +338,7 @@ export type SheetFeature = {
   name: string;
   description: string;
   level: number;
-  category: "race" | "class" | "subclass" | "feat";
+  category: "race" | "class" | "subclass" | "background" | "feat";
 };
 
 export type CharacterSheet = {
