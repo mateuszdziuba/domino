@@ -1080,6 +1080,18 @@ export default function CampaignPage() {
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="size-4 text-[#a97e1f]" />
                 Drużyna
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto h-7 px-2 font-display text-[10px] uppercase tracking-[0.1em] text-[#7c6a45]"
+                  onClick={() => setMerchantOpen(true)}
+                  disabled={!member?.characterId}
+                  title={member?.characterId ? undefined : "Przypisz postać do kampanii, aby korzystać z kramu"}
+                >
+                  <Coins className="size-3.5" />
+                  Kupiec
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2 text-sm">
