@@ -1058,6 +1058,36 @@ export default function CampaignPage() {
               {error && <p className="mt-2 text-sm text-[#8f1d1d]">{error}</p>}
             </CardContent>
           </Card>
+          ) : (
+          <Card className="border-[#b99f6b]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Brak widoku DM</CardTitle>
+              <CardDescription className="not-italic">
+                Ta kampania działa bez narracji AI.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 text-sm">
+              <p className="text-[#7c6a45]">
+                Czat z DM i podpowiedzi akcji są wyłączone. Jeśli prowadzisz tę kampanię, włącz
+                widok DM na liście kampanii (przełącznik „DM" przy kampanii).
+              </p>
+              {isOwner && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => {
+                    campaignApi.updateDm(id, true).then(() => load()).catch(() => {});
+                  }}
+                >
+                  <Coins className="size-3.5" />
+                  Włącz widok DM
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+          )}
 
           {!member && (
             <JoinCard
@@ -1160,36 +1190,6 @@ export default function CampaignPage() {
               )}
             </CardContent>
           </Card>
-          ) : (
-          <Card className="border-[#b99f6b]">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Brak widoku DM</CardTitle>
-              <CardDescription className="not-italic">
-                Ta kampania działa bez narracji AI.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3 text-sm">
-              <p className="text-[#7c6a45]">
-                Czat z DM i podpowiedzi akcji są wyłączone. Jeśli prowadzisz tę kampanię, włącz
-                widok DM na liście kampanii (przełącznik „DM" przy kampanii).
-              </p>
-              {isOwner && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="self-start"
-                  onClick={() => {
-                    campaignApi.updateDm(id, true).then(() => load()).catch(() => {});
-                  }}
-                >
-                  <Coins className="size-3.5" />
-                  Włącz widok DM
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-          )}
 
           {dmView && (
           <Card className="border-[#b99f6b]">
