@@ -213,11 +213,14 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
             )}
             <div className="flex flex-col gap-1">
               <TooltipProvider delayDuration={250}>
-              {combat.combatants.map((c, i) => (
+              {(() => {
+                const current = combat.combatants[combat.turnIndex % combat.combatants.length];
+                const alive = combat.combatants.filter((c) => c.status !== "dead");
+                return alive.map((c) => (
                 <div
                   key={c.id}
                   className={`flex items-center justify-between gap-2 rounded-sm border px-2 py-1.5 ${
-                    i === combat.turnIndex % combat.combatants.length
+                    c.id === current?.id
                       ? "border-[#a97e1f] bg-[#f0e2bd] shadow-[0_0_0_1px_rgba(169,126,31,0.15)]"
                       : "border-[#c8b184] bg-[#fbf3dd]/50"
                   }`}
@@ -334,7 +337,8 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
                     )}
                   </span>
                 </div>
-              ))}
+              ));
+              })()}
               </TooltipProvider>
             </div>
 
@@ -346,7 +350,7 @@ export function CombatPanel({ campaignId, state, myCharacterId, onChange }: Prop
               >
                 <option value="">Cel…</option>
                 {combat.combatants
-                  .filter((c) => !c.characterId)
+                  .filter((c) => !c.characterId && c.status !== "dead")
                   .map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} (AC {c.armorClass})
